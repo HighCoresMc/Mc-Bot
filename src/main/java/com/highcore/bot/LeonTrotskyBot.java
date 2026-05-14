@@ -19,20 +19,13 @@ public class LeonTrotskyBot {
 
     public static void main(String[] args) {
         logger.info("Starting Leon Trotsky Bot for HighCore MC...");
-
-        // Debug: Print current working directory
         logger.info("Current Working Directory: " + System.getProperty("user.dir"));
 
-        // Load environment variables
-        Dotenv dotenv = Dotenv.configure()
-                .directory("./")
-                .ignoreIfMissing()
-                .load();
-        
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         String token = dotenv.get("BOT_TOKEN");
 
-        if (token == null || token.isEmpty() || token.equals("your_bot_token_here")) {
-            logger.error("BOT_TOKEN is missing or not configured in .env file.");
+        if (token == null || token.isEmpty()) {
+            logger.error("BOT_TOKEN is missing! Set it in .env or as an Environment Variable.");
             System.exit(1);
         }
 
@@ -40,15 +33,18 @@ public class LeonTrotskyBot {
         String discordSrvPath = dotenv.get("DISCORDSRV_ACCOUNTS_PATH");
         discordSRVManager = new DiscordSRVManager(discordSrvPath);
 
-        // Initialize Database Connections (SQLite)
+        // Initialize MySQL
         dbManager = new DatabaseManager();
         try {
-            dbManager.registerSqliteDb("CMI", dotenv.get("CMI_DB_PATH"));
-            dbManager.registerSqliteDb("PlayerPoints", dotenv.get("PLAYERPOINTS_DB_PATH"));
-            logger.info("Connected to SQLite databases.");
+            dbManager.setupPool(
+                dotenv.get("DB_HOST", "localhost"),
+                dotenv.get("DB_PORT", "3306"),
+                dotenv.get("DB_NAME", "minecraft"),
+                dotenv.get("DB_USER", "root"),
+                dotenv.get("DB_PASSWORD", "")
+            );
         } catch (Exception e) {
-            logger.error("Failed to connect to databases. Check your .env config.", e);
-            System.exit(1);
+            logger.error("Failed to connect to MySQL database!", e);
         }
 
         // Initialize JDA
@@ -67,9 +63,10 @@ public class LeonTrotskyBot {
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض ملف اللاعب")
                             .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "اللاعب المراد عرض ملفه", false)
             ).queue();
+            
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");
-                if (dbManager != null) dbManager.closeAll();
+                if (dbManager != null) dbManager.close();
                 if (jda != null) jda.shutdown();
             }));
             
