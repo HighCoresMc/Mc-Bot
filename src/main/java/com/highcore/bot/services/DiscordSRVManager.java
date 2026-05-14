@@ -1,54 +1,59 @@
 package com.highcore.bot.services;
 
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+import com.highcore.bot.LeonTrotskyBot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileReader;
-import java.io.IOException;
-import java.lang.reflect.Type;
-import java.util.Map;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.Optional;
 
 public class DiscordSRVManager {
     private static final Logger logger = LoggerFactory.getLogger(DiscordSRVManager.class);
-    private final String linkedAccountsFilePath;
-    private final Gson gson;
 
-    public DiscordSRVManager(String linkedAccountsFilePath) {
-        this.linkedAccountsFilePath = linkedAccountsFilePath;
-        this.gson = new Gson();
+    public DiscordSRVManager(String ignoredPath) {
+        // No longer using local JSON file. We use MySQL now!
+        logger.info("DiscordSRVManager initialized to use MySQL database.");
     }
 
     /**
-     * Reads the linkedaccounts.json file and returns a map of DiscordID -> UUID
-     */
-    public Map<String, String> getLinkedAccounts() {
-        try (FileReader reader = new FileReader(linkedAccountsFilePath)) {
-            Type type = new TypeToken<Map<String, String>>() {}.getType();
-            return gson.fromJson(reader, type);
-        } catch (IOException e) {
-            logger.error("Failed to read DiscordSRV linkedaccounts.json from path: " + linkedAccountsFilePath, e);
-            return Map.of();
-        }
-    }
-
-    /**
-     * Get Minecraft UUID by Discord ID
+     * Get Minecraft UUID by Discord ID from MySQL
      */
     public Optional<String> getUuidByDiscordId(String discordId) {
-        Map<String, String> accounts = getLinkedAccounts();
-        return Optional.ofNullable(accounts.get(discordId));
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+            String query = "SELECT uuid FROM discordsrv_accounts WHERE discord = ?";
+            try (PreparedStatement ps = conn.prepareStatement(query)) {
+                ps.setString(1, discordId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return Optional.of(rs.getString("uuid"));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Failed to read DiscordSRV data from MySQL", e);
+        }
+        return Optional.empty();
     }
 
     /**
-     * Get Discord ID by Minecraft UUID
+     * Get Discord ID by Minecraft UUID from MySQL
      */
     public Optional<String> getDiscordIdByUuid(String uuid) {
-        return getLinkedAccounts().entrySet().stream()
-                .filter(entry -> entry.getValue().equals(uuid))
-                .map(Map.Entry::getKey)
-                .findFirst();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+            String query = "SELECT discord FROM discordsrv_accounts WHERE uuid = ?";
+            try (PreparedStatement ps = conn.prepareStatement(query)) {
+                ps.setString(1, uuid);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return Optional.of(rs.getString("discord"));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Failed to read DiscordSRV data from MySQL", e);
+        }
+        return Optional.empty();
     }
 }
