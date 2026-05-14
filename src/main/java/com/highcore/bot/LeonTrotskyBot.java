@@ -33,15 +33,15 @@ public class LeonTrotskyBot {
         String discordSrvPath = dotenv.get("DISCORDSRV_ACCOUNTS_PATH");
         discordSRVManager = new DiscordSRVManager(discordSrvPath);
 
-        // Initialize MySQL
+        // Initialize MySQL (Supports Railway defaults)
         dbManager = new DatabaseManager();
         try {
             dbManager.setupPool(
-                dotenv.get("DB_HOST", "localhost"),
-                dotenv.get("DB_PORT", "3306"),
-                dotenv.get("DB_NAME", "minecraft"),
-                dotenv.get("DB_USER", "root"),
-                dotenv.get("DB_PASSWORD", "")
+                dotenv.get("MYSQLHOST", dotenv.get("DB_HOST", "localhost")),
+                dotenv.get("MYSQLPORT", dotenv.get("DB_PORT", "3306")),
+                dotenv.get("MYSQL_DATABASE", dotenv.get("DB_NAME", "minecraft")),
+                dotenv.get("MYSQLUSER", dotenv.get("DB_USER", "root")),
+                dotenv.get("MYSQLPASSWORD", dotenv.get("DB_PASSWORD", ""))
             );
         } catch (Exception e) {
             logger.error("Failed to connect to MySQL database!", e);
