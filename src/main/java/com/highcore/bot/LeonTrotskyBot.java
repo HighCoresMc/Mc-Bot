@@ -56,13 +56,15 @@ public class LeonTrotskyBot {
             
             jda.awaitReady();
             logger.info("Leon Trotsky Bot is ready and connected to Discord!");
+            logger.info("Bot is currently in {} guilds.", jda.getGuilds().size());
 
-            // Register Commands
-            jda.addEventListener(new ProfileCommand());
+            // Register Global Slash Commands
             jda.updateCommands().addCommands(
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض ملف اللاعب")
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض ملف اللاعب في HighCore")
                             .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "اللاعب المراد عرض ملفه", false)
-            ).queue();
+            ).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
+            
+            jda.addEventListener(new ProfileCommand());
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");
