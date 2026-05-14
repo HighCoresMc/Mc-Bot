@@ -20,8 +20,15 @@ public class LeonTrotskyBot {
     public static void main(String[] args) {
         logger.info("Starting Leon Trotsky Bot for HighCore MC...");
 
+        // Debug: Print current working directory
+        logger.info("Current Working Directory: " + System.getProperty("user.dir"));
+
         // Load environment variables
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        Dotenv dotenv = Dotenv.configure()
+                .directory("./")
+                .ignoreIfMissing()
+                .load();
+        
         String token = dotenv.get("BOT_TOKEN");
 
         if (token == null || token.isEmpty() || token.equals("your_bot_token_here")) {
