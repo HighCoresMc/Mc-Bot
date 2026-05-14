@@ -3,6 +3,7 @@ package com.highcore.bot.commands;
 import com.highcore.bot.LeonTrotskyBot;
 import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.components.buttons.Button;
 
@@ -18,14 +19,12 @@ public class ProfileCommand extends ListenerAdapter {
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         if (!event.getName().equals("profile")) return;
 
-        event.deferReply().queue(); // Because DB queries might take a second
+        event.deferReply().queue();
 
-        // Try to get target user from arguments, otherwise use the sender
         net.dv8tion.jda.api.entities.User targetUser = event.getOption("user") != null 
                 ? event.getOption("user").getAsUser() 
                 : event.getUser();
 
-        // 1. Get Minecraft UUID from DiscordSRV
         Optional<String> uuidOpt = LeonTrotskyBot.getDiscordSRVManager().getUuidByDiscordId(targetUser.getId());
         
         if (uuidOpt.isEmpty()) {
@@ -34,48 +33,83 @@ public class ProfileCommand extends ListenerAdapter {
         }
         
         String uuid = uuidOpt.get();
+        sendProfileEmbed(event.getHook(), uuid, "general");
+    }
 
-        // 2. Fetch CMI Data
+    @Override
+    public void onButtonInteraction(ButtonInteractionEvent event) {
+        String id = event.getComponentId();
+        if (!id.startsWith("prof_")) return;
+
+        String[] parts = id.split("_");
+        String type = parts[1]; // gen, surv, pvp, side
+        String uuid = parts[2];
+
+        event.deferEdit().queue();
+        sendProfileEmbed(event.getHook(), uuid, type);
+    }
+
+    private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String type) {
+        EmbedBuilder embed = new EmbedBuilder().setColor(Color.decode("#5865F2"));
         String mcName = "Unknown";
-        double balance = 0.0;
-        long playTime = 0;
-        
+
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection("CMI")) {
-            // Note: We will adjust the exact table name based on CMI's schema
-            String query = "SELECT username, Balance, PlayTime FROM cmi_users WHERE player_uuid = ?";
+            // Get base data
+            String query = "SELECT username, Balance, PlayTime, Rank FROM cmi_users WHERE player_uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuid);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         mcName = rs.getString("username");
-                        balance = rs.getDouble("Balance");
-                        playTime = rs.getLong("PlayTime");
+                        embed.setTitle("👤 ملف اللاعب: " + mcName);
+                        embed.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/128");
+
+                        switch (type) {
+                            case "general":
+                                embed.addField("🌐 المعلومات العامة", "", false);
+                                embed.addField("الرتبة", rs.getString("Rank"), true);
+                                embed.addField("وقت اللعب", (rs.getLong("PlayTime") / 60) + " دقيقة", true);
+                                embed.addField("UUID", uuid, false);
+                                break;
+                            case "surv":
+                                embed.addField("⚔️ إحصائيات السرفايفل", "", false);
+                                embed.addField("رصيد CMI", String.format("%,.2f", rs.getDouble("Balance")), true);
+                                
+                                // Fetch PlayerPoints
+                                try (Connection connPP = LeonTrotskyBot.getDbManager().getConnection("PlayerPoints")) {
+                                    String ppQuery = "SELECT points FROM playerpoints WHERE uuid = ?";
+                                    try (PreparedStatement psPP = connPP.prepareStatement(ppQuery)) {
+                                        psPP.setString(1, uuid);
+                                        try (ResultSet rsPP = psPP.executeQuery()) {
+                                            if (rsPP.next()) {
+                                                embed.addField("Tokens", String.format("%,d", rsPP.getInt("points")), true);
+                                            }
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                                break;
+                            case "pvp":
+                                embed.addField("🔫 إحصائيات القتال", "سيتم سحب البيانات قريباً...", false);
+                                break;
+                            case "side":
+                                embed.addField("🌀 الأطوار الجانبية", "قريباً...", false);
+                                break;
+                        }
                     }
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
-            event.getHook().sendMessage("❌ حدث خطأ أثناء الاتصال بقاعدة البيانات.").queue();
+            hook.sendMessage("❌ خطأ في قاعدة البيانات").queue();
             return;
         }
 
-        // 3. Build Embed
-        EmbedBuilder embed = new EmbedBuilder()
-                .setTitle("🌐 ملف اللاعب: " + mcName)
-                .setColor(Color.decode("#5865F2"))
-                .setThumbnail("https://mc-heads.net/avatar/" + uuid + "/100")
-                .addField("💰 الرصيد (CMI)", String.format("%,.2f", balance), true)
-                .addField("⏱️ وقت اللعب", (playTime / 60) + " دقيقة", true)
-                // We will add more stats here from other plugins
-                .setFooter("HighCore MC - Leon Trotsky Bot");
-
-        // 4. Send Message with Buttons
-        event.getHook().sendMessageEmbeds(embed.build())
-                .addActionRow(
-                        Button.primary("prof_gen_" + uuid, "🌐 General Info"),
-                        Button.secondary("prof_surv_" + uuid, "⚔️ Survival"),
+        hook.editOriginalEmbeds(embed.build())
+                .setActionRow(
+                        Button.primary("prof_general_" + uuid, "🌐 General"),
+                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
                         Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                        Button.success("prof_side_" + uuid, "🌀 Side Modes")
+                        Button.secondary("prof_side_" + uuid, "🌀 Side")
                 ).queue();
     }
 }

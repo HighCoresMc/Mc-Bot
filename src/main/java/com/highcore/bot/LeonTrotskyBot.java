@@ -37,6 +37,7 @@ public class LeonTrotskyBot {
         dbManager = new DatabaseManager();
         try {
             dbManager.registerSqliteDb("CMI", dotenv.get("CMI_DB_PATH"));
+            dbManager.registerSqliteDb("PlayerPoints", dotenv.get("PLAYERPOINTS_DB_PATH"));
             logger.info("Connected to SQLite databases.");
         } catch (Exception e) {
             logger.error("Failed to connect to databases. Check your .env config.", e);
