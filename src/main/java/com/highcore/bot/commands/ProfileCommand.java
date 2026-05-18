@@ -45,7 +45,7 @@ public class ProfileCommand extends ListenerAdapter {
     }
 
     private Optional<String> getUuidFromDatabase(String discordId) {
-        String query = "SELECT uuid FROM discordsrv_accounts WHERE discord = ?";
+        String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
                 PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, discordId);
