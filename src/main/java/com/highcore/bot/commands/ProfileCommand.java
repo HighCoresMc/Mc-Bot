@@ -17,28 +17,29 @@ public class ProfileCommand extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!event.getName().equals("profile"))
-            return;
+        if (!event.getName().equals("profile")) return;
         event.deferReply().queue();
 
-        net.dv8tion.jda.api.entities.User targetUser = event.getOption("user") != null
-                ? event.getOption("user").getAsUser()
+        net.dv8tion.jda.api.entities.User targetUser = event.getOption("user") != null 
+                ? event.getOption("user").getAsUser() 
                 : event.getUser();
 
         Optional<String> uuidOpt = getUuidFromDatabase(targetUser.getId());
         if (uuidOpt.isEmpty()) {
-            event.getHook().sendMessage("❌ لا يوجد حساب ماينكرافت مربوط بهذا الديسكورد!").queue();
+            EmbedBuilder errorEmbed = new EmbedBuilder()
+                    .setColor(Color.RED)
+                    .setDescription("❌ لا يوجد حساب ماينكرافت مربوط بهذا الديسكورد!");
+            event.getHook().editOriginalEmbeds(errorEmbed.build()).queue();
             return;
         }
-
+        
         sendProfileEmbed(event.getHook(), uuidOpt.get(), "general");
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
         String id = event.getComponentId();
-        if (!id.startsWith("prof_"))
-            return;
+        if (!id.startsWith("prof_")) return;
         String[] parts = id.split("_");
         event.deferEdit().queue();
         sendProfileEmbed(event.getHook(), parts[2], parts[1]);
@@ -47,7 +48,7 @@ public class ProfileCommand extends ListenerAdapter {
     private Optional<String> getUuidFromDatabase(String discordId) {
         String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
-                PreparedStatement ps = conn.prepareStatement(query)) {
+             PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, discordId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -63,6 +64,7 @@ public class ProfileCommand extends ListenerAdapter {
     private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String type) {
         EmbedBuilder embed = new EmbedBuilder().setColor(Color.decode("#5865F2"));
         String mcName = "Unknown";
+        boolean dataFound = false;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String query = "SELECT username, Balance, PlayTime, Rank FROM CMI_users WHERE player_uuid = ?";
@@ -70,6 +72,7 @@ public class ProfileCommand extends ListenerAdapter {
                 ps.setString(1, uuid);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
+                        dataFound = true;
                         mcName = rs.getString("username");
                         embed.setTitle("👤 ملف اللاعب: " + mcName);
                         embed.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/128");
@@ -77,7 +80,8 @@ public class ProfileCommand extends ListenerAdapter {
                         switch (type) {
                             case "general":
                                 embed.addField("🌐 المعلومات العامة", "", false);
-                                embed.addField("الرتبة", rs.getString("Rank"), true);
+                                String rank = rs.getString("Rank");
+                                embed.addField("الرتبة", rank != null ? rank : "لا توجد", true);
                                 embed.addField("وقت اللعب", (rs.getLong("PlayTime") / 60) + " دقيقة", true);
                                 break;
                             case "surv":
@@ -91,17 +95,20 @@ public class ProfileCommand extends ListenerAdapter {
                                             embed.addField("Tokens", String.format("%,d", rsPP.getInt("points")), true);
                                         }
                                     }
-                                } catch (Exception ignored) {
-                                }
+                                } catch (Exception ignored) {}
                                 break;
                         }
-                    } else {
-                        embed.setTitle("❌ لم يتم العثور على بيانات اللاعب");
                     }
                 }
             }
+            
+            if (!dataFound) {
+                embed.setColor(Color.RED);
+                embed.setTitle("❌ لم يتم العثور على بيانات اللاعب داخل CMI");
+            }
         } catch (Exception E) {
             E.printStackTrace();
+            embed.setColor(Color.RED);
             embed.setTitle("⚠️ خطأ في الاتصال بقاعدة البيانات");
         }
 
@@ -110,7 +117,7 @@ public class ProfileCommand extends ListenerAdapter {
                         Button.primary("prof_general_" + uuid, "🌐 General"),
                         Button.success("prof_surv_" + uuid, "⚔️ Survival"),
                         Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                        Button.secondary("prof_side_" + uuid, "🌀 Side"))
-                .queue();
+                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                ).queue();
     }
 }
