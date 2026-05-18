@@ -17,29 +17,47 @@ public class ProfileCommand extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
-        if (!event.getName().equals("profile")) return;
+        if (!event.getName().equals("profile"))
+            return;
         event.deferReply().queue();
 
-        net.dv8tion.jda.api.entities.User targetUser = event.getOption("user") != null 
-                ? event.getOption("user").getAsUser() 
+        net.dv8tion.jda.api.entities.User targetUser = event.getOption("user") != null
+                ? event.getOption("user").getAsUser()
                 : event.getUser();
 
-        Optional<String> uuidOpt = LeonTrotskyBot.getDiscordSRVManager().getUuidByDiscordId(targetUser.getId());
+        Optional<String> uuidOpt = getUuidFromDatabase(targetUser.getId());
         if (uuidOpt.isEmpty()) {
             event.getHook().sendMessage("❌ لا يوجد حساب ماينكرافت مربوط بهذا الديسكورد!").queue();
             return;
         }
-        
+
         sendProfileEmbed(event.getHook(), uuidOpt.get(), "general");
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
         String id = event.getComponentId();
-        if (!id.startsWith("prof_")) return;
+        if (!id.startsWith("prof_"))
+            return;
         String[] parts = id.split("_");
         event.deferEdit().queue();
         sendProfileEmbed(event.getHook(), parts[2], parts[1]);
+    }
+
+    private Optional<String> getUuidFromDatabase(String discordId) {
+        String query = "SELECT uuid FROM discordsrv_accounts WHERE discord = ?";
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+                PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setString(1, discordId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.ofNullable(rs.getString("uuid"));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Optional.empty();
     }
 
     private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String type) {
@@ -73,7 +91,8 @@ public class ProfileCommand extends ListenerAdapter {
                                             embed.addField("Tokens", String.format("%,d", rsPP.getInt("points")), true);
                                         }
                                     }
-                                } catch (Exception ignored) {}
+                                } catch (Exception ignored) {
+                                }
                                 break;
                         }
                     } else {
@@ -81,8 +100,8 @@ public class ProfileCommand extends ListenerAdapter {
                     }
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (Exception E) {
+            E.printStackTrace();
             embed.setTitle("⚠️ خطأ في الاتصال بقاعدة البيانات");
         }
 
@@ -91,7 +110,7 @@ public class ProfileCommand extends ListenerAdapter {
                         Button.primary("prof_general_" + uuid, "🌐 General"),
                         Button.success("prof_surv_" + uuid, "⚔️ Survival"),
                         Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                        Button.secondary("prof_side_" + uuid, "🌀 Side")
-                ).queue();
+                        Button.secondary("prof_side_" + uuid, "🌀 Side"))
+                .queue();
     }
 }
