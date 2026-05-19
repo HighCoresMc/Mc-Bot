@@ -50,8 +50,8 @@ public class ServerStatsService {
             } catch (Exception e) {
                 logger.error("Error updating server stats", e);
             }
-        }, 5, 30, TimeUnit.SECONDS);
-        logger.info("Server stats updater scheduler started (updates every 30 seconds).");
+        }, 5, 20, TimeUnit.SECONDS);
+        logger.info("Server stats updater scheduler started (updates every 20 seconds).");
     }
 
     public static void forceUpdate(JDA jda) {
@@ -64,12 +64,31 @@ public class ServerStatsService {
         });
     }
 
+    private static String getProgressBar(double percentage) {
+        int filled = (int) Math.round(percentage / 10.0);
+        java.lang.StringBuilder sb = new java.lang.StringBuilder();
+        sb.append("`[");
+        for (int i = 0; i < 10; i++) {
+            if (i < filled) {
+                sb.append("🟩");
+            } else {
+                sb.append("🟥");
+            }
+        }
+        sb.append("]` **").append(String.format("%.2f", percentage)).append("%**");
+        return sb.toString();
+    }
+
     private static void updateStats(JDA jda) {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         String host = dotenv.get("MC_SERVER_HOST", "play.highcore.net");
         int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25565"));
 
+        // Dual-ping mechanism: try configured host, fallback to localhost Spigot port
         MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
+        if (!response.online && !"127.0.0.1".equals(host) && !"localhost".equals(host)) {
+            response = MinecraftPing.ping("127.0.0.1", port, 2000);
+        }
 
         totalChecks++;
         if (response.online) {
@@ -106,30 +125,35 @@ public class ServerStatsService {
             uptimeStr = sb.toString();
         }
 
+        String statusEmoji = response.online ? "🟢" : "🔴";
+        String statusDesc = response.online 
+            ? "Players can join and enjoy the gameplay experience." 
+            : "Server is currently offline. Please check back later!";
+
         // Build V2 Container
         Container container = Container.of(
             Section.of(
                 Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
-                TextDisplay.of("## 🕹️ HighCore MC | حالة السيرفر"),
-                TextDisplay.of("### Players can join and enjoy the gameplay experience.")
+                TextDisplay.of("## 🕹️ HighCore MC | Server Status"),
+                TextDisplay.of("### " + statusEmoji + " " + statusDesc)
             ),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 🖥️ عناوين الاتصال (Server IP)"),
+            TextDisplay.of("### 🖥️ Connection Addresses"),
             TextDisplay.of("**Java IP:** `play.highcore.net:25565`\n**Bedrock IP:** `play.highcore.net:19132`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 📊 إحصائيات اللاعبين"),
+            TextDisplay.of("### 📊 Player Statistics"),
             TextDisplay.of("**👥 Players Online:** " + (response.online ? response.onlinePlayers : 0) + " / " + (response.online ? response.maxPlayers : 50) + 
                            "\n**📈 Peak Players:** " + peakPlayers + 
                            "\n**📥 Total Logins:** " + totalLogins),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### ⚙️ حالة النظام"),
+            TextDisplay.of("### ⚙️ System Status"),
             TextDisplay.of("**🚦 Server Status:** " + (response.online ? "Open 🔓" : "Closed 🔒") + 
                            "\n**📡 Server Ping:** " + (response.online ? response.ping + "ms" : "N/A") + 
                            "\n**🔋 Health:** " + (response.online ? "100.0%" : "0.0%")),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### ⏱️ الأوقات والتوفر"),
+            TextDisplay.of("### ⏱️ Performance & Uptime"),
             TextDisplay.of("**⏱️ Uptime:** " + uptimeStr + 
-                           "\n**📊 Availability:** " + String.format("%.2f", availability) + "%" + 
+                           "\n**📊 Availability:** " + getProgressBar(availability) + 
                            "\n**🔄 Last Updated:** <t:" + (System.currentTimeMillis() / 1000) + ":R>")
         );
 
