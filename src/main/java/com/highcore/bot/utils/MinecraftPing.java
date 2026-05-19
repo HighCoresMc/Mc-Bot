@@ -15,6 +15,21 @@ public class MinecraftPing {
     }
 
     public static StatusResponse ping(String host, int port, int timeout) {
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        java.util.concurrent.Future<StatusResponse> future = executor.submit(() -> pingRaw(host, port, timeout));
+        try {
+            return future.get(timeout + 500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            future.cancel(true);
+            StatusResponse response = new StatusResponse();
+            response.online = false;
+            return response;
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static StatusResponse pingRaw(String host, int port, int timeout) {
         StatusResponse response = new StatusResponse();
         long start = System.currentTimeMillis();
         try (Socket socket = new Socket()) {
