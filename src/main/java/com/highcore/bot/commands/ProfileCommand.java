@@ -68,7 +68,7 @@ public class ProfileCommand extends ListenerAdapter {
         boolean dataFound = false;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String query = "SELECT username, Balance, TotalPlayTime, Rank FROM CMI_users WHERE player_uuid = ?";
+            String query = "SELECT username, Balance, TotalPlayTime, `Rank` FROM CMI_users WHERE player_uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuid);
                 try (ResultSet rs = ps.executeQuery()) {
