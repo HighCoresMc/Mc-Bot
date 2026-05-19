@@ -96,6 +96,21 @@ public class ServerStatsService {
         }
     }
 
+    private static int getDbOnlinePlayers() {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                 "SELECT COUNT(*) FROM CMI_users WHERE LastLoginTime > LastLogoffTime"
+             );
+             java.sql.ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (Exception e) {
+            System.out.println("[ServerStatsService] Failed to query online players: " + e.getMessage());
+        }
+        return -1;
+    }
+
     private static void updateStats(JDA jda) {
         if (!columnsLogged) {
             columnsLogged = true;
@@ -141,7 +156,15 @@ public class ServerStatsService {
                            ", Ping: " + response.ping + "ms");
 
         boolean isOnline = response.online || (pteroEnabled && ptero != null && ptero.online);
-        int currentPlayers = response.online ? response.onlinePlayers : 0;
+        int currentPlayers = 0;
+        if (isOnline) {
+            int dbPlayers = getDbOnlinePlayers();
+            if (dbPlayers >= 0) {
+                currentPlayers = dbPlayers;
+            } else {
+                currentPlayers = response.online ? response.onlinePlayers : 0;
+            }
+        }
         int maxPlayers = response.online ? response.maxPlayers : 20;
 
         // Establish real network handshake latency
