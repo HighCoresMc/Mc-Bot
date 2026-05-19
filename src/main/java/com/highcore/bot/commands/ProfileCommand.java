@@ -30,7 +30,7 @@ public class ProfileCommand extends ListenerAdapter {
             EmbedBuilder errorEmbed = new EmbedBuilder()
                     .setColor(Color.RED)
                     .setDescription("❌ لا يوجد حساب ماينكرافت مربوط بهذا الديسكورد!");
-            event.getHook().editOriginalEmbeds(errorEmbed.build()).useComponentsV2(true).queue();
+            event.getHook().editOriginalEmbeds(errorEmbed.build()).queue();
             return;
         }
         
@@ -120,7 +120,6 @@ public class ProfileCommand extends ListenerAdapter {
                         Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
                         Button.secondary("prof_side_" + uuid, "🌀 Side")
                 ))
-                .useComponentsV2(true)
                 .queue();
     }
 }
