@@ -7,6 +7,11 @@ import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
+import net.dv8tion.jda.api.components.container.Container;
+import net.dv8tion.jda.api.components.section.Section;
+import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
+import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.separator.Separator;
 
 import java.awt.Color;
 import java.sql.Connection;
@@ -63,7 +68,6 @@ public class ProfileCommand extends ListenerAdapter {
     }
 
     private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String type) {
-        EmbedBuilder embed = new EmbedBuilder().setColor(Color.decode("#5865F2"));
         String mcName = "Unknown";
         boolean dataFound = false;
 
@@ -75,51 +79,132 @@ public class ProfileCommand extends ListenerAdapter {
                     if (rs.next()) {
                         dataFound = true;
                         mcName = rs.getString("username");
-                        embed.setTitle("👤 ملف اللاعب: " + mcName);
-                        embed.setThumbnail("https://mc-heads.net/avatar/" + uuid + "/128");
+                        Thumbnail avatar = Thumbnail.fromUrl("https://mc-heads.net/avatar/" + uuid + "/128");
+                        Container container = null;
 
                         switch (type) {
-                            case "general":
-                                embed.addField("🌐 المعلومات العامة", "", false);
+                            case "general": {
                                 String rank = rs.getString("Rank");
-                                embed.addField("الرتبة", rank != null ? rank : "لا توجد", true);
-                                embed.addField("وقت اللعب", (rs.getLong("TotalPlayTime") / 60) + " دقيقة", true);
+                                long playtimeSeconds = rs.getLong("TotalPlayTime");
+                                long hours = playtimeSeconds / 3600;
+                                long minutes = (playtimeSeconds % 3600) / 60;
+                                String playtimeStr = hours > 0 ? (hours + " ساعة و " + minutes + " دقيقة") : (minutes + " دقيقة");
+
+                                container = Container.of(
+                                    Section.of(
+                                        avatar,
+                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
+                                        TextDisplay.of("### 🌐 المعلومات العامة"),
+                                        TextDisplay.of("**الرتبة:** " + (rank != null && !rank.isEmpty() ? rank : "لا توجد") + "\n**وقت اللعب:** " + playtimeStr)
+                                    ),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    ActionRow.of(
+                                        Button.primary("prof_general_" + uuid, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                    )
+                                );
                                 break;
-                            case "surv":
-                                embed.addField("⚔️ إحصائيات السرفايفل", "", false);
-                                embed.addField("رصيد CMI", String.format("%,.2f", rs.getDouble("Balance")), true);
+                            }
+                            case "surv": {
+                                double balance = rs.getDouble("Balance");
+                                int tokens = 0;
                                 String ppQuery = "SELECT points FROM playerpoints WHERE uuid = ?";
                                 try (PreparedStatement psPP = conn.prepareStatement(ppQuery)) {
                                     psPP.setString(1, uuid);
                                     try (ResultSet rsPP = psPP.executeQuery()) {
                                         if (rsPP.next()) {
-                                            embed.addField("Tokens", String.format("%,d", rsPP.getInt("points")), true);
+                                            tokens = rsPP.getInt("points");
                                         }
                                     }
                                 } catch (Exception ignored) {}
+
+                                container = Container.of(
+                                    Section.of(
+                                        avatar,
+                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
+                                        TextDisplay.of("### ⚔️ إحصائيات السرفايفل"),
+                                        TextDisplay.of("**رصيد CMI:** " + String.format("%,.2f", balance) + "$\n**Tokens:** " + String.format("%,d", tokens))
+                                    ),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    ActionRow.of(
+                                        Button.primary("prof_general_" + uuid, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                    )
+                                );
                                 break;
+                            }
+                            case "pvp": {
+                                container = Container.of(
+                                    Section.of(
+                                        avatar,
+                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
+                                        TextDisplay.of("### 🔫 إحصائيات الـ PvP"),
+                                        TextDisplay.of("**القتلات (Kills):** 0\n**الوفيات (Deaths):** 0\n**نسبة K/D:** 0.00")
+                                    ),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    ActionRow.of(
+                                        Button.primary("prof_general_" + uuid, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                    )
+                                );
+                                break;
+                            }
+                            case "side": {
+                                container = Container.of(
+                                    Section.of(
+                                        avatar,
+                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
+                                        TextDisplay.of("### 🌀 الإحصائيات الجانبية"),
+                                        TextDisplay.of("**النقاط الجانبية:** 0\n**الحالة:** نشط (Active)")
+                                    ),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    ActionRow.of(
+                                        Button.primary("prof_general_" + uuid, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                    )
+                                );
+                                break;
+                            }
+                        }
+
+                        if (container != null) {
+                            hook.editOriginalComponents(container)
+                                .setEmbeds(java.util.Collections.emptyList())
+                                .useComponentsV2(true)
+                                .queue();
                         }
                     }
                 }
             }
             
             if (!dataFound) {
-                embed.setColor(Color.RED);
-                embed.setTitle("❌ لم يتم العثور على بيانات اللاعب داخل CMI");
+                Container errorContainer = Container.of(
+                    TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب"),
+                    TextDisplay.of("لم يتم العثور على بيانات اللاعب داخل CMI.")
+                );
+                hook.editOriginalComponents(errorContainer)
+                    .setEmbeds(java.util.Collections.emptyList())
+                    .useComponentsV2(true)
+                    .queue();
             }
         } catch (Exception E) {
             E.printStackTrace();
-            embed.setColor(Color.RED);
-            embed.setTitle("⚠️ خطأ في الاتصال بقاعدة البيانات");
-        }
-
-        hook.editOriginalEmbeds(embed.build())
-                .setComponents(ActionRow.of(
-                        Button.primary("prof_general_" + uuid, "🌐 General"),
-                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
-                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                        Button.secondary("prof_side_" + uuid, "🌀 Side")
-                ))
+            Container errorContainer = Container.of(
+                TextDisplay.of("## ⚠️ خطأ في الاتصال بقاعدة البيانات"),
+                TextDisplay.of("حدث خطأ أثناء محاولة الاتصال بقاعدة البيانات.")
+            );
+            hook.editOriginalComponents(errorContainer)
+                .setEmbeds(java.util.Collections.emptyList())
+                .useComponentsV2(true)
                 .queue();
+        }
     }
 }
