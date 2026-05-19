@@ -96,6 +96,37 @@ public class ServerStatsService {
         }
     }
 
+    private static void logAllTables() {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             java.sql.ResultSet rs = conn.getMetaData().getTables(null, null, "%", null)) {
+            System.out.print("[ServerStatsService] All database tables: ");
+            while (rs.next()) {
+                System.out.print(rs.getString("TABLE_NAME") + ", ");
+            }
+            System.out.println();
+        } catch (Exception e) {
+            System.out.println("[ServerStatsService] Failed to list tables: " + e.getMessage());
+        }
+    }
+
+    private static void logPlayerTimes() {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement(
+                 "SELECT username, LastLoginTime, LastLogoffTime FROM CMI_users WHERE username = ?"
+             )) {
+            ps.setString(1, "OMAR911Q");
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    System.out.println("[ServerStatsService] CMI times for OMAR911Q: Login = " + 
+                                       rs.getLong("LastLoginTime") + ", Logoff = " + rs.getLong("LastLogoffTime") +
+                                       " (Diff = " + (rs.getLong("LastLoginTime") - rs.getLong("LastLogoffTime")) + "ms)");
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[ServerStatsService] Failed to query times: " + e.getMessage());
+        }
+    }
+
     private static int getDbOnlinePlayers() {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(
@@ -158,12 +189,7 @@ public class ServerStatsService {
         boolean isOnline = response.online || (pteroEnabled && ptero != null && ptero.online);
         int currentPlayers = 0;
         if (isOnline) {
-            int dbPlayers = getDbOnlinePlayers();
-            if (dbPlayers >= 0) {
-                currentPlayers = dbPlayers;
-            } else {
-                currentPlayers = response.online ? response.onlinePlayers : 0;
-            }
+            currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
         }
         int maxPlayers = response.online ? response.maxPlayers : 20;
 

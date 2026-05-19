@@ -60,6 +60,9 @@ public class LeonTrotskyBot {
             logger.info("Leon Trotsky Bot is ready and connected to Discord!");
             logger.info("Bot is currently in {} guilds.", jda.getGuilds().size());
 
+            // Initialize real-time online players tracking from logs
+            com.highcore.bot.listeners.MinecraftLogListener.initializeOnlinePlayers(jda);
+
             // Start Server Stats Updater Scheduler
             ServerStatsService.startScheduler(jda);
 
@@ -72,6 +75,7 @@ public class LeonTrotskyBot {
             
             jda.addEventListener(new ProfileCommand());
             jda.addEventListener(new StatsCommand());
+            jda.addEventListener(new com.highcore.bot.listeners.MinecraftLogListener());
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");
