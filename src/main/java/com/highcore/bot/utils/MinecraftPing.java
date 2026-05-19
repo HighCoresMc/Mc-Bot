@@ -75,6 +75,7 @@ public class MinecraftPing {
                 response.motd = extractJsonString(json, "text");
             }
         } catch (Exception e) {
+            System.out.println("[MinecraftPing] TCP Ping raw error: " + e.toString());
             response.online = false;
         }
         return response;

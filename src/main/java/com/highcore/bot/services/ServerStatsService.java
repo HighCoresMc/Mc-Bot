@@ -80,7 +80,28 @@ public class ServerStatsService {
         return sb.toString();
     }
 
+    private static boolean columnsLogged = false;
+
+    private static void logCmiColumns() {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement("DESCRIBE CMI_users");
+             java.sql.ResultSet rs = ps.executeQuery()) {
+            System.out.print("[ServerStatsService] CMI_users columns: ");
+            while (rs.next()) {
+                System.out.print(rs.getString(1) + ", ");
+            }
+            System.out.println();
+        } catch (Exception e) {
+            System.out.println("[ServerStatsService] Failed to describe CMI_users: " + e.getMessage());
+        }
+    }
+
     private static void updateStats(JDA jda) {
+        if (!columnsLogged) {
+            columnsLogged = true;
+            logCmiColumns();
+        }
+
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         String host = dotenv.get("MC_SERVER_HOST", "134.255.255.130");
         int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25010"));
