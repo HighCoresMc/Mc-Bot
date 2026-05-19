@@ -88,14 +88,31 @@ public class ServerStatsService {
         String javaIp = dotenv.get("MC_JAVA_IP", "134.255.255.130:25010");
         String bedrockIp = dotenv.get("MC_BEDROCK_IP", "134.255.255.130:25010");
 
-        // Dual-ping mechanism: try configured host, fallback to localhost Spigot port
-        MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
-        if (!response.online && !"127.0.0.1".equals(host) && !"localhost".equals(host)) {
-            response = MinecraftPing.ping("127.0.0.1", port, 2000);
+        String pteroUrl = dotenv.get("PTERODACTYL_URL", "https://panel.highcores.com");
+        String pteroKey = dotenv.get("PTERODACTYL_API_KEY");
+        String pteroId = dotenv.get("PTERODACTYL_SERVER_ID", "7bc59359");
+
+        boolean pteroEnabled = pteroKey != null && !pteroKey.trim().isEmpty();
+        PterodactylStats ptero = null;
+        if (pteroEnabled) {
+            ptero = fetchPterodactylStats(pteroUrl, pteroKey, pteroId);
         }
 
+        // Dual-ping mechanism: try configured host, fallback to localhost Spigot port
+        System.out.println("[ServerStatsService] Pinging Minecraft server at " + host + ":" + port + "...");
+        MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
+        if (!response.online && !"127.0.0.1".equals(host) && !"localhost".equals(host)) {
+            System.out.println("[ServerStatsService] Main ping failed. Attempting fallback to localhost...");
+            response = MinecraftPing.ping("127.0.0.1", port, 2000);
+        }
+        System.out.println("[ServerStatsService] Query complete. Online: " + response.online + 
+                           ", Players: " + response.onlinePlayers + "/" + response.maxPlayers + 
+                           ", Ping: " + response.ping + "ms");
+
+        boolean isOnline = response.online || (pteroEnabled && ptero != null && ptero.online);
+
         totalChecks++;
-        if (response.online) {
+        if (isOnline) {
             successfulChecks++;
             if (onlineSince == -1) {
                 onlineSince = System.currentTimeMillis();
@@ -113,7 +130,7 @@ public class ServerStatsService {
         double availability = totalChecks > 0 ? ((double) successfulChecks * 100.0 / totalChecks) : 100.0;
 
         String uptimeStr = "0s";
-        if (response.online && onlineSince != -1) {
+        if (isOnline && onlineSince != -1) {
             long diff = System.currentTimeMillis() - onlineSince;
             long secs = diff / 1000;
             long days = secs / 86400;
@@ -129,10 +146,16 @@ public class ServerStatsService {
             uptimeStr = sb.toString();
         }
 
-        String statusEmoji = response.online ? "🟢" : "🔴";
-        String statusDesc = response.online 
+        String statusEmoji = isOnline ? "🟢" : "🔴";
+        String statusDesc = isOnline 
             ? "Players can join and enjoy the gameplay experience." 
             : "Server is currently offline. Please check back later!";
+
+        String healthStr = isOnline ? "100.0%" : "0.0%";
+        if (pteroEnabled && ptero != null && ptero.online) {
+            double ramGiB = (double) ptero.memoryBytes / (1024.0 * 1024.0 * 1024.0);
+            healthStr = String.format("CPU: %.1f%% | RAM: %.2f GiB", ptero.cpu, ramGiB);
+        }
 
         // Build V2 Container exactly like the SA-MP dashboard template
         Container container = Container.of(
@@ -144,14 +167,14 @@ public class ServerStatsService {
             TextDisplay.of("### 🏛️ Server Name"),
             TextDisplay.of("`HighCore MC`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 🖥️ Server IP"),
-            TextDisplay.of("`" + javaIp + "`"),
+            TextDisplay.of("### 🖥️ Connection Addresses"),
+            TextDisplay.of("**Java IP:** `" + javaIp + "`\n**Bedrock IP:** `" + bedrockIp + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### 👥 Players Online  |  📈 Peak Players  |  📥 Total Logins\n" +
-                           "`" + (response.online ? response.onlinePlayers : 0) + " / " + (response.online ? response.maxPlayers : 50) + "`  |  `" + peakPlayers + "`  |  `" + totalLogins + "`"),
+                           "`" + (isOnline ? response.onlinePlayers : 0) + " / " + (isOnline ? response.maxPlayers : 20) + "`  |  `" + peakPlayers + "`  |  `" + totalLogins + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### 🚦 Server Status  |  📡 Server Ping  |  🔋 Health\n" +
-                           "`" + (response.online ? "Open 🔓" : "Closed 🔒") + "`  |  `" + (response.online ? response.ping + "ms" : "N/A") + "`  |  `" + (response.online ? "100.0%" : "0.0%") + "`"),
+                           "`" + (isOnline ? "Open 🔓" : "Closed 🔒") + "`  |  `" + (isOnline ? response.ping + "ms" : "N/A") + "`  |  `" + healthStr + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### ⏱️ Uptime  |  📊 Availability  |  🔄 Last Updated\n" +
                            "`" + uptimeStr + "`  |  " + getProgressBar(availability) + "  |  <t:" + (System.currentTimeMillis() / 1000) + ":R>")
@@ -283,5 +306,62 @@ public class ServerStatsService {
         } catch (Exception e) {
             return 0L;
         }
+    }
+
+    private static class PterodactylStats {
+        boolean online = false;
+        double cpu = 0.0;
+        long memoryBytes = 0L;
+        long diskBytes = 0L;
+    }
+
+    private static double extractJsonDouble(String json, String key) {
+        String pattern = "\"" + key + "\":";
+        int idx = json.indexOf(pattern);
+        if (idx == -1) return 0.0;
+        idx += pattern.length();
+        int end = idx;
+        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.' || json.charAt(end) == '-')) {
+            end++;
+        }
+        try {
+            return Double.parseDouble(json.substring(idx, end));
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
+
+    private static PterodactylStats fetchPterodactylStats(String url, String apiKey, String serverId) {
+        PterodactylStats stats = new PterodactylStats();
+        try {
+            java.net.URL apiURL = new java.net.URL(url + "/api/client/servers/" + serverId + "/resources");
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) apiURL.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
+
+            int respCode = conn.getResponseCode();
+            if (respCode == 200) {
+                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    java.lang.StringBuilder sb = new java.lang.StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    String json = sb.toString();
+                    stats.online = json.contains("\"current_state\":\"running\"") || json.contains("\"current_state\":\"starting\"");
+                    stats.cpu = extractJsonDouble(json, "cpu_absolute");
+                    stats.memoryBytes = extractJsonLong(json, "memory_bytes");
+                    stats.diskBytes = extractJsonLong(json, "disk_bytes");
+                }
+            } else {
+                System.out.println("[ServerStatsService] Pterodactyl API responded with error code: " + respCode);
+            }
+        } catch (Exception e) {
+            System.out.println("[ServerStatsService] Exception while querying Pterodactyl API: " + e.getMessage());
+        }
+        return stats;
     }
 }
