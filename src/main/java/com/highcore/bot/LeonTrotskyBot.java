@@ -1,8 +1,10 @@
 package com.highcore.bot;
 
 import com.highcore.bot.commands.ProfileCommand;
+import com.highcore.bot.commands.StatsCommand;
 import com.highcore.bot.database.DatabaseManager;
 import com.highcore.bot.services.DiscordSRVManager;
+import com.highcore.bot.services.ServerStatsService;
 import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -58,13 +60,18 @@ public class LeonTrotskyBot {
             logger.info("Leon Trotsky Bot is ready and connected to Discord!");
             logger.info("Bot is currently in {} guilds.", jda.getGuilds().size());
 
+            // Start Server Stats Updater Scheduler
+            ServerStatsService.startScheduler(jda);
+
             // Register Global Slash Commands
             jda.updateCommands().addCommands(
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض ملف اللاعب في HighCore")
-                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "اللاعب المراد عرض ملفه", false)
+                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "اللاعب المراد عرض ملفه", false),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("stats", "تحديث وعرض حالة سيرفر HighCore MC")
             ).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
             
             jda.addEventListener(new ProfileCommand());
+            jda.addEventListener(new StatsCommand());
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");
