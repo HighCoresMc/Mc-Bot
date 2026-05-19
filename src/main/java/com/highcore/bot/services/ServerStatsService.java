@@ -81,8 +81,11 @@ public class ServerStatsService {
 
     private static void updateStats(JDA jda) {
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
-        String host = dotenv.get("MC_SERVER_HOST", "play.highcore.net");
-        int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25565"));
+        String host = dotenv.get("MC_SERVER_HOST", "134.255.255.130");
+        int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25010"));
+
+        String javaIp = dotenv.get("MC_JAVA_IP", "play.highcore.net:25010");
+        String bedrockIp = dotenv.get("MC_BEDROCK_IP", "play.highcore.net:19132");
 
         // Dual-ping mechanism: try configured host, fallback to localhost Spigot port
         MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
@@ -139,7 +142,7 @@ public class ServerStatsService {
             ),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### 🖥️ Connection Addresses"),
-            TextDisplay.of("**Java IP:** `play.highcore.net:25565`\n**Bedrock IP:** `play.highcore.net:19132`"),
+            TextDisplay.of("**Java IP:** `" + javaIp + "`\n**Bedrock IP:** `" + bedrockIp + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### 📊 Player Statistics"),
             TextDisplay.of("**👥 Players Online:** " + (response.online ? response.onlinePlayers : 0) + " / " + (response.online ? response.maxPlayers : 50) + 
