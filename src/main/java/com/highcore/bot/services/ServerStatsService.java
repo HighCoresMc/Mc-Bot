@@ -65,17 +65,18 @@ public class ServerStatsService {
     }
 
     private static String getProgressBar(double percentage) {
-        int filled = (int) Math.round(percentage / 10.0);
+        int totalBars = 20;
+        int filled = (int) Math.round((percentage / 100.0) * totalBars);
         java.lang.StringBuilder sb = new java.lang.StringBuilder();
-        sb.append("`[");
-        for (int i = 0; i < 10; i++) {
+        sb.append(String.format("%.2f", percentage)).append("%\n`");
+        for (int i = 0; i < totalBars; i++) {
             if (i < filled) {
-                sb.append("🟩");
+                sb.append("█");
             } else {
-                sb.append("🟥");
+                sb.append("░");
             }
         }
-        sb.append("]` **").append(String.format("%.2f", percentage)).append("%**");
+        sb.append("`");
         return sb.toString();
     }
 
@@ -84,8 +85,8 @@ public class ServerStatsService {
         String host = dotenv.get("MC_SERVER_HOST", "134.255.255.130");
         int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25010"));
 
-        String javaIp = dotenv.get("MC_JAVA_IP", "play.highcore.net:25010");
-        String bedrockIp = dotenv.get("MC_BEDROCK_IP", "play.highcore.net:19132");
+        String javaIp = dotenv.get("MC_JAVA_IP", "134.255.255.130:25010");
+        String bedrockIp = dotenv.get("MC_BEDROCK_IP", "134.255.255.130:25010");
 
         // Dual-ping mechanism: try configured host, fallback to localhost Spigot port
         MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
@@ -133,31 +134,27 @@ public class ServerStatsService {
             ? "Players can join and enjoy the gameplay experience." 
             : "Server is currently offline. Please check back later!";
 
-        // Build V2 Container
+        // Build V2 Container exactly like the SA-MP dashboard template
         Container container = Container.of(
             Section.of(
                 Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
-                TextDisplay.of("## 🕹️ HighCore MC | Server Status"),
                 TextDisplay.of("### " + statusEmoji + " " + statusDesc)
             ),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 🖥️ Connection Addresses"),
-            TextDisplay.of("**Java IP:** `" + javaIp + "`\n**Bedrock IP:** `" + bedrockIp + "`"),
+            TextDisplay.of("### 🏛️ Server Name"),
+            TextDisplay.of("`HighCore MC`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 📊 Player Statistics"),
-            TextDisplay.of("**👥 Players Online:** " + (response.online ? response.onlinePlayers : 0) + " / " + (response.online ? response.maxPlayers : 50) + 
-                           "\n**📈 Peak Players:** " + peakPlayers + 
-                           "\n**📥 Total Logins:** " + totalLogins),
+            TextDisplay.of("### 🖥️ Server IP"),
+            TextDisplay.of("`" + javaIp + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### ⚙️ System Status"),
-            TextDisplay.of("**🚦 Server Status:** " + (response.online ? "Open 🔓" : "Closed 🔒") + 
-                           "\n**📡 Server Ping:** " + (response.online ? response.ping + "ms" : "N/A") + 
-                           "\n**🔋 Health:** " + (response.online ? "100.0%" : "0.0%")),
+            TextDisplay.of("### 👥 Players Online  |  📈 Peak Players  |  📥 Total Logins\n" +
+                           "`" + (response.online ? response.onlinePlayers : 0) + " / " + (response.online ? response.maxPlayers : 50) + "`  |  `" + peakPlayers + "`  |  `" + totalLogins + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### ⏱️ Performance & Uptime"),
-            TextDisplay.of("**⏱️ Uptime:** " + uptimeStr + 
-                           "\n**📊 Availability:** " + getProgressBar(availability) + 
-                           "\n**🔄 Last Updated:** <t:" + (System.currentTimeMillis() / 1000) + ":R>")
+            TextDisplay.of("### 🚦 Server Status  |  📡 Server Ping  |  🔋 Health\n" +
+                           "`" + (response.online ? "Open 🔓" : "Closed 🔒") + "`  |  `" + (response.online ? response.ping + "ms" : "N/A") + "`  |  `" + (response.online ? "100.0%" : "0.0%") + "`"),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of("### ⏱️ Uptime  |  📊 Availability  |  🔄 Last Updated\n" +
+                           "`" + uptimeStr + "`  |  " + getProgressBar(availability) + "  |  <t:" + (System.currentTimeMillis() / 1000) + ":R>")
         );
 
         // 1. Persistent Message update in PERSISTENT_CHANNEL_ID
