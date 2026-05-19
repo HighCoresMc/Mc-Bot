@@ -29,18 +29,29 @@ public class MinecraftLogListener extends ListenerAdapter {
         String targetChannelId = dotenv.get("MINECRAFT_LOG_CHANNEL_ID", LOG_CHANNEL_ID);
 
         if (channelId.equals(targetChannelId)) {
-            // Process messages from bots/webhooks (e.g. DiscordSRV) or standard messages in logs
             String content = event.getMessage().getContentRaw();
             if (content.isEmpty() && !event.getMessage().getEmbeds().isEmpty()) {
-                MessageEmbed embed = event.getMessage().getEmbeds().get(0);
-                if (embed.getDescription() != null) {
-                    content = embed.getDescription();
-                } else if (embed.getTitle() != null) {
-                    content = embed.getTitle();
-                }
+                content = extractEmbedText(event.getMessage().getEmbeds().get(0));
+            } else if (!event.getMessage().getEmbeds().isEmpty()) {
+                content = content + " " + extractEmbedText(event.getMessage().getEmbeds().get(0));
             }
             handleLogMessage(content);
         }
+    }
+
+    private static String extractEmbedText(MessageEmbed embed) {
+        if (embed == null) return "";
+        StringBuilder sb = new StringBuilder();
+        if (embed.getAuthor() != null && embed.getAuthor().getName() != null) {
+            sb.append(embed.getAuthor().getName()).append(" ");
+        }
+        if (embed.getTitle() != null) {
+            sb.append(embed.getTitle()).append(" ");
+        }
+        if (embed.getDescription() != null) {
+            sb.append(embed.getDescription()).append(" ");
+        }
+        return sb.toString().trim();
     }
 
     public static void handleLogMessage(String content) {
@@ -82,12 +93,9 @@ public class MinecraftLogListener extends ListenerAdapter {
                     Message msg = messages.get(i);
                     String content = msg.getContentRaw();
                     if (content.isEmpty() && !msg.getEmbeds().isEmpty()) {
-                        MessageEmbed embed = msg.getEmbeds().get(0);
-                        if (embed.getDescription() != null) {
-                            content = embed.getDescription();
-                        } else if (embed.getTitle() != null) {
-                            content = embed.getTitle();
-                        }
+                        content = extractEmbedText(msg.getEmbeds().get(0));
+                    } else if (!msg.getEmbeds().isEmpty()) {
+                        content = content + " " + extractEmbedText(msg.getEmbeds().get(0));
                     }
                     handleLogMessage(content);
                 }
