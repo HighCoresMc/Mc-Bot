@@ -22,7 +22,7 @@ public class DiscordSRVManager {
      */
     public Optional<String> getUuidByDiscordId(String discordId) {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String query = "SELECT uuid FROM discordsrv_accounts WHERE discord = ?";
+            String query = "SELECT uuid FROM discordsrv__accounts WHERE discord = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, discordId);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -42,7 +42,7 @@ public class DiscordSRVManager {
      */
     public Optional<String> getDiscordIdByUuid(String uuid) {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String query = "SELECT discord FROM discordsrv_accounts WHERE uuid = ?";
+            String query = "SELECT discord FROM discordsrv__accounts WHERE uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuid);
                 try (ResultSet rs = ps.executeQuery()) {
