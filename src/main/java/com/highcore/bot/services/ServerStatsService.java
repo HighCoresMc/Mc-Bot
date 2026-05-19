@@ -416,12 +416,48 @@ public class ServerStatsService {
 
     private static MinecraftPing.StatusResponse queryWebApi(String host, int port) {
         MinecraftPing.StatusResponse response = new MinecraftPing.StatusResponse();
+        // Try Minetools API first (100% live real-time query with no cache)
+        try {
+            java.net.URL url = new java.net.URL("https://api.minetools.eu/ping/" + host + "/" + port);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
+            if (conn.getResponseCode() == 200) {
+                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    java.lang.StringBuilder sb = new java.lang.StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    String json = sb.toString();
+                    if (!json.contains("error")) {
+                        response.online = true;
+                        int playersIdx = json.indexOf("\"players\":");
+                        if (playersIdx != -1) {
+                            String playersPart = json.substring(playersIdx);
+                            response.onlinePlayers = extractJsonInt(playersPart, "online");
+                            response.maxPlayers = extractJsonInt(playersPart, "max");
+                        } else {
+                            response.onlinePlayers = 0;
+                            response.maxPlayers = 20;
+                        }
+                        response.ping = extractJsonLong(json, "latency");
+                        return response;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[ServerStatsService] Minetools API query failed: " + e.getMessage());
+        }
+
+        // Try mcsrvstat.us as secondary fallback
         try {
             java.net.URL url = new java.net.URL("https://api.mcsrvstat.us/2/" + host + ":" + port);
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
-            conn.setConnectTimeout(4000);
-            conn.setReadTimeout(4000);
+            conn.setConnectTimeout(3000);
+            conn.setReadTimeout(3000);
             if (conn.getResponseCode() == 200) {
                 try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
                     java.lang.StringBuilder sb = new java.lang.StringBuilder();
@@ -441,12 +477,12 @@ public class ServerStatsService {
                             response.onlinePlayers = 0;
                             response.maxPlayers = 20;
                         }
-                        response.ping = 50; // estimated ping
+                        response.ping = 50;
                     }
                 }
             }
         } catch (Exception e) {
-            System.out.println("[ServerStatsService] Web API query failed: " + e.getMessage());
+            System.out.println("[ServerStatsService] mcsrvstat API query failed: " + e.getMessage());
         }
         return response;
     }

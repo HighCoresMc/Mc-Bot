@@ -32,7 +32,7 @@ public class MinecraftPing {
             DataOutputStream handshakeOut = new DataOutputStream(handshakeBytes);
             
             writeVarInt(0x00, handshakeOut); // Packet ID
-            writeVarInt(-1, handshakeOut); // Protocol version (-1 handles any)
+            writeVarInt(767, handshakeOut); // Protocol version (767 is 1.21)
             writeString(host, handshakeOut);
             handshakeOut.writeShort(port);
             writeVarInt(1, handshakeOut); // Next state: status
