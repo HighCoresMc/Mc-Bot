@@ -105,11 +105,29 @@ public class ServerStatsService {
             System.out.println("[ServerStatsService] Main ping failed. Attempting fallback to localhost...");
             response = MinecraftPing.ping("127.0.0.1", port, 2000);
         }
+
+        // Web API query fallback if direct TCP pings fail
+        if (!response.online) {
+            System.out.println("[ServerStatsService] TCP ping failed. Attempting Web API fallback query...");
+            MinecraftPing.StatusResponse webResp = queryWebApi(host, port);
+            if (webResp.online) {
+                response = webResp;
+            }
+        }
+
         System.out.println("[ServerStatsService] Query complete. Online: " + response.online + 
                            ", Players: " + response.onlinePlayers + "/" + response.maxPlayers + 
                            ", Ping: " + response.ping + "ms");
 
         boolean isOnline = response.online || (pteroEnabled && ptero != null && ptero.online);
+        int currentPlayers = response.online ? response.onlinePlayers : 0;
+        int maxPlayers = response.online ? response.maxPlayers : 20;
+
+        // Establish real network handshake latency
+        long networkPing = measureNetworkPing(host, port);
+        if (networkPing == -1 && response.online) {
+            networkPing = response.ping;
+        }
 
         totalChecks++;
         if (isOnline) {
@@ -117,8 +135,8 @@ public class ServerStatsService {
             if (onlineSince == -1) {
                 onlineSince = System.currentTimeMillis();
             }
-            if (response.onlinePlayers > peakPlayers) {
-                peakPlayers = response.onlinePlayers;
+            if (currentPlayers > peakPlayers) {
+                peakPlayers = currentPlayers;
             }
         } else {
             onlineSince = -1;
@@ -130,7 +148,20 @@ public class ServerStatsService {
         double availability = totalChecks > 0 ? ((double) successfulChecks * 100.0 / totalChecks) : 100.0;
 
         String uptimeStr = "0s";
-        if (isOnline && onlineSince != -1) {
+        if (pteroEnabled && ptero != null && ptero.online && ptero.uptimeMs > 0) {
+            long secs = ptero.uptimeMs / 1000;
+            long days = secs / 86400;
+            long hours = (secs % 86400) / 3600;
+            long minutes = (secs % 3600) / 60;
+            long remainingSecs = secs % 60;
+
+            java.lang.StringBuilder sb = new java.lang.StringBuilder();
+            if (days > 0) sb.append(days).append("d ");
+            if (hours > 0) sb.append(hours).append("h ");
+            if (minutes > 0) sb.append(minutes).append("m ");
+            sb.append(remainingSecs).append("s");
+            uptimeStr = sb.toString();
+        } else if (isOnline && onlineSince != -1) {
             long diff = System.currentTimeMillis() - onlineSince;
             long secs = diff / 1000;
             long days = secs / 86400;
@@ -151,33 +182,39 @@ public class ServerStatsService {
             ? "Players can join and enjoy the gameplay experience." 
             : "Server is currently offline. Please check back later!";
 
-        String healthStr = isOnline ? "100.0%" : "0.0%";
-        if (pteroEnabled && ptero != null && ptero.online) {
-            double ramGiB = (double) ptero.memoryBytes / (1024.0 * 1024.0 * 1024.0);
-            healthStr = String.format("CPU: %.1f%% | RAM: %.2f GiB", ptero.cpu, ramGiB);
-        }
+        String healthPercentage = isOnline ? "100.0%" : "0.0%";
 
-        // Build V2 Container exactly like the SA-MP dashboard template
+        // Build elegant, aligned, eye-friendly layout where labels are clearly visible and clean
         Container container = Container.of(
             Section.of(
                 Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
                 TextDisplay.of("### " + statusEmoji + " " + statusDesc)
             ),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 🏛️ Server Name"),
-            TextDisplay.of("`HighCore MC`"),
+            TextDisplay.of("### 🏛️ Server Name\n`HighCore MC`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 🖥️ Connection Addresses"),
-            TextDisplay.of("**Java IP:** `" + javaIp + "`\n**Bedrock IP:** `" + bedrockIp + "`"),
+            TextDisplay.of("### 🖥️ Connection Addresses\n" +
+                           "**Java IP:** `" + javaIp + "`\n" +
+                           "**Bedrock IP:** `" + bedrockIp + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 👥 Players Online  |  📈 Peak Players  |  📥 Total Logins\n" +
-                           "`" + (isOnline ? response.onlinePlayers : 0) + " / " + (isOnline ? response.maxPlayers : 20) + "`  |  `" + peakPlayers + "`  |  `" + totalLogins + "`"),
+            TextDisplay.of("### 📊 Live Statistics\n" +
+                           "👥 **Players Online:** `" + currentPlayers + " / " + maxPlayers + "`\n" +
+                           "📈 **Peak Players:** `" + peakPlayers + "`\n" +
+                           "📥 **Total Logins:** `" + totalLogins + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 🚦 Server Status  |  📡 Server Ping  |  🔋 Health\n" +
-                           "`" + (isOnline ? "Open 🔓" : "Closed 🔒") + "`  |  `" + (isOnline ? response.ping + "ms" : "N/A") + "`  |  `" + healthStr + "`"),
+            TextDisplay.of("### 🚦 Status & Health\n" +
+                           "🚦 **Server Status:** `" + (isOnline ? "Open 🔓" : "Closed 🔒") + "`\n" +
+                           "📡 **Server Ping:** `" + (networkPing != -1 ? networkPing + "ms" : "N/A") + "`\n" +
+                           "🔋 **Health:** `" + healthPercentage + "`\n" +
+                           "📈 **Availability:** " + getProgressBar(availability)),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### ⏱️ Uptime  |  📊 Availability  |  🔄 Last Updated\n" +
-                           "`" + uptimeStr + "`  |  " + getProgressBar(availability) + "  |  <t:" + (System.currentTimeMillis() / 1000) + ":R>")
+            TextDisplay.of("### ⏱️ Server Uptime\n" +
+                           "⏱️ **Uptime:** `" + uptimeStr + "`\n" +
+                           "🔄 **Last Updated:** <t:" + (System.currentTimeMillis() / 1000) + ":R>"),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of("### ⚙️ System Resources (Pterodactyl)\n" +
+                           "🎛️ **CPU Load:** `" + (pteroEnabled && ptero != null && ptero.online ? String.format("%.2f%%", ptero.cpu) : "0.00%") + "`\n" +
+                           "💾 **RAM Usage:** `" + (pteroEnabled && ptero != null && ptero.online ? String.format("%.2f GiB", (double) ptero.memoryBytes / (1024.0 * 1024.0 * 1024.0)) : "0.00 GiB") + "`")
         );
 
         // 1. Persistent Message update in PERSISTENT_CHANNEL_ID
@@ -313,6 +350,7 @@ public class ServerStatsService {
         double cpu = 0.0;
         long memoryBytes = 0L;
         long diskBytes = 0L;
+        long uptimeMs = 0L;
     }
 
     private static double extractJsonDouble(String json, String key) {
@@ -355,6 +393,7 @@ public class ServerStatsService {
                     stats.cpu = extractJsonDouble(json, "cpu_absolute");
                     stats.memoryBytes = extractJsonLong(json, "memory_bytes");
                     stats.diskBytes = extractJsonLong(json, "disk_bytes");
+                    stats.uptimeMs = extractJsonLong(json, "uptime");
                 }
             } else {
                 System.out.println("[ServerStatsService] Pterodactyl API responded with error code: " + respCode);
@@ -363,5 +402,52 @@ public class ServerStatsService {
             System.out.println("[ServerStatsService] Exception while querying Pterodactyl API: " + e.getMessage());
         }
         return stats;
+    }
+
+    private static long measureNetworkPing(String host, int port) {
+        long start = System.currentTimeMillis();
+        try (java.net.Socket socket = new java.net.Socket()) {
+            socket.connect(new java.net.InetSocketAddress(host, port), 2500);
+            return System.currentTimeMillis() - start;
+        } catch (Exception e) {
+            return -1;
+        }
+    }
+
+    private static MinecraftPing.StatusResponse queryWebApi(String host, int port) {
+        MinecraftPing.StatusResponse response = new MinecraftPing.StatusResponse();
+        try {
+            java.net.URL url = new java.net.URL("https://api.mcsrvstat.us/2/" + host + ":" + port);
+            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(4000);
+            conn.setReadTimeout(4000);
+            if (conn.getResponseCode() == 200) {
+                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                    java.lang.StringBuilder sb = new java.lang.StringBuilder();
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        sb.append(line);
+                    }
+                    String json = sb.toString();
+                    if (json.contains("\"online\":true")) {
+                        response.online = true;
+                        int playersIdx = json.indexOf("\"players\":");
+                        if (playersIdx != -1) {
+                            String playersPart = json.substring(playersIdx);
+                            response.onlinePlayers = extractJsonInt(playersPart, "online");
+                            response.maxPlayers = extractJsonInt(playersPart, "max");
+                        } else {
+                            response.onlinePlayers = 0;
+                            response.maxPlayers = 20;
+                        }
+                        response.ping = 50; // estimated ping
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("[ServerStatsService] Web API query failed: " + e.getMessage());
+        }
+        return response;
     }
 }
