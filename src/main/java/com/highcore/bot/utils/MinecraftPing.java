@@ -59,6 +59,7 @@ public class MinecraftPing {
             // Status Request Packet
             dataOut.writeByte(1); // Size of packet
             dataOut.writeByte(0x00); // Packet ID
+            dataOut.flush();
 
             // Read Response Length + Packet ID
             int size = readVarInt(dataIn);
@@ -108,28 +109,24 @@ public class MinecraftPing {
     }
 
     private static int extractJsonInt(String json, String key) {
-        String pattern = "\"" + key + "\":";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return 0;
-        idx += pattern.length();
-        int end = idx;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) {
-            end++;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)");
+        java.util.regex.Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(1));
+            } catch (Exception e) {
+                return 0;
+            }
         }
-        try {
-            return Integer.parseInt(json.substring(idx, end));
-        } catch (Exception e) {
-            return 0;
-        }
+        return 0;
     }
 
     private static String extractJsonString(String json, String key) {
-        String pattern = "\"" + key + "\":\"";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return "";
-        idx += pattern.length();
-        int end = json.indexOf("\"", idx);
-        if (end == -1) return "";
-        return json.substring(idx, end);
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*\"([^\"]*)\"");
+        java.util.regex.Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return "";
     }
 }

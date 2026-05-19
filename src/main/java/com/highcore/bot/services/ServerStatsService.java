@@ -186,12 +186,24 @@ public class ServerStatsService {
                            ", Players: " + response.onlinePlayers + "/" + response.maxPlayers + 
                            ", Ping: " + response.ping + "ms");
 
-        boolean isOnline = response.online || (pteroEnabled && ptero != null && ptero.online);
+        boolean isOnline = response.online;
+        if (pteroEnabled && ptero != null) {
+            if (!ptero.online) {
+                isOnline = false; // Pterodactyl is off, ignore cached pings
+            } else if (!response.online) {
+                isOnline = true; // Pterodactyl is on but pings failed
+            }
+        }
+        
         int currentPlayers = 0;
         if (isOnline) {
             currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
+            // If ping successfully found online players and it's higher, trust the ping!
+            if (response.onlinePlayers > currentPlayers) {
+                currentPlayers = response.onlinePlayers;
+            }
         }
-        int maxPlayers = response.online ? response.maxPlayers : 20;
+        int maxPlayers = response.maxPlayers > 0 ? response.maxPlayers : 20;
 
         // Establish real network handshake latency
         long networkPing = measureNetworkPing(host, port);
@@ -384,35 +396,29 @@ public class ServerStatsService {
     }
 
     private static int extractJsonInt(String json, String key) {
-        String pattern = "\"" + key + "\":";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return 0;
-        idx += pattern.length();
-        int end = idx;
-        while (end < json.length() && Character.isDigit(json.charAt(end))) {
-            end++;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)");
+        java.util.regex.Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(1));
+            } catch (Exception e) {
+                return 0;
+            }
         }
-        try {
-            return Integer.parseInt(json.substring(idx, end));
-        } catch (Exception e) {
-            return 0;
-        }
+        return 0;
     }
 
     private static long extractJsonLong(String json, String key) {
-        String pattern = "\"" + key + "\":";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return 0L;
-        idx += pattern.length();
-        int end = idx;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) {
-            end++;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)");
+        java.util.regex.Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            try {
+                return Long.parseLong(matcher.group(1));
+            } catch (Exception e) {
+                return 0L;
+            }
         }
-        try {
-            return Long.parseLong(json.substring(idx, end));
-        } catch (Exception e) {
-            return 0L;
-        }
+        return 0L;
     }
 
     private static class PterodactylStats {
@@ -424,19 +430,16 @@ public class ServerStatsService {
     }
 
     private static double extractJsonDouble(String json, String key) {
-        String pattern = "\"" + key + "\":";
-        int idx = json.indexOf(pattern);
-        if (idx == -1) return 0.0;
-        idx += pattern.length();
-        int end = idx;
-        while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.' || json.charAt(end) == '-')) {
-            end++;
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+(?:\\.\\d+)?)");
+        java.util.regex.Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            try {
+                return Double.parseDouble(matcher.group(1));
+            } catch (Exception e) {
+                return 0.0;
+            }
         }
-        try {
-            return Double.parseDouble(json.substring(idx, end));
-        } catch (Exception e) {
-            return 0.0;
-        }
+        return 0.0;
     }
 
     private static PterodactylStats fetchPterodactylStats(String url, String apiKey, String serverId) {
