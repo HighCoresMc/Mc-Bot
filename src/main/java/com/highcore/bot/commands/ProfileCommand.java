@@ -5,7 +5,8 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.interactions.components.buttons.Button;
+import net.dv8tion.jda.api.components.buttons.Button;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
 
 import java.awt.Color;
 import java.sql.Connection;
@@ -29,7 +30,7 @@ public class ProfileCommand extends ListenerAdapter {
             EmbedBuilder errorEmbed = new EmbedBuilder()
                     .setColor(Color.RED)
                     .setDescription("❌ لا يوجد حساب ماينكرافت مربوط بهذا الديسكورد!");
-            event.getHook().editOriginalEmbeds(errorEmbed.build()).queue();
+            event.getHook().editOriginalEmbeds(errorEmbed.build()).useComponentsV2(true).queue();
             return;
         }
         
@@ -46,7 +47,7 @@ public class ProfileCommand extends ListenerAdapter {
     }
 
     private Optional<String> getUuidFromDatabase(String discordId) {
-        String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
+        String query = "SELECT uuid FROM `discordsrv_accounts` WHERE discord = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, discordId);
@@ -67,7 +68,7 @@ public class ProfileCommand extends ListenerAdapter {
         boolean dataFound = false;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String query = "SELECT username, Balance, PlayTime, Rank FROM CMI_users WHERE player_uuid = ?";
+            String query = "SELECT username, Balance, TotalPlayTime, Rank FROM CMI_users WHERE player_uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuid);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -82,7 +83,7 @@ public class ProfileCommand extends ListenerAdapter {
                                 embed.addField("🌐 المعلومات العامة", "", false);
                                 String rank = rs.getString("Rank");
                                 embed.addField("الرتبة", rank != null ? rank : "لا توجد", true);
-                                embed.addField("وقت اللعب", (rs.getLong("PlayTime") / 60) + " دقيقة", true);
+                                embed.addField("وقت اللعب", (rs.getLong("TotalPlayTime") / 60) + " دقيقة", true);
                                 break;
                             case "surv":
                                 embed.addField("⚔️ إحصائيات السرفايفل", "", false);
@@ -113,11 +114,13 @@ public class ProfileCommand extends ListenerAdapter {
         }
 
         hook.editOriginalEmbeds(embed.build())
-                .setActionRow(
+                .setComponents(ActionRow.of(
                         Button.primary("prof_general_" + uuid, "🌐 General"),
                         Button.success("prof_surv_" + uuid, "⚔️ Survival"),
                         Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
                         Button.secondary("prof_side_" + uuid, "🌀 Side")
-                ).queue();
+                ))
+                .useComponentsV2(true)
+                .queue();
     }
 }
