@@ -198,10 +198,6 @@ public class ServerStatsService {
         int currentPlayers = 0;
         if (isOnline) {
             currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
-            // If ping successfully found online players and it's higher, trust the ping!
-            if (response.onlinePlayers > currentPlayers) {
-                currentPlayers = response.onlinePlayers;
-            }
         }
         int maxPlayers = response.maxPlayers > 0 ? response.maxPlayers : 20;
 
@@ -294,7 +290,7 @@ public class ServerStatsService {
                            "⏱️ **Uptime:** `" + uptimeStr + "`\n" +
                            "🔄 **Last Updated:** <t:" + (System.currentTimeMillis() / 1000) + ":R>"),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### ⚙️ System Resources (Pterodactyl)\n" +
+            TextDisplay.of("### ⚙️ System Resources\n" +
                            "🎛️ **CPU Load:** `" + (pteroEnabled && ptero != null && ptero.online ? String.format("%.2f%%", ptero.cpu) : "0.00%") + "`\n" +
                            "💾 **RAM Usage:** `" + (pteroEnabled && ptero != null && ptero.online ? String.format("%.2f GiB", (double) ptero.memoryBytes / (1024.0 * 1024.0 * 1024.0)) : "0.00 GiB") + "`")
         );
