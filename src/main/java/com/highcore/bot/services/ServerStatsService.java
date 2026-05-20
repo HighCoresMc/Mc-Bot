@@ -155,6 +155,14 @@ public class ServerStatsService {
 
         String javaIp = dotenv.get("MC_JAVA_IP", "134.255.255.130:25010");
         String bedrockIp = dotenv.get("MC_BEDROCK_IP", "134.255.255.130:25010");
+        
+        String[] javaParts = javaIp.split(":");
+        String javaHost = javaParts[0];
+        String javaPortStr = javaParts.length > 1 ? javaParts[1] : "25565";
+        
+        String[] bedrockParts = bedrockIp.split(":");
+        String bedrockHost = bedrockParts[0];
+        String bedrockPortStr = bedrockParts.length > 1 ? bedrockParts[1] : "19132";
 
         String pteroUrl = dotenv.get("PTERODACTYL_URL", "https://panel.highcores.com");
         String pteroKey = dotenv.get("PTERODACTYL_API_KEY");
@@ -281,8 +289,10 @@ public class ServerStatsService {
             TextDisplay.of("### 🏛️ Server Name\n`HighCore MC`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### 🖥️ Connection Addresses\n" +
-                           "**Java IP:** `" + javaIp + "`\n" +
-                           "**Bedrock IP:** `" + bedrockIp + "`"),
+                           "**Java IP:** `" + javaHost + "`\n" +
+                           "**Java Port:** `" + javaPortStr + "`\n\n" +
+                           "**Bedrock IP:** `" + bedrockHost + "`\n" +
+                           "**Bedrock Port:** `" + bedrockPortStr + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### 📊 Live Statistics\n" +
                            "👥 **Players Online:** `" + currentPlayers + " / " + maxPlayers + "`\n" +
@@ -335,19 +345,6 @@ public class ServerStatsService {
             }, error -> {
                 logger.error("Failed to fetch history from persistent status channel", error);
             });
-        }
-
-        // 2. Logging updates in LOG_CHANNEL_ID (sends a new message every update)
-        TextChannel logChannel = jda.getTextChannelById(LOG_CHANNEL_ID);
-        if (logChannel != null) {
-            MessageCreateData createData = new MessageCreateBuilder()
-                    .setComponents(container)
-                    .useComponentsV2(true)
-                    .build();
-            logChannel.sendMessage(createData).queue(
-                success -> logger.debug("Successfully logged server stats update to history channel."),
-                error -> logger.error("Failed to log status update to history channel", error)
-            );
         }
     }
 
