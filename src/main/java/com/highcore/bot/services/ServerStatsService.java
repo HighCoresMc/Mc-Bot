@@ -218,11 +218,6 @@ public class ServerStatsService {
 
         // Establish real network handshake latency
         long networkPing = measureNetworkPing(host, port);
-        if (response.online && response.ping > 0) {
-            if (networkPing == -1 || response.ping < networkPing) {
-                networkPing = response.ping;
-            }
-        }
 
         totalChecks++;
         if (isOnline) {
@@ -349,17 +344,26 @@ public class ServerStatsService {
     }
 
     private static int getTotalLogins() {
-        String query = "SELECT COUNT(*) FROM CMI_users";
+        int logins = 0;
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
-             PreparedStatement ps = conn.prepareStatement(query);
+             PreparedStatement ps = conn.prepareStatement("SELECT SUM(Logins) FROM CMI_users");
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) {
-                return rs.getInt(1);
+                logins = rs.getInt(1);
             }
         } catch (Exception e) {
-            logger.error("Error executing total logins query", e);
+            // Fallback to COUNT(*) if Logins column doesn't exist
+            try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM CMI_users");
+                 ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    logins = rs.getInt(1);
+                }
+            } catch (Exception ex) {
+                logger.error("Error executing total logins query", ex);
+            }
         }
-        return 0;
+        return logins;
     }
 
     private static void loadStatsData() {
