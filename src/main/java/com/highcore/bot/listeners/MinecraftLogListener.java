@@ -35,7 +35,7 @@ public class MinecraftLogListener extends ListenerAdapter {
             } else if (!event.getMessage().getEmbeds().isEmpty()) {
                 content = content + " " + extractEmbedText(event.getMessage().getEmbeds().get(0));
             }
-            handleLogMessage(content);
+            handleLogMessage(content, false);
         }
     }
 
@@ -54,7 +54,7 @@ public class MinecraftLogListener extends ListenerAdapter {
         return sb.toString().trim();
     }
 
-    public static void handleLogMessage(String content) {
+    public static void handleLogMessage(String content, boolean isInit) {
         if (content == null || content.trim().isEmpty()) return;
 
         // Strip markdown bold/italics markers to ensure raw string comparisons work
@@ -64,7 +64,7 @@ public class MinecraftLogListener extends ListenerAdapter {
         if (joinMatcher.find()) {
             String username = joinMatcher.group(1);
             onlinePlayers.add(username);
-            System.out.println("[MinecraftLogListener] Player JOINED: " + username + " (Current count: " + onlinePlayers.size() + ")");
+            if (!isInit) System.out.println("[MinecraftLogListener] Player JOINED: " + username + " (Current count: " + onlinePlayers.size() + ")");
             return;
         }
 
@@ -72,7 +72,7 @@ public class MinecraftLogListener extends ListenerAdapter {
         if (leaveMatcher.find()) {
             String username = leaveMatcher.group(1);
             onlinePlayers.remove(username);
-            System.out.println("[MinecraftLogListener] Player LEFT: " + username + " (Current count: " + onlinePlayers.size() + ")");
+            if (!isInit) System.out.println("[MinecraftLogListener] Player LEFT: " + username + " (Current count: " + onlinePlayers.size() + ")");
         }
     }
 
@@ -97,7 +97,7 @@ public class MinecraftLogListener extends ListenerAdapter {
                     } else if (!msg.getEmbeds().isEmpty()) {
                         content = content + " " + extractEmbedText(msg.getEmbeds().get(0));
                     }
-                    handleLogMessage(content);
+                    handleLogMessage(content, true);
                 }
                 System.out.println("[MinecraftLogListener] Reconstructed set: " + onlinePlayers + " (" + onlinePlayers.size() + " online)");
             });
