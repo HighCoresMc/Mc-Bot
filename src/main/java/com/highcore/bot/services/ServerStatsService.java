@@ -196,7 +196,7 @@ public class ServerStatsService {
                            ", Ping: " + response.ping + "ms");
 
         boolean isOnline = response.online;
-        if (pteroEnabled && ptero != null) {
+        if (pteroEnabled && ptero != null && ptero.apiSuccess) {
             if (!ptero.online) {
                 isOnline = false; // Pterodactyl is off, ignore cached pings
             } else if (!response.online) {
@@ -243,7 +243,7 @@ public class ServerStatsService {
         double availability = totalChecks > 0 ? ((double) successfulChecks * 100.0 / totalChecks) : 100.0;
 
         String uptimeStr = "0s";
-        if (pteroEnabled && ptero != null && ptero.online && ptero.uptimeMs > 0) {
+        if (pteroEnabled && ptero != null && ptero.apiSuccess && ptero.online && ptero.uptimeMs > 0) {
             long secs = ptero.uptimeMs / 1000;
             long days = secs / 86400;
             long hours = (secs % 86400) / 3600;
@@ -421,6 +421,7 @@ public class ServerStatsService {
     }
 
     private static class PterodactylStats {
+        boolean apiSuccess = false;
         boolean online = false;
         double cpu = 0.0;
         long memoryBytes = 0L;
@@ -461,6 +462,7 @@ public class ServerStatsService {
                         sb.append(line);
                     }
                     String json = sb.toString();
+                    stats.apiSuccess = true;
                     stats.online = json.contains("\"current_state\":\"running\"") || json.contains("\"current_state\":\"starting\"");
                     stats.cpu = extractJsonDouble(json, "cpu_absolute");
                     stats.memoryBytes = extractJsonLong(json, "memory_bytes");
@@ -547,9 +549,8 @@ public class ServerStatsService {
                             response.maxPlayers = extractJsonInt(playersPart, "max");
                         } else {
                             response.onlinePlayers = 0;
-                            response.maxPlayers = 20;
+                            response.maxPlayers = 50;
                         }
-                        response.ping = 50;
                     }
                 }
             }
