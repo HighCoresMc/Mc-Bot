@@ -210,8 +210,10 @@ public class ServerStatsService {
 
         // Establish real network handshake latency
         long networkPing = measureNetworkPing(host, port);
-        if (networkPing == -1 && response.online) {
-            networkPing = response.ping;
+        if (response.online && response.ping > 0) {
+            if (networkPing == -1 || response.ping < networkPing) {
+                networkPing = response.ping;
+            }
         }
 
         totalChecks++;
@@ -295,11 +297,7 @@ public class ServerStatsService {
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### ⏱️ Server Uptime\n" +
                            "⏱️ **Uptime:** `" + uptimeStr + "`\n" +
-                           "🔄 **Last Updated:** <t:" + (System.currentTimeMillis() / 1000) + ":R>"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### ⚙️ System Resources\n" +
-                           "🎛️ **CPU Load:** `" + (pteroEnabled && ptero != null && ptero.online ? String.format("%.2f%%", ptero.cpu) : "0.00%") + "`\n" +
-                           "💾 **RAM Usage:** `" + (pteroEnabled && ptero != null && ptero.online ? String.format("%.2f GiB", (double) ptero.memoryBytes / (1024.0 * 1024.0 * 1024.0)) : "0.00 GiB") + "`")
+                           "🔄 **Last Updated:** <t:" + (System.currentTimeMillis() / 1000) + ":R>")
         );
 
         // 1. Persistent Message update in PERSISTENT_CHANNEL_ID
