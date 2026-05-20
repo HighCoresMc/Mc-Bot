@@ -39,6 +39,7 @@ public class ServerStatsService {
     private static long totalChecks = 0;
     private static long successfulChecks = 0;
     private static long onlineSince = -1;
+    private static int lastMaxPlayers = 0;
 
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
@@ -198,8 +199,14 @@ public class ServerStatsService {
         int currentPlayers = 0;
         if (isOnline) {
             currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
+            if (response.maxPlayers > 0 && response.maxPlayers != 20 && response.maxPlayers != 50 || response.maxPlayers > 50) {
+                // Heuristic: Update if we get a realistic number
+                lastMaxPlayers = response.maxPlayers;
+            } else if (response.maxPlayers > 0) {
+                 lastMaxPlayers = response.maxPlayers;
+            }
         }
-        int maxPlayers = response.maxPlayers > 0 ? response.maxPlayers : 20;
+        int maxPlayers = lastMaxPlayers > 0 ? lastMaxPlayers : (response.maxPlayers > 0 ? response.maxPlayers : 0);
 
         // Establish real network handshake latency
         long networkPing = measureNetworkPing(host, port);
@@ -374,6 +381,7 @@ public class ServerStatsService {
             totalChecks = extractJsonLong(content, "totalChecks");
             successfulChecks = extractJsonLong(content, "successfulChecks");
             onlineSince = extractJsonLong(content, "onlineSince");
+            lastMaxPlayers = extractJsonInt(content, "lastMaxPlayers");
         } catch (Exception e) {
             logger.error("Error loading persistent stats data", e);
         }
@@ -382,8 +390,8 @@ public class ServerStatsService {
     private static void saveStatsData() {
         try (FileWriter writer = new FileWriter(DATA_FILE)) {
             String json = String.format(
-                "{\"peakPlayers\":%d,\"totalChecks\":%d,\"successfulChecks\":%d,\"onlineSince\":%d}",
-                peakPlayers, totalChecks, successfulChecks, onlineSince
+                "{\"peakPlayers\":%d,\"totalChecks\":%d,\"successfulChecks\":%d,\"onlineSince\":%d,\"lastMaxPlayers\":%d}",
+                peakPlayers, totalChecks, successfulChecks, onlineSince, lastMaxPlayers
             );
             writer.write(json);
         } catch (Exception e) {
