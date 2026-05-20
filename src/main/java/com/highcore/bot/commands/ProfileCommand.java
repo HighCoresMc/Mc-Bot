@@ -72,7 +72,7 @@ public class ProfileCommand extends ListenerAdapter {
         boolean dataFound = false;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String query = "SELECT username, Balance, TotalPlayTime, `Rank` FROM CMI_users WHERE player_uuid = ?";
+            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuid);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -85,17 +85,33 @@ public class ProfileCommand extends ListenerAdapter {
                         switch (type) {
                             case "general": {
                                 String rank = rs.getString("Rank");
-                                long playtimeSeconds = rs.getLong("TotalPlayTime");
-                                long hours = playtimeSeconds / 3600;
+                                long playtimeMs = rs.getLong("TotalPlayTime");
+                                long lastLogin = rs.getLong("LastLoginTime");
+                                long lastLogoff = rs.getLong("LastLogoffTime");
+                                
+                                if (lastLogin > lastLogoff) {
+                                    long sessionMs = System.currentTimeMillis() - lastLogin;
+                                    if (sessionMs > 0) {
+                                        playtimeMs += sessionMs;
+                                    }
+                                }
+
+                                long playtimeSeconds = playtimeMs / 1000;
+                                long days = playtimeSeconds / 86400;
+                                long hours = (playtimeSeconds % 86400) / 3600;
                                 long minutes = (playtimeSeconds % 3600) / 60;
-                                String playtimeStr = hours > 0 ? (hours + " ساعة و " + minutes + " دقيقة") : (minutes + " دقيقة");
+                                
+                                StringBuilder timeStr = new StringBuilder();
+                                if (days > 0) timeStr.append(days).append(" يوم و ");
+                                if (hours > 0) timeStr.append(hours).append(" ساعة و ");
+                                timeStr.append(minutes).append(" دقيقة");
 
                                 container = Container.of(
                                     Section.of(
                                         avatar,
                                         TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
                                         TextDisplay.of("### 🌐 المعلومات العامة"),
-                                        TextDisplay.of("**الرتبة:** " + (rank != null && !rank.isEmpty() ? rank : "لا توجد") + "\n**وقت اللعب:** " + playtimeStr)
+                                        TextDisplay.of("**الرتبة:** " + (rank != null && !rank.isEmpty() ? rank : "لا توجد") + "\n**وقت اللعب:** " + timeStr.toString())
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
