@@ -52,6 +52,7 @@ public class ProfileCommand extends ListenerAdapter {
     }
 
     private Optional<String> getUuidFromDatabase(String discordId) {
+        // Section: UUID Lookup
         String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
@@ -59,6 +60,7 @@ public class ProfileCommand extends ListenerAdapter {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String uuid = rs.getString("uuid");
+                    System.out.println("[ProfileCommand] Raw UUID from discordsrv__accounts: '" + uuid + "' (len=" + (uuid != null ? uuid.length() : 0) + ")");
                     if (uuid != null) {
                         uuid = uuid.trim().toLowerCase();
                         if (uuid.length() == 32 && !uuid.contains("-")) {
@@ -68,10 +70,14 @@ public class ProfileCommand extends ListenerAdapter {
                             );
                         }
                     }
+                    System.out.println("[ProfileCommand] Normalized UUID: '" + uuid + "'");
                     return Optional.ofNullable(uuid);
+                } else {
+                    System.out.println("[ProfileCommand] No row found in discordsrv__accounts for discord_id=" + discordId);
                 }
             }
         } catch (Exception e) {
+            System.out.println("[ProfileCommand] Exception in getUuidFromDatabase: " + e.getMessage());
             e.printStackTrace();
         }
         return Optional.empty();
@@ -88,6 +94,16 @@ public class ProfileCommand extends ListenerAdapter {
             }
             String uuidNoDash = uuidDash.replace("-", "");
 
+            // Section: CMI UUID Debug
+            try (PreparedStatement dbg = conn.prepareStatement("SELECT player_uuid FROM CMI_users LIMIT 3");
+                 ResultSet dbgRs = dbg.executeQuery()) {
+                System.out.println("[ProfileCommand] Sample CMI player_uuids:");
+                while (dbgRs.next()) {
+                    System.out.println("  -> '" + dbgRs.getString(1) + "'");
+                }
+            } catch (Exception ignored) {}
+
+            System.out.println("[ProfileCommand] Querying CMI_users with uuidDash='" + uuidDash + "' uuidNoDash='" + uuidNoDash + "'");
             String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuidDash);
