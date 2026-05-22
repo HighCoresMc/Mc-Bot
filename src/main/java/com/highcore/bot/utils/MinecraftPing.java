@@ -80,9 +80,10 @@ public class MinecraftPing {
                 }
                 
                 response.motd = extractJsonString(json, "text");
+                return response;
             }
         } catch (Exception e) {
-            System.out.println("[MinecraftPing] TCP Ping raw error: " + e.toString());
+            // TCP Fail -> Fallback to Web API will be used by the caller service
             response.online = false;
         }
         return response;
