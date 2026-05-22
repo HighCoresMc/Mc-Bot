@@ -31,37 +31,33 @@ public class MinecraftPing {
 
     private static StatusResponse pingRaw(String host, int port, int timeout) {
         StatusResponse response = new StatusResponse();
-        long start = System.currentTimeMillis();
+        long start = System.nanoTime();
         try (Socket socket = new Socket()) {
             socket.setSoTimeout(timeout);
             socket.connect(new InetSocketAddress(host, port), timeout);
-            response.ping = System.currentTimeMillis() - start;
+            response.ping = (System.nanoTime() - start) / 1_000_000;
 
             InputStream in = socket.getInputStream();
             OutputStream out = socket.getOutputStream();
             DataInputStream dataIn = new DataInputStream(in);
             DataOutputStream dataOut = new DataOutputStream(out);
 
-            // Handshake Packet
             ByteArrayOutputStream handshakeBytes = new ByteArrayOutputStream();
             DataOutputStream handshakeOut = new DataOutputStream(handshakeBytes);
             
-            writeVarInt(0x00, handshakeOut); // Packet ID
-            writeVarInt(767, handshakeOut); // Protocol version (767 is 1.21)
+            writeVarInt(0x00, handshakeOut);
+            writeVarInt(767, handshakeOut);
             writeString(host, handshakeOut);
             handshakeOut.writeShort(port);
-            writeVarInt(1, handshakeOut); // Next state: status
+            writeVarInt(1, handshakeOut);
 
-            // Write Handshake Packet Length + Bytes
             writeVarInt(handshakeBytes.size(), dataOut);
             dataOut.write(handshakeBytes.toByteArray());
 
-            // Status Request Packet
-            dataOut.writeByte(1); // Size of packet
-            dataOut.writeByte(0x00); // Packet ID
+            dataOut.writeByte(1);
+            dataOut.writeByte(0x00);
             dataOut.flush();
 
-            // Read Response Length + Packet ID
             int size = readVarInt(dataIn);
             int id = readVarInt(dataIn);
             if (id == 0x00) {
