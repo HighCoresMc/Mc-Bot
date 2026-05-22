@@ -32,10 +32,14 @@ public class ProfileCommand extends ListenerAdapter {
 
         Optional<String> uuidOpt = getUuidFromDatabase(targetUser.getId());
         if (uuidOpt.isEmpty()) {
-            EmbedBuilder errorEmbed = new EmbedBuilder()
-                    .setColor(Color.RED)
-                    .setDescription("❌ لا يوجد حساب ماينكرافت مربوط بهذا الديسكورد!");
-            event.getHook().editOriginalEmbeds(errorEmbed.build()).queue();
+            Container errorContainer = Container.of(
+                TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب"),
+                TextDisplay.of("حساب الديسكورد هذا غير مربوط بحساب ماينكرافت داخل قاعدة البيانات.")
+            );
+            event.getHook().editOriginalComponents(errorContainer)
+                .setEmbeds(java.util.Collections.emptyList())
+                .useComponentsV2(true)
+                .queue();
             return;
         }
         
