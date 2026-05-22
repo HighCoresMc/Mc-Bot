@@ -49,6 +49,23 @@ public class LeonTrotskyBot {
             logger.error("Failed to connect to MySQL database!", e);
         }
 
+        String cmiHost = dotenv.get("CMI_DB_HOST", "");
+        if (!cmiHost.isEmpty()) {
+            try {
+                dbManager.setupCmiPool(
+                    cmiHost,
+                    dotenv.get("CMI_DB_PORT", "3306"),
+                    dotenv.get("CMI_DB_NAME", "minecraft"),
+                    dotenv.get("CMI_DB_USER", "root"),
+                    dotenv.get("CMI_DB_PASS", "")
+                );
+            } catch (Exception e) {
+                logger.error("Failed to connect to CMI MySQL database!", e);
+            }
+        } else {
+            logger.warn("CMI_DB_HOST not set. Profile command will not work.");
+        }
+
         // Initialize JDA
         try {
             jda = JDABuilder.createDefault(token)
