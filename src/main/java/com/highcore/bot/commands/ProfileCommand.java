@@ -39,7 +39,7 @@ public class ProfileCommand extends ListenerAdapter {
             return;
         }
         
-        sendProfileEmbed(event.getHook(), uuidOpt.get(), targetUser.getId(), "general");
+        sendProfileEmbed(event.getHook(), uuidOpt.get(), targetUser.getId(), targetUser.getName(), "general");
     }
 
     @Override
@@ -50,7 +50,8 @@ public class ProfileCommand extends ListenerAdapter {
         event.deferEdit().queue();
         
         String discordId = parts.length > 3 ? parts[3] : "";
-        sendProfileEmbed(event.getHook(), parts[2], discordId, parts[1]);
+        String effName = parts.length > 4 ? parts[4] : "";
+        sendProfileEmbed(event.getHook(), parts[2], discordId, effName, parts[1]);
     }
 
     private Optional<String> getUuidFromDatabase(String discordId) {
@@ -79,7 +80,7 @@ public class ProfileCommand extends ListenerAdapter {
         return Optional.empty();
     }
 
-    private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String discordId, String type) {
+    private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String discordId, String discordName, String type) {
         String mcName = "Unknown";
         boolean dataFound = false;
 
@@ -103,11 +104,16 @@ public class ProfileCommand extends ListenerAdapter {
                 } catch (Exception ignored) {}
             }
 
-            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ?";
+            if (backupUsername == null) {
+                backupUsername = discordName;
+            }
+
+            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuidDash);
                 ps.setString(2, uuidNoDash);
-                ps.setString(3, backupUsername != null ? backupUsername : "");
+                ps.setString(3, backupUsername);
+                ps.setString(4, discordName);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         dataFound = true;
@@ -148,10 +154,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
                                     )
                                 );
                                 break;
@@ -179,10 +185,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
                                     )
                                 );
                                 break;
@@ -197,10 +203,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
                                     )
                                 );
                                 break;
@@ -215,10 +221,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
                                     )
                                 );
                                 break;
