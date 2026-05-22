@@ -39,7 +39,7 @@ public class ProfileCommand extends ListenerAdapter {
             return;
         }
         
-        sendProfileEmbed(event.getHook(), uuidOpt.get(), "general");
+        sendProfileEmbed(event.getHook(), uuidOpt.get(), targetUser.getId(), "general");
     }
 
     @Override
@@ -48,7 +48,9 @@ public class ProfileCommand extends ListenerAdapter {
         if (!id.startsWith("prof_")) return;
         String[] parts = id.split("_");
         event.deferEdit().queue();
-        sendProfileEmbed(event.getHook(), parts[2], parts[1]);
+        
+        String discordId = parts.length > 3 ? parts[3] : "";
+        sendProfileEmbed(event.getHook(), parts[2], discordId, parts[1]);
     }
 
     private Optional<String> getUuidFromDatabase(String discordId) {
@@ -59,7 +61,6 @@ public class ProfileCommand extends ListenerAdapter {
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String uuid = rs.getString("uuid");
-                    System.out.println("[ProfileCommand] Raw UUID from discordsrv__accounts: '" + uuid + "' (len=" + (uuid != null ? uuid.length() : 0) + ")");
                     if (uuid != null) {
                         uuid = uuid.trim().toLowerCase();
                         if (uuid.length() == 32 && !uuid.contains("-")) {
@@ -69,20 +70,16 @@ public class ProfileCommand extends ListenerAdapter {
                             );
                         }
                     }
-                    System.out.println("[ProfileCommand] Normalized UUID: '" + uuid + "'");
                     return Optional.ofNullable(uuid);
-                } else {
-                    System.out.println("[ProfileCommand] No row found in discordsrv__accounts for discord_id=" + discordId);
                 }
             }
         } catch (Exception e) {
-            System.out.println("[ProfileCommand] Exception in getUuidFromDatabase: " + e.getMessage());
             e.printStackTrace();
         }
         return Optional.empty();
     }
 
-    private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String type) {
+    private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String discordId, String type) {
         String mcName = "Unknown";
         boolean dataFound = false;
 
@@ -93,27 +90,19 @@ public class ProfileCommand extends ListenerAdapter {
             }
             String uuidNoDash = uuidDash.replace("-", "");
 
-            try (PreparedStatement dbg = conn.prepareStatement("SELECT player_uuid FROM CMI_users LIMIT 3");
-                 ResultSet dbgRs = dbg.executeQuery()) {
-                System.out.println("[ProfileCommand] Sample CMI player_uuids:");
-                while (dbgRs.next()) {
-                    System.out.println("  -> '" + dbgRs.getString(1) + "'");
-                }
-            } catch (Exception ignored) {}
-
             String backupUsername = null;
-            String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE uuid = ? OR uuid = ?";
-            try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
-                psName.setString(1, uuidDash);
-                psName.setString(2, uuidNoDash);
-                try (ResultSet rsName = psName.executeQuery()) {
-                    if (rsName.next()) {
-                        backupUsername = rsName.getString("username");
+            if (discordId != null && !discordId.isEmpty()) {
+                String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE discord = ?";
+                try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
+                    psName.setString(1, discordId);
+                    try (ResultSet rsName = psName.executeQuery()) {
+                        if (rsName.next()) {
+                            backupUsername = rsName.getString("username");
+                        }
                     }
-                }
-            } catch (Exception ignored) {}
+                } catch (Exception ignored) {}
+            }
 
-            System.out.println("[ProfileCommand] Querying CMI_users with UUIDs or Username: " + backupUsername);
             String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuidDash);
@@ -159,10 +148,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
                                     )
                                 );
                                 break;
@@ -170,9 +159,10 @@ public class ProfileCommand extends ListenerAdapter {
                             case "surv": {
                                 double balance = rs.getDouble("Balance");
                                 int tokens = 0;
-                                String ppQuery = "SELECT points FROM playerpoints WHERE uuid = ?";
+                                String ppQuery = "SELECT points FROM playerpoints WHERE uuid = ? OR uuid = ?";
                                 try (PreparedStatement psPP = conn.prepareStatement(ppQuery)) {
-                                    psPP.setString(1, uuid);
+                                    psPP.setString(1, uuidDash);
+                                    psPP.setString(2, uuidNoDash);
                                     try (ResultSet rsPP = psPP.executeQuery()) {
                                         if (rsPP.next()) {
                                             tokens = rsPP.getInt("points");
@@ -189,10 +179,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
                                     )
                                 );
                                 break;
@@ -207,10 +197,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
                                     )
                                 );
                                 break;
@@ -225,10 +215,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
-                                        Button.primary("prof_general_" + uuid, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid, "🌀 Side")
+                                        Button.primary("prof_general_" + uuid + "_" + discordId, "🌐 General"),
+                                        Button.success("prof_surv_" + uuid + "_" + discordId, "⚔️ Survival"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId, "🔫 PvP"),
+                                        Button.secondary("prof_side_" + uuid + "_" + discordId, "🌀 Side")
                                     )
                                 );
                                 break;
@@ -248,7 +238,7 @@ public class ProfileCommand extends ListenerAdapter {
             if (!dataFound) {
                 Container errorContainer = Container.of(
                     TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب"),
-                    TextDisplay.of("لم يتم العثور على بيانات اللاعب داخل CMI.")
+                    TextDisplay.of("لم يتم العثور على بيانات اللاعب داخل CMI بالـ UUID أو باسم الحساب المربوط.")
                 );
                 hook.editOriginalComponents(errorContainer)
                     .setEmbeds(java.util.Collections.emptyList())
