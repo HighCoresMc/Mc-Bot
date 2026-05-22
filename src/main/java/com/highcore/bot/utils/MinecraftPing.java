@@ -19,8 +19,7 @@ public class MinecraftPing {
         StatusResponse response = new StatusResponse();
         long start = System.nanoTime();
         try {
-
-            String apiUrl = "http://api-mcstatus.railway.internal:8080/status/java/" + host + ":" + port;
+            String apiUrl = "https://api.mcstatus.io/v2/status/java/" + host + ":" + port;
             URL url = new URL(apiUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("GET");
@@ -42,11 +41,27 @@ public class MinecraftPing {
                 response.online = extractJsonBool(json, "online");
                 
                 if (response.online) {
-                    response.onlinePlayers = extractJsonInt(json, "online");
-                    response.maxPlayers = extractJsonInt(json, "max");
-                    response.motd = extractJsonString(json, "clean");
+                    int playersIdx = json.indexOf("\"players\"");
+                    if (playersIdx != -1) {
+                        String playersPart = json.substring(playersIdx);
+                        response.onlinePlayers = extractJsonInt(playersPart, "online");
+                        response.maxPlayers = extractJsonInt(playersPart, "max");
+                    } else {
+                        response.onlinePlayers = extractJsonInt(json, "online");
+                        response.maxPlayers = extractJsonInt(json, "max");
+                    }
+
+                    int motdIdx = json.indexOf("\"motd\"");
+                    if (motdIdx != -1) {
+                        String motdPart = json.substring(motdIdx);
+                        response.motd = extractJsonString(motdPart, "clean");
+                        if (response.motd.isEmpty()) {
+                            response.motd = extractJsonString(motdPart, "raw");
+                        }
+                    }
+                    
                     if (response.motd.isEmpty()) {
-                        response.motd = extractJsonString(json, "raw");
+                        response.motd = extractJsonString(json, "clean");
                     }
                 }
             } else {
