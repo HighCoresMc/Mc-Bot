@@ -84,7 +84,7 @@ public class ServerStatsService {
     private static boolean columnsLogged = false;
 
     private static void logCmiColumns() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement("DESCRIBE CMI_users");
              java.sql.ResultSet rs = ps.executeQuery()) {
             System.out.print("[ServerStatsService] CMI_users columns: ");
@@ -98,7 +98,7 @@ public class ServerStatsService {
     }
 
     private static void logAllTables() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
              java.sql.ResultSet rs = conn.getMetaData().getTables(null, null, "%", null)) {
             System.out.print("[ServerStatsService] All database tables: ");
             while (rs.next()) {
@@ -111,7 +111,7 @@ public class ServerStatsService {
     }
 
     private static void logPlayerTimes() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(
                  "SELECT username, LastLoginTime, LastLogoffTime FROM CMI_users WHERE username = ?"
              )) {
@@ -129,7 +129,7 @@ public class ServerStatsService {
     }
 
     private static int getDbOnlinePlayers() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
              java.sql.PreparedStatement ps = conn.prepareStatement(
                  "SELECT COUNT(*) FROM CMI_users WHERE LastLoginTime > LastLogoffTime"
              );
@@ -204,9 +204,10 @@ public class ServerStatsService {
         
         int currentPlayers = 0;
         int maxPlayers = 0;
-        if (isOnline && response.online) {
-            currentPlayers = response.onlinePlayers;
-            maxPlayers = response.maxPlayers;
+        if (isOnline) {
+            int dbPlayers = getDbOnlinePlayers();
+            currentPlayers = (dbPlayers >= 0) ? dbPlayers : (response.online ? response.onlinePlayers : 0);
+            maxPlayers = response.online ? response.maxPlayers : 100;
             if (maxPlayers > 0) {
                 lastMaxPlayers = maxPlayers;
             }
@@ -340,7 +341,7 @@ public class ServerStatsService {
 
     private static int getTotalLogins() {
         int logins = 0;
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM CMI_users");
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) {
@@ -493,9 +494,17 @@ public class ServerStatsService {
                             response.maxPlayers = extractJsonInt(playersPart, "max");
                         } else {
                             response.onlinePlayers = 0;
-                            response.maxPlayers = 20;
+                            response.maxPlayers = 100;
                         }
-                        response.ping = extractJsonLong(json, "latency");
+                        
+                        int latencyIdx = json.indexOf("\"latency\":");
+                        if (latencyIdx != -1) {
+                            response.ping = extractJsonLong(json.substring(latencyIdx), "latency");
+                        } else {
+                            response.ping = extractJsonLong(json, "latency");
+                        }
+                        if (response.ping <= 0) response.ping = 15;
+                        
                         return response;
                     }
                 }
@@ -527,7 +536,7 @@ public class ServerStatsService {
                             response.maxPlayers = extractJsonInt(playersPart, "max");
                         } else {
                             response.onlinePlayers = 0;
-                            response.maxPlayers = 50;
+                            response.maxPlayers = 100;
                         }
                         int debugIdx = json.indexOf("\"debug\":");
                         if (debugIdx != -1) {
