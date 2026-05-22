@@ -58,7 +58,17 @@ public class ProfileCommand extends ListenerAdapter {
             ps.setString(1, discordId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return Optional.ofNullable(rs.getString("uuid"));
+                    String uuid = rs.getString("uuid");
+                    if (uuid != null) {
+                        uuid = uuid.trim().toLowerCase();
+                        if (uuid.length() == 32 && !uuid.contains("-")) {
+                            uuid = uuid.replaceFirst(
+                                "(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})",
+                                "$1-$2-$3-$4-$5"
+                            );
+                        }
+                    }
+                    return Optional.ofNullable(uuid);
                 }
             }
         } catch (Exception e) {
@@ -72,9 +82,16 @@ public class ProfileCommand extends ListenerAdapter {
         boolean dataFound = false;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ?";
+            String uuidDash = uuid.trim().toLowerCase();
+            if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
+                uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
+            }
+            String uuidNoDash = uuidDash.replace("-", "");
+
+            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
-                ps.setString(1, uuid);
+                ps.setString(1, uuidDash);
+                ps.setString(2, uuidNoDash);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         dataFound = true;
