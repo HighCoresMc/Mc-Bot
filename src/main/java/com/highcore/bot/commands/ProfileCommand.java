@@ -111,6 +111,7 @@ public class ProfileCommand extends ListenerAdapter {
             if (backupUsername == null) {
                 backupUsername = discordName;
             }
+            mcName = backupUsername;
 
             String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
@@ -153,14 +154,14 @@ public class ProfileCommand extends ListenerAdapter {
                                     Section.of(
                                         avatar,
                                         TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
-                                        TextDisplay.of("### 🌐 المعلومات العامة"),
+                                        TextDisplay.of("### 🌐 Information"),
                                         TextDisplay.of("**الرتبة:** " + (rank != null && !rank.isEmpty() ? rank : "لا توجد") + "\n**وقت اللعب:** " + timeStr.toString())
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
                                         Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
                                         Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + uuid + "_" + backupUsername, "🔫 PvP"),
                                         Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
                                     )
                                 );
@@ -246,9 +247,21 @@ public class ProfileCommand extends ListenerAdapter {
             }
             
             if (!dataFound) {
+                Thumbnail avatar = Thumbnail.fromUrl("https://mc-heads.net/avatar/" + uuid + "/128");
                 Container errorContainer = Container.of(
-                    TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب"),
-                    TextDisplay.of("لم يتم العثور على بيانات اللاعب داخل CMI بالـ UUID أو باسم الحساب المربوط.")
+                    Section.of(
+                        avatar,
+                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
+                        TextDisplay.of("### ❌ لم يتم العثور على بيانات كافية"),
+                        TextDisplay.of("الحساب مربوط بنجاح بالديسكورد، ولكن لم يتم تسجيل بيانات له داخل CMI بعد.\nيرجى دخول السيرفر لتوليد ملف اللاعب بالكامل.")
+                    ),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    ActionRow.of(
+                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General").withDisabled(true),
+                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival").withDisabled(true),
+                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP").withDisabled(true),
+                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side").withDisabled(true)
+                    )
                 );
                 hook.editOriginalComponents(errorContainer)
                     .setEmbeds(java.util.Collections.emptyList())
