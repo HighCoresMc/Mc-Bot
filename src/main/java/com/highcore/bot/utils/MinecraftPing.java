@@ -41,6 +41,7 @@ public class MinecraftPing {
                 response.online = extractJsonBool(json, "online");
                 
                 if (response.online) {
+                    
                     int playersIdx = json.indexOf("\"players\"");
                     if (playersIdx != -1) {
                         String playersPart = json.substring(playersIdx);
@@ -63,10 +64,6 @@ public class MinecraftPing {
                     if (response.motd.isEmpty()) {
                         response.motd = extractJsonString(json, "clean");
                     }
-                    
-                    if (response.maxPlayers <= 20) {
-                        response.maxPlayers = 100;
-                    }
                 }
             } else {
                 response.online = false;
@@ -87,6 +84,7 @@ public class MinecraftPing {
     }
 
     private static int extractJsonInt(String json, String key) {
+        
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)");
         java.util.regex.Matcher matcher = pattern.matcher(json);
         if (matcher.find()) {
