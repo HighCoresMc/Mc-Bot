@@ -1,108 +1,45 @@
 package com.highcore.bot.utils;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.io.*;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.*;
 
 public class MinecraftPing {
     public static class StatusResponse {
         public boolean online;
-        public String motd = "";
-        public int onlinePlayers = 0;
-        public int maxPlayers = 0;
+        public String motd = "", raw = "";
+        public int onlinePlayers, maxPlayers;
         public long ping = -1;
     }
 
     public static StatusResponse ping(String host, int port, int timeout) {
-        StatusResponse response = new StatusResponse();
+        StatusResponse r = new StatusResponse();
         long start = System.nanoTime();
         try {
-            String apiUrl = "https://api.mcstatus.io/v2/status/java/" + host + ":" + port;
-            URL url = new URL(apiUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
+            HttpURLConnection conn = (HttpURLConnection) new URL("https://api.mcstatus.io/v2/status/java/" + host + ":" + port).openConnection();
             conn.setConnectTimeout(timeout);
             conn.setReadTimeout(timeout);
-
-            response.ping = (System.nanoTime() - start) / 1_000_000;
-
+            
             if (conn.getResponseCode() == 200) {
-                BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
-                StringBuilder result = new StringBuilder();
-                String line;
-                while ((line = rd.readLine()) != null) {
-                    result.append(line);
+                BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                StringBuilder sb = new StringBuilder();
+                String line; while ((line = br.readLine()) != null) sb.append(line);
+                String json = sb.toString();
+                r.ping = (System.nanoTime() - start) / 1_000_000;
+                r.online = getMatch(json, "\"online\":\\s*(true|false)").equals("true");
+                if (r.online) {
+                    r.onlinePlayers = Integer.parseInt(getMatch(json, "\"online\":\\s*(-?\\d+)"));
+                    r.maxPlayers = Integer.parseInt(getMatch(json, "\"max\":\\s*(-?\\d+)"));
+                    r.motd = getMatch(json, "\"clean\":\\s*\"([^\"]*)\"");
                 }
-                rd.close();
-
-                String json = result.toString();
-                response.online = extractJsonBool(json, "online");
-                
-                if (response.online) {
-                    
-                    int playersIdx = json.indexOf("\"players\"");
-                    if (playersIdx != -1) {
-                        String playersPart = json.substring(playersIdx);
-                        response.onlinePlayers = extractJsonInt(playersPart, "online");
-                        response.maxPlayers = extractJsonInt(playersPart, "max");
-                    } else {
-                        response.onlinePlayers = extractJsonInt(json, "online");
-                        response.maxPlayers = extractJsonInt(json, "max");
-                    }
-
-                    int motdIdx = json.indexOf("\"motd\"");
-                    if (motdIdx != -1) {
-                        String motdPart = json.substring(motdIdx);
-                        response.motd = extractJsonString(motdPart, "clean");
-                        if (response.motd.isEmpty()) {
-                            response.motd = extractJsonString(motdPart, "raw");
-                        }
-                    }
-                    
-                    if (response.motd.isEmpty()) {
-                        response.motd = extractJsonString(json, "clean");
-                    }
-                }
-            } else {
-                response.online = false;
             }
-        } catch (Exception e) {
-            response.online = false;
-        }
-        return response;
+        } catch (Exception e) { r.online = false; }
+        return r;
     }
 
-    private static boolean extractJsonBool(String json, String key) {
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(true|false)");
-        java.util.regex.Matcher matcher = pattern.matcher(json);
-        if (matcher.find()) {
-            return Boolean.parseBoolean(matcher.group(1));
-        }
-        return false;
-    }
-
-    private static int extractJsonInt(String json, String key) {
-        
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(-?\\d+)");
-        java.util.regex.Matcher matcher = pattern.matcher(json);
-        if (matcher.find()) {
-            try {
-                return Integer.parseInt(matcher.group(1));
-            } catch (Exception e) {
-                return 0;
-            }
-        }
-        return 0;
-    }
-
-    private static String extractJsonString(String json, String key) {
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*\"([^\"]*)\"");
-        java.util.regex.Matcher matcher = pattern.matcher(json);
-        if (matcher.find()) {
-            return matcher.group(1);
-        }
-        return "";
+    private static String getMatch(String json, String regex) {
+        Matcher m = Pattern.compile(regex).matcher(json);
+        return m.find() ? m.group(1) : "";
     }
 }
