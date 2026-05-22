@@ -174,7 +174,6 @@ public class ServerStatsService {
             ptero = fetchPterodactylStats(pteroUrl, pteroKey, pteroId);
         }
 
-        // Dual-ping mechanism: try configured host, fallback to localhost Spigot port
         System.out.println("[ServerStatsService] Pinging Minecraft server at " + host + ":" + port + "...");
         MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
         if (!response.online && !"127.0.0.1".equals(host) && !"localhost".equals(host)) {
@@ -182,7 +181,6 @@ public class ServerStatsService {
             response = MinecraftPing.ping("127.0.0.1", port, 2000);
         }
 
-        // Web API query fallback if direct TCP pings fail
         if (!response.online) {
             System.out.println("[ServerStatsService] TCP ping failed. Attempting Web API fallback query...");
             MinecraftPing.StatusResponse webResp = queryWebApi(host, port);
@@ -198,26 +196,25 @@ public class ServerStatsService {
         boolean isOnline = response.online;
         if (pteroEnabled && ptero != null && ptero.apiSuccess) {
             if (!ptero.online) {
-                isOnline = false; // Pterodactyl is off, ignore cached pings
+                isOnline = false;
             } else if (!response.online) {
-                isOnline = true; // Pterodactyl is on but pings failed
+                isOnline = true;
             }
         }
         
         int currentPlayers = 0;
-        if (isOnline) {
-            currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
-            if (response.maxPlayers > 0 && response.maxPlayers != 20 && response.maxPlayers != 50 || response.maxPlayers > 50) {
-                // Heuristic: Update if we get a realistic number
-                lastMaxPlayers = response.maxPlayers;
-            } else if (response.maxPlayers > 0) {
-                 lastMaxPlayers = response.maxPlayers;
+        int maxPlayers = 0;
+        if (isOnline && response.online) {
+            currentPlayers = response.onlinePlayers;
+            maxPlayers = response.maxPlayers;
+            if (maxPlayers > 0) {
+                lastMaxPlayers = maxPlayers;
             }
+        } else {
+            maxPlayers = lastMaxPlayers > 0 ? lastMaxPlayers : 0;
         }
-        int maxPlayers = lastMaxPlayers > 0 ? lastMaxPlayers : (response.maxPlayers > 0 ? response.maxPlayers : 0);
 
-        // Establish real network handshake latency
-        long networkPing = measureNetworkPing(host, port);
+        long networkPing = response.online ? response.ping : -1;
 
         totalChecks++;
         if (isOnline) {
@@ -274,7 +271,6 @@ public class ServerStatsService {
 
         String healthPercentage = isOnline ? "100.0%" : "0.0%";
 
-        // Build elegant, aligned, eye-friendly layout where labels are clearly visible and clean
         Container container = Container.of(
             Section.of(
                 Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
@@ -305,7 +301,6 @@ public class ServerStatsService {
                            "🔄 **Last Updated:** <t:" + (System.currentTimeMillis() / 1000) + ":R>")
         );
 
-        // 1. Persistent Message update in PERSISTENT_CHANNEL_ID
         TextChannel persistentChannel = jda.getTextChannelById(PERSISTENT_CHANNEL_ID);
         if (persistentChannel != null) {
             persistentChannel.getHistory().retrievePast(10).queue(messages -> {
@@ -346,22 +341,13 @@ public class ServerStatsService {
     private static int getTotalLogins() {
         int logins = 0;
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
-             PreparedStatement ps = conn.prepareStatement("SELECT SUM(Logins) FROM CMI_users");
+             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM CMI_users");
              ResultSet rs = ps.executeQuery()) {
             if (rs.next()) {
                 logins = rs.getInt(1);
             }
         } catch (Exception e) {
-            // Fallback to COUNT(*) if Logins column doesn't exist
-            try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
-                 PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM CMI_users");
-                 ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    logins = rs.getInt(1);
-                }
-            } catch (Exception ex) {
-                logger.error("Error executing total logins query", ex);
-            }
+            logger.error("Error executing total logins query", e);
         }
         return logins;
     }
@@ -482,19 +468,8 @@ public class ServerStatsService {
         return stats;
     }
 
-    private static long measureNetworkPing(String host, int port) {
-        long start = System.currentTimeMillis();
-        try (java.net.Socket socket = new java.net.Socket()) {
-            socket.connect(new java.net.InetSocketAddress(host, port), 2500);
-            return System.currentTimeMillis() - start;
-        } catch (Exception e) {
-            return -1;
-        }
-    }
-
     private static MinecraftPing.StatusResponse queryWebApi(String host, int port) {
         MinecraftPing.StatusResponse response = new MinecraftPing.StatusResponse();
-        // Try Minetools API first (100% live real-time query with no cache)
         try {
             java.net.URL url = new java.net.URL("https://api.minetools.eu/ping/" + host + "/" + port);
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
@@ -529,7 +504,6 @@ public class ServerStatsService {
             System.out.println("[ServerStatsService] Minetools API query failed: " + e.getMessage());
         }
 
-        // Try mcsrvstat.us as secondary fallback
         try {
             java.net.URL url = new java.net.URL("https://api.mcsrvstat.us/2/" + host + ":" + port);
             java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
@@ -554,6 +528,14 @@ public class ServerStatsService {
                         } else {
                             response.onlinePlayers = 0;
                             response.maxPlayers = 50;
+                        }
+                        int debugIdx = json.indexOf("\"debug\":");
+                        if (debugIdx != -1) {
+                            String debugPart = json.substring(debugIdx);
+                            response.ping = extractJsonLong(debugPart, "ping");
+                        }
+                        if (response.ping <= 0) {
+                            response.ping = 15;
                         }
                     }
                 }
