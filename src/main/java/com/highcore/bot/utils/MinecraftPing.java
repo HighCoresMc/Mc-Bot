@@ -47,7 +47,7 @@ public class MinecraftPing {
             DataOutputStream handshakeOut = new DataOutputStream(handshakeBytes);
             
             writeVarInt(0x00, handshakeOut);
-            writeVarInt(-1, handshakeOut);
+            writeVarInt(763, handshakeOut);
             writeString(host, handshakeOut);
             handshakeOut.writeShort(port);
             writeVarInt(1, handshakeOut);
@@ -55,8 +55,8 @@ public class MinecraftPing {
             writeVarInt(handshakeBytes.size(), dataOut);
             dataOut.write(handshakeBytes.toByteArray());
 
-            dataOut.writeByte(1);
-            dataOut.writeByte(0x00);
+            writeVarInt(1, dataOut);
+            writeVarInt(0x00, dataOut);
             dataOut.flush();
 
             int size = readVarInt(dataIn);

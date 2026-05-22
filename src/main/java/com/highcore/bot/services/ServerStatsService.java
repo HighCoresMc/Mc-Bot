@@ -487,22 +487,11 @@ public class ServerStatsService {
                     String json = sb.toString();
                     if (!json.contains("\"error\"")) {
                         response.online = true;
-                        int playersIdx = json.indexOf("\"players\":");
-                        if (playersIdx != -1) {
-                            String playersPart = json.substring(playersIdx);
-                            response.onlinePlayers = extractJsonInt(playersPart, "online");
-                            response.maxPlayers = extractJsonInt(playersPart, "max");
-                        } else {
-                            response.onlinePlayers = 0;
-                            response.maxPlayers = 100;
-                        }
                         
-                        int latencyIdx = json.indexOf("\"latency\":");
-                        if (latencyIdx != -1) {
-                            response.ping = extractJsonLong(json.substring(latencyIdx), "latency");
-                        } else {
-                            response.ping = extractJsonLong(json, "latency");
-                        }
+                        response.onlinePlayers = extractJsonInt(json, "online");
+                        response.maxPlayers = extractJsonInt(json, "max");
+                        response.ping = extractJsonLong(json, "latency");
+                        
                         if (response.ping <= 0) response.ping = 15;
                         
                         return response;
@@ -529,23 +518,15 @@ public class ServerStatsService {
                     String json = sb.toString();
                     if (json.contains("\"online\":true")) {
                         response.online = true;
-                        int playersIdx = json.indexOf("\"players\":");
-                        if (playersIdx != -1) {
-                            String playersPart = json.substring(playersIdx);
-                            response.onlinePlayers = extractJsonInt(playersPart, "online");
-                            response.maxPlayers = extractJsonInt(playersPart, "max");
-                        } else {
-                            response.onlinePlayers = 0;
-                            response.maxPlayers = 100;
-                        }
-                        int debugIdx = json.indexOf("\"debug\":");
-                        if (debugIdx != -1) {
-                            String debugPart = json.substring(debugIdx);
-                            response.ping = extractJsonLong(debugPart, "ping");
-                        }
+                        
+                        response.onlinePlayers = extractJsonInt(json, "online");
+                        response.maxPlayers = extractJsonInt(json, "max");
+                        response.ping = extractJsonLong(json, "ping");
+                        
                         if (response.ping <= 0) {
                             response.ping = 15;
                         }
+                        return response;
                     }
                 }
             }
