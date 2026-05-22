@@ -10,8 +10,8 @@ public class MinecraftPing {
         public boolean online;
         public String motd = "";
         public int onlinePlayers = 0;
-        public int maxPlayers = 50;
-        public long ping = 0;
+        public int maxPlayers = 0;
+        public long ping = -1;
     }
 
     public static StatusResponse ping(String host, int port, int timeout) {
@@ -35,6 +35,7 @@ public class MinecraftPing {
         try (Socket socket = new Socket()) {
             socket.setSoTimeout(timeout);
             socket.connect(new InetSocketAddress(host, port), timeout);
+            
             response.ping = (System.nanoTime() - start) / 1_000_000;
 
             InputStream in = socket.getInputStream();
@@ -46,7 +47,7 @@ public class MinecraftPing {
             DataOutputStream handshakeOut = new DataOutputStream(handshakeBytes);
             
             writeVarInt(0x00, handshakeOut);
-            writeVarInt(767, handshakeOut);
+            writeVarInt(-1, handshakeOut);
             writeString(host, handshakeOut);
             handshakeOut.writeShort(port);
             writeVarInt(1, handshakeOut);
@@ -67,8 +68,17 @@ public class MinecraftPing {
                 String json = new String(data, StandardCharsets.UTF_8);
                 
                 response.online = true;
-                response.onlinePlayers = extractJsonInt(json, "online");
-                response.maxPlayers = extractJsonInt(json, "max");
+                
+                int playersIdx = json.indexOf("\"players\"");
+                if (playersIdx != -1) {
+                    String playersPart = json.substring(playersIdx);
+                    response.onlinePlayers = extractJsonInt(playersPart, "online");
+                    response.maxPlayers = extractJsonInt(playersPart, "max");
+                } else {
+                    response.onlinePlayers = extractJsonInt(json, "online");
+                    response.maxPlayers = extractJsonInt(json, "max");
+                }
+                
                 response.motd = extractJsonString(json, "text");
             }
         } catch (Exception e) {
