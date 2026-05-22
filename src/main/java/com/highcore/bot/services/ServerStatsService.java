@@ -485,7 +485,7 @@ public class ServerStatsService {
                         sb.append(line);
                     }
                     String json = sb.toString();
-                    if (!json.contains("error")) {
+                    if (!json.contains("\"error\"")) {
                         response.online = true;
                         int playersIdx = json.indexOf("\"players\":");
                         if (playersIdx != -1) {
