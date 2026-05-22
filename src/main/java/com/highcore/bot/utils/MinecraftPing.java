@@ -47,7 +47,7 @@ public class MinecraftPing {
             DataOutputStream handshakeOut = new DataOutputStream(handshakeBytes);
             
             writeVarInt(0x00, handshakeOut);
-            writeVarInt(-1, handshakeOut);
+            writeVarInt(47, handshakeOut);
             writeString(host, handshakeOut);
             handshakeOut.writeShort(port);
             writeVarInt(1, handshakeOut);
@@ -79,9 +79,9 @@ public class MinecraftPing {
                     response.maxPlayers = extractJsonInt(json, "max");
                 }
                 
-                response.motd = extractJsonString(json, "description");
+                response.motd = extractJsonString(json, "text");
                 if (response.motd.isEmpty()) {
-                    response.motd = extractJsonString(json, "text");
+                    response.motd = extractJsonString(json, "description");
                 }
                 return response;
             }
