@@ -52,7 +52,6 @@ public class ProfileCommand extends ListenerAdapter {
     }
 
     private Optional<String> getUuidFromDatabase(String discordId) {
-        // Section: UUID Lookup
         String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
@@ -94,7 +93,6 @@ public class ProfileCommand extends ListenerAdapter {
             }
             String uuidNoDash = uuidDash.replace("-", "");
 
-            // Section: CMI UUID Debug
             try (PreparedStatement dbg = conn.prepareStatement("SELECT player_uuid FROM CMI_users LIMIT 3");
                  ResultSet dbgRs = dbg.executeQuery()) {
                 System.out.println("[ProfileCommand] Sample CMI player_uuids:");
@@ -103,11 +101,24 @@ public class ProfileCommand extends ListenerAdapter {
                 }
             } catch (Exception ignored) {}
 
-            System.out.println("[ProfileCommand] Querying CMI_users with uuidDash='" + uuidDash + "' uuidNoDash='" + uuidNoDash + "'");
-            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?";
+            String backupUsername = null;
+            String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE uuid = ? OR uuid = ?";
+            try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
+                psName.setString(1, uuidDash);
+                psName.setString(2, uuidNoDash);
+                try (ResultSet rsName = psName.executeQuery()) {
+                    if (rsName.next()) {
+                        backupUsername = rsName.getString("username");
+                    }
+                }
+            } catch (Exception ignored) {}
+
+            System.out.println("[ProfileCommand] Querying CMI_users with UUIDs or Username: " + backupUsername);
+            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuidDash);
                 ps.setString(2, uuidNoDash);
+                ps.setString(3, backupUsername != null ? backupUsername : "");
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         dataFound = true;
