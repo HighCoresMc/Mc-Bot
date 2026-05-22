@@ -1,8 +1,9 @@
 package com.highcore.bot.utils;
 
-import java.io.*;
-import java.net.InetSocketAddress;
-import java.net.Socket;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 public class MinecraftPing {
@@ -15,75 +16,41 @@ public class MinecraftPing {
     }
 
     public static StatusResponse ping(String host, int port, int timeout) {
-        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
-        java.util.concurrent.Future<StatusResponse> future = executor.submit(() -> pingRaw(host, port, timeout));
-        try {
-            return future.get(timeout + 500, java.util.concurrent.TimeUnit.MILLISECONDS);
-        } catch (Exception e) {
-            future.cancel(true);
-            StatusResponse response = new StatusResponse();
-            response.online = false;
-            return response;
-        } finally {
-            executor.shutdownNow();
-        }
-    }
-
-    private static StatusResponse pingRaw(String host, int port, int timeout) {
         StatusResponse response = new StatusResponse();
         long start = System.nanoTime();
-        try (Socket socket = new Socket()) {
-            socket.setSoTimeout(timeout);
-            socket.connect(new InetSocketAddress(host, port), timeout);
-            
+        try {
+
+            String apiUrl = "http://api-mcstatus.railway.internal:8080/status/java/" + host + ":" + port;
+            URL url = new URL(apiUrl);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setConnectTimeout(timeout);
+            conn.setReadTimeout(timeout);
+
             response.ping = (System.nanoTime() - start) / 1_000_000;
 
-            InputStream in = socket.getInputStream();
-            OutputStream out = socket.getOutputStream();
-            DataInputStream dataIn = new DataInputStream(in);
-            DataOutputStream dataOut = new DataOutputStream(out);
+            if (conn.getResponseCode() == 200) {
+                BufferedReader rd = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8));
+                StringBuilder result = new StringBuilder();
+                String line;
+                while ((line = rd.readLine()) != null) {
+                    result.append(line);
+                }
+                rd.close();
 
-            ByteArrayOutputStream handshakeBytes = new ByteArrayOutputStream();
-            DataOutputStream handshakeOut = new DataOutputStream(handshakeBytes);
-            
-            writeVarInt(0x00, handshakeOut);
-            writeVarInt(765, handshakeOut); // To Protocol
-            writeString(host, handshakeOut);
-            handshakeOut.writeShort(port);
-            writeVarInt(1, handshakeOut);
-
-            writeVarInt(handshakeBytes.size(), dataOut);
-            dataOut.write(handshakeBytes.toByteArray());
-
-            writeVarInt(1, dataOut);
-            writeVarInt(0x00, dataOut);
-            dataOut.flush();
-
-            int size = readVarInt(dataIn);
-            int id = readVarInt(dataIn);
-            if (id == 0x00) {
-                int length = readVarInt(dataIn);
-                byte[] data = new byte[length];
-                dataIn.readFully(data);
-                String json = new String(data, StandardCharsets.UTF_8);
+                String json = result.toString();
+                response.online = extractJsonBool(json, "online");
                 
-                response.online = true;
-                
-                int playersIdx = json.indexOf("\"players\"");
-                if (playersIdx != -1) {
-                    String playersPart = json.substring(playersIdx);
-                    response.onlinePlayers = extractJsonInt(playersPart, "online");
-                    response.maxPlayers = extractJsonInt(playersPart, "max");
-                } else {
+                if (response.online) {
                     response.onlinePlayers = extractJsonInt(json, "online");
                     response.maxPlayers = extractJsonInt(json, "max");
+                    response.motd = extractJsonString(json, "clean");
+                    if (response.motd.isEmpty()) {
+                        response.motd = extractJsonString(json, "raw");
+                    }
                 }
-                
-                response.motd = extractJsonString(json, "text");
-                if (response.motd.isEmpty()) {
-                    response.motd = extractJsonString(json, "description");
-                }
-                return response;
+            } else {
+                response.online = false;
             }
         } catch (Exception e) {
             response.online = false;
@@ -91,30 +58,13 @@ public class MinecraftPing {
         return response;
     }
 
-    private static void writeVarInt(int value, DataOutputStream out) throws IOException {
-        while ((value & 0xFFFFFF80) != 0L) {
-            out.writeByte((value & 0x7F) | 0x80);
-            value >>>= 7;
+    private static boolean extractJsonBool(String json, String key) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\"\\s*:\\s*(true|false)");
+        java.util.regex.Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            return Boolean.parseBoolean(matcher.group(1));
         }
-        out.writeByte(value & 0x7F);
-    }
-
-    private static int readVarInt(DataInputStream in) throws IOException {
-        int numRead = 0;
-        int result = 0;
-        byte read;
-        do {
-            read = in.readByte();
-            result |= (read & 0x7F) << (numRead++ * 7);
-            if (numRead > 5) throw new RuntimeException("VarInt is too big");
-        } while ((read & 0x80) != 0);
-        return result;
-    }
-
-    private static void writeString(String s, DataOutputStream out) throws IOException {
-        byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
-        writeVarInt(bytes.length, out);
-        out.write(bytes);
+        return false;
     }
 
     private static int extractJsonInt(String json, String key) {
