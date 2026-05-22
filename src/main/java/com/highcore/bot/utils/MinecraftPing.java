@@ -64,7 +64,7 @@ public class MinecraftPing {
                         response.motd = extractJsonString(json, "clean");
                     }
                     
-                    if (response.maxPlayers == 20 && response.onlinePlayers == 0) {
+                    if (response.maxPlayers == 20) {
                         response.maxPlayers = 100;
                     }
                 }
