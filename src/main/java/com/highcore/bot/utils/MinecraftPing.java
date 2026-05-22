@@ -63,6 +63,10 @@ public class MinecraftPing {
                     if (response.motd.isEmpty()) {
                         response.motd = extractJsonString(json, "clean");
                     }
+                    
+                    if (response.maxPlayers == 20 && response.onlinePlayers == 0) {
+                        response.maxPlayers = 100;
+                    }
                 }
             } else {
                 response.online = false;
