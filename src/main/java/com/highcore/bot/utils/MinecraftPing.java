@@ -47,7 +47,7 @@ public class MinecraftPing {
             DataOutputStream handshakeOut = new DataOutputStream(handshakeBytes);
             
             writeVarInt(0x00, handshakeOut);
-            writeVarInt(763, handshakeOut);
+            writeVarInt(-1, handshakeOut);
             writeString(host, handshakeOut);
             handshakeOut.writeShort(port);
             writeVarInt(1, handshakeOut);
@@ -79,11 +79,13 @@ public class MinecraftPing {
                     response.maxPlayers = extractJsonInt(json, "max");
                 }
                 
-                response.motd = extractJsonString(json, "text");
+                response.motd = extractJsonString(json, "description");
+                if (response.motd.isEmpty()) {
+                    response.motd = extractJsonString(json, "text");
+                }
                 return response;
             }
         } catch (Exception e) {
-            // TCP Fail -> Fallback to Web API will be used by the caller service
             response.online = false;
         }
         return response;
