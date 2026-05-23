@@ -1,5 +1,6 @@
 package com.highcore.bot.services;
 
+import com.highcore.bot.LeonTrotskyBot;
 import com.highcore.bot.utils.MinecraftPing;
 import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.JDA;
@@ -20,6 +21,9 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -315,6 +319,43 @@ public class ServerStatsService {
     // Section: Called during history scan to restore server uptime from Discord message timestamp
     public static void setOnlineSince(long epochMs) {
         onlineSince = epochMs;
+    }
+
+    // Section: MySQL-backed persistence for totalLogins — survives Railway redeployments
+    private static void initPersistentStats() {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             PreparedStatement create = conn.prepareStatement(
+                 "CREATE TABLE IF NOT EXISTS bot_stats (stat_key VARCHAR(64) PRIMARY KEY, stat_value BIGINT NOT NULL DEFAULT 0)")) {
+            create.executeUpdate();
+        } catch (Exception e) {
+            logger.error("Failed to create bot_stats table", e);
+        }
+        // Section: Load totalLogins from DB (overwrites file-based value which resets on redeploy)
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "INSERT INTO bot_stats (stat_key, stat_value) VALUES ('totalLogins', 0) ON DUPLICATE KEY UPDATE stat_key=stat_key");
+             PreparedStatement sel = conn.prepareStatement(
+                 "SELECT stat_value FROM bot_stats WHERE stat_key = 'totalLogins'")) {
+            ps.executeUpdate();
+            try (ResultSet rs = sel.executeQuery()) {
+                if (rs.next()) totalLogins = rs.getLong(1);
+            }
+            System.out.println("[ServerStatsService] Loaded totalLogins from DB: " + totalLogins);
+        } catch (Exception e) {
+            logger.error("Failed to load totalLogins from DB", e);
+        }
+    }
+
+    private static void saveTotalLoginsToDB() {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             PreparedStatement ps = conn.prepareStatement(
+                 "INSERT INTO bot_stats (stat_key, stat_value) VALUES ('totalLogins', ?) ON DUPLICATE KEY UPDATE stat_value = ?")) {
+            ps.setLong(1, totalLogins);
+            ps.setLong(2, totalLogins);
+            ps.executeUpdate();
+        } catch (Exception e) {
+            logger.error("Failed to save totalLogins to DB", e);
+        }
     }
 
     private static void loadStatsData() {
