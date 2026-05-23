@@ -159,18 +159,25 @@ public class ServerStatsService {
             }
         }
         
+        // Section: Max players — env var takes priority, then API response, then cached value (no hardcoded default)
+        int envMax = 0;
+        try { envMax = Integer.parseInt(dotenv.get("MC_MAX_PLAYERS", "0")); } catch (Exception ignored) {}
+
         int currentPlayers = 0;
         int maxPlayers = 0;
         if (isOnline) {
             // Section: Use the real-time log-based player set — accurate, avoids CMI DB timestamp drift
             currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
-            maxPlayers = response.online ? response.maxPlayers : (lastMaxPlayers > 0 ? lastMaxPlayers : 20);
+            maxPlayers = envMax > 0 ? envMax
+                       : (response.online && response.maxPlayers > 0 ? response.maxPlayers
+                       : (lastMaxPlayers > 0 ? lastMaxPlayers : 0));
             if (maxPlayers > 0) {
                 lastMaxPlayers = maxPlayers;
             }
         } else {
-            maxPlayers = lastMaxPlayers > 0 ? lastMaxPlayers : 20;
+            maxPlayers = envMax > 0 ? envMax : (lastMaxPlayers > 0 ? lastMaxPlayers : 0);
         }
+
         long networkPing = isOnline ? (response.ping > 0 ? response.ping : -1) : -1;
 
 
