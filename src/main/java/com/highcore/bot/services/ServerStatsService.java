@@ -502,13 +502,11 @@ public class ServerStatsService {
                     String json = sb.toString();
                     if (!json.contains("\"error\"")) {
                         response.online = true;
-                        
+                        // Section: minetools uses {"players":{"online":N,"max":N},"latency":F}
                         response.onlinePlayers = extractJsonInt(json, "online");
-                        response.maxPlayers = extractJsonInt(json, "max");
-                        response.ping = extractJsonLong(json, "latency");
-                        
-                        if (response.ping <= 0) response.ping = 15;
-                        
+                        response.maxPlayers    = extractJsonInt(json, "max");
+                        response.ping          = extractJsonLong(json, "latency");
+                        // Section: leave ping as 0 if not provided — display shows N/A for 0/-1
                         return response;
                     }
                 }
@@ -533,14 +531,10 @@ public class ServerStatsService {
                     String json = sb.toString();
                     if (json.contains("\"online\":true")) {
                         response.online = true;
-                        
+                        // Section: mcsrvstat uses {"players":{"online":N,"max":N}}
                         response.onlinePlayers = extractJsonInt(json, "online");
-                        response.maxPlayers = extractJsonInt(json, "max");
-                        response.ping = extractJsonLong(json, "ping");
-                        
-                        if (response.ping <= 0) {
-                            response.ping = 15;
-                        }
+                        response.maxPlayers    = extractJsonInt(json, "max");
+                        response.ping          = extractJsonLong(json, "ping");
                         return response;
                     }
                 }
