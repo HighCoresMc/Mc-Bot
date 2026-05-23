@@ -5,9 +5,6 @@ import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import net.dv8tion.jda.api.interactions.components.LayoutComponent;
-import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
-import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,16 +20,15 @@ public class ServerStatsService {
     private static long totalChecks = 0;
     private static long successfulChecks = 0;
     private static long onlineSince = -1;
-    private static int lastMaxPlayers = 20;
 
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public static void startScheduler(JDA jda) {
-        scheduler.scheduleAtFixedRate(() -> updateStats(jda), 0, 1, TimeUnit.MINUTES);
+        // scheduler.scheduleAtFixedRate(() -> updateStats(jda), 0, 1, TimeUnit.MINUTES);
     }
 
     public static void forceUpdate(JDA jda) {
-        updateStats(jda);
+        // updateStats(jda);
     }
 
     private static synchronized void updateStats(JDA jda) {
@@ -44,6 +40,7 @@ public class ServerStatsService {
         
         boolean isOnline = response.online;
         int currentPlayers = isOnline ? response.onlinePlayers : 0;
+        int maxPlayers = isOnline ? response.maxPlayers : 20;
         
         if (isOnline) {
             successfulChecks++;
@@ -59,12 +56,12 @@ public class ServerStatsService {
 
         String content = "### " + (isOnline ? "🟢 Server is Online" : "🔴 Server is Offline") + "\n" +
                          "**📊 Statistics**\n" +
-                         "- 👥 Players: `" + currentPlayers + " / " + lastMaxPlayers + "`\n" +
+                         "- 👥 Players: `" + currentPlayers + " / " + maxPlayers + "`\n" +
                          "- 📡 Ping: `" + (isOnline ? response.ping + "ms" : "N/A") + "`\n" +
                          "- ⏱️ Uptime: `" + uptimeStr + "`\n" +
                          "- 📈 Availability: `" + String.format("%.1f", availability) + "%`";
 
-        updateDiscordMessage(jda, content);
+        // updateDiscordMessage(jda, content);
     }
 
     private static String formatDuration(long ms) {
