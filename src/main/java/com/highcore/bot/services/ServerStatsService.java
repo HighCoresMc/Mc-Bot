@@ -50,6 +50,7 @@ public class ServerStatsService {
 
     public static void startScheduler(JDA jda) {
         loadStatsData();
+        initPersistentStats();
         scheduler.scheduleAtFixedRate(() -> {
             try {
                 updateStats(jda);
@@ -298,6 +299,7 @@ public class ServerStatsService {
     public static void incrementTotalLogins() {
         totalLogins++;
         saveStatsData();
+        saveTotalLoginsToDB();
     }
 
     // Section: Exposes the log channel ID from the cached Dotenv to MinecraftLogListener
