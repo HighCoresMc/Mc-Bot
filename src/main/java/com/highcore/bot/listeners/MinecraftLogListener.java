@@ -1,7 +1,6 @@
 package com.highcore.bot.listeners;
 
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.MessageEmbed;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
@@ -15,19 +14,23 @@ import java.util.regex.Pattern;
 
 public class MinecraftLogListener extends ListenerAdapter {
     public static final Set<String> onlinePlayers = ConcurrentHashMap.newKeySet();
-    
+
     // RegEx patterns to extract Minecraft usernames safely (standard MC username: 3-16 chars, alphanumeric/underscores)
-    private static final Pattern JOIN_PATTERN = Pattern.compile("(?i)\\b([a-zA-Z0-9_]{3,16})\\b.*(?:joined|connected|دخل|انضم)");
+    private static final Pattern JOIN_PATTERN  = Pattern.compile("(?i)\\b([a-zA-Z0-9_]{3,16})\\b.*(?:joined|connected|دخل|انضم)");
     private static final Pattern LEAVE_PATTERN = Pattern.compile("(?i)\\b([a-zA-Z0-9_]{3,16})\\b.*(?:left|disconnected|lost connection|خرج|غادر)");
+
+    // Section: Server lifecycle patterns — used to clear stale player set on stop/start
+    private static final Pattern SERVER_STOP_PATTERN  = Pattern.compile("(?i)(server|السيرفر).*(stopped|shutdown|offline|توقف|أغلق)|(stopped|shutdown).*(server|السيرفر)");
+    private static final Pattern SERVER_START_PATTERN = Pattern.compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
 
     public static final String LOG_CHANNEL_ID = "1487148944667578368";
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
-        String channelId = event.getChannel().getId();
-        String targetChannelId = com.highcore.bot.services.ServerStatsService.getLogChannelId();
+        String channelId    = event.getChannel().getId();
+        String targetChannel = com.highcore.bot.services.ServerStatsService.getLogChannelId();
 
-        if (channelId.equals(targetChannelId)) {
+        if (channelId.equals(targetChannel)) {
             String content = event.getMessage().getContentRaw();
             if (content.isEmpty() && !event.getMessage().getEmbeds().isEmpty()) {
                 content = extractEmbedText(event.getMessage().getEmbeds().get(0));
@@ -59,6 +62,24 @@ public class MinecraftLogListener extends ListenerAdapter {
         // Strip markdown bold/italics markers to ensure raw string comparisons work
         String clean = content.replace("*", "").replace("_", "").trim();
 
+        // Section: Server lifecycle — clear stale players on stop or start
+        if (SERVER_STOP_PATTERN.matcher(clean).find() || clean.toLowerCase().contains("has stopped")) {
+            onlinePlayers.clear();
+            if (!isInit) {
+                System.out.println("[MinecraftLogListener] Server STOPPED detected — cleared online players set.");
+                com.highcore.bot.services.ServerStatsService.notifyServerStopped();
+            }
+            return;
+        }
+        if (SERVER_START_PATTERN.matcher(clean).find() || clean.toLowerCase().contains("has started")) {
+            onlinePlayers.clear();
+            if (!isInit) {
+                System.out.println("[MinecraftLogListener] Server STARTED detected — cleared online players set.");
+                com.highcore.bot.services.ServerStatsService.notifyServerStarted();
+            }
+            return;
+        }
+
         Matcher joinMatcher = JOIN_PATTERN.matcher(clean);
         if (joinMatcher.find()) {
             String username = joinMatcher.group(1);
@@ -81,6 +102,7 @@ public class MinecraftLogListener extends ListenerAdapter {
 
     /**
      * Scans the log channel history on startup to reconstruct the set of online players.
+     * Respects server stop/start events — only players from the latest server session are counted.
      */
     public static void initializeOnlinePlayers(JDA jda) {
         onlinePlayers.clear();
@@ -90,7 +112,8 @@ public class MinecraftLogListener extends ListenerAdapter {
         if (channel != null) {
             System.out.println("[MinecraftLogListener] Scanning history of channel: " + channel.getName());
             channel.getHistory().retrievePast(100).queue(messages -> {
-                // Reconstruct chronological events (oldest message first)
+                // Section: Reconstruct chronological events (oldest message first)
+                // Respects server lifecycle — stop/start events reset the player set
                 for (int i = messages.size() - 1; i >= 0; i--) {
                     Message msg = messages.get(i);
                     String content = msg.getContentRaw();
@@ -99,6 +122,21 @@ public class MinecraftLogListener extends ListenerAdapter {
                     } else if (!msg.getEmbeds().isEmpty()) {
                         content = content + " " + extractEmbedText(msg.getEmbeds().get(0));
                     }
+
+                    // Section: Track the timestamp of the last "Server has started" for uptime accuracy
+                    String clean = content.replace("*", "").replace("_", "").trim();
+                    if (SERVER_START_PATTERN.matcher(clean).find() || clean.toLowerCase().contains("has started")) {
+                        onlinePlayers.clear();
+                        long startedAt = msg.getTimeCreated().toInstant().toEpochMilli();
+                        com.highcore.bot.services.ServerStatsService.setOnlineSince(startedAt);
+                        continue;
+                    }
+                    if (SERVER_STOP_PATTERN.matcher(clean).find() || clean.toLowerCase().contains("has stopped")) {
+                        onlinePlayers.clear();
+                        com.highcore.bot.services.ServerStatsService.setOnlineSince(-1);
+                        continue;
+                    }
+
                     handleLogMessage(content, true);
                 }
                 System.out.println("[MinecraftLogListener] Reconstructed set: " + onlinePlayers + " (" + onlinePlayers.size() + " online)");

@@ -109,22 +109,41 @@ public class ServerStatsService {
 
         System.out.println("[ServerStatsService] Pinging Minecraft server at " + host + ":" + port + "...");
         MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
-        if (!response.online && !"127.0.0.1".equals(host) && !"localhost".equals(host)) {
+        boolean portOpen    = response.portOpen;
+        boolean portRefused = response.portRefused;
+        long    tcpPing     = response.ping;
+
+        // Section: Localhost fallback — only when external ping failed and host is not already local
+        if (!response.online && !portOpen && !"127.0.0.1".equals(host) && !"localhost".equals(host)) {
             System.out.println("[ServerStatsService] Main ping failed. Attempting fallback to localhost...");
-            response = MinecraftPing.ping("127.0.0.1", port, 2000);
+            MinecraftPing.StatusResponse local = MinecraftPing.ping("127.0.0.1", port, 2000);
+            if (local.portOpen)    { portOpen    = true; if (tcpPing == 0) tcpPing = local.ping; }
+            if (local.portRefused) { portRefused = true; }
+            if (local.online || local.portOpen) response = local;
         }
 
+        // Section: Web API fallback — skipped when port was explicitly refused (avoids stale cache)
         if (!response.online) {
-            System.out.println("[ServerStatsService] TCP ping failed. Attempting Web API fallback query...");
-            MinecraftPing.StatusResponse webResp = queryWebApi(host, port);
-            if (webResp.online) {
-                response = webResp;
+            if (portRefused && !portOpen) {
+                System.out.println("[ServerStatsService] Port refused on all attempts — server is offline, skipping web API cache.");
+            } else {
+                System.out.println("[ServerStatsService] TCP uncertain. Attempting Web API fallback query...");
+                MinecraftPing.StatusResponse webResp = queryWebApi(host, port);
+                if (webResp.online) {
+                    long savedPing = tcpPing > 0 ? tcpPing : webResp.ping;
+                    response = webResp;
+                    response.ping = savedPing;
+                } else if (portOpen) {
+                    // TCP handshake succeeded but web API also says offline — trust TCP (port is open)
+                    response.online = true;
+                    response.ping   = tcpPing;
+                }
             }
         }
 
-        System.out.println("[ServerStatsService] Query complete. Online: " + response.online + 
-                           ", Players: " + response.onlinePlayers + "/" + response.maxPlayers + 
-                           ", Ping: " + response.ping + "ms");
+        System.out.println("[ServerStatsService] Query complete. Online: " + response.online +
+                           ", Players: " + response.onlinePlayers + "/" + response.maxPlayers +
+                           ", Ping: " + response.ping + "ms, PortOpen: " + portOpen + ", PortRefused: " + portRefused);
 
         boolean isOnline = response.online;
         if (pteroEnabled && ptero != null && ptero.apiSuccess) {
@@ -147,7 +166,8 @@ public class ServerStatsService {
         } else {
             maxPlayers = lastMaxPlayers > 0 ? lastMaxPlayers : 20;
         }
-        long networkPing = response.online ? response.ping : -1;
+        long networkPing = isOnline ? (response.ping > 0 ? response.ping : -1) : -1;
+
 
         totalChecks++;
         if (isOnline) {
@@ -279,6 +299,22 @@ public class ServerStatsService {
     // Section: Exposes the log channel ID from the cached Dotenv to MinecraftLogListener
     public static String getLogChannelId() {
         return dotenv.get("MINECRAFT_LOG_CHANNEL_ID", "1487148944667578368");
+    }
+
+    // Section: Server lifecycle hooks — called by MinecraftLogListener on stop/start events
+    public static void notifyServerStarted() {
+        onlineSince = System.currentTimeMillis();
+        saveStatsData();
+    }
+
+    public static void notifyServerStopped() {
+        onlineSince = -1;
+        saveStatsData();
+    }
+
+    // Section: Called during history scan to restore server uptime from Discord message timestamp
+    public static void setOnlineSince(long epochMs) {
+        onlineSince = epochMs;
     }
 
     private static void loadStatsData() {
