@@ -24,11 +24,9 @@ public class ServerStatsService {
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public static void startScheduler(JDA jda) {
-        // scheduler.scheduleAtFixedRate(() -> updateStats(jda), 0, 1, TimeUnit.MINUTES);
     }
 
     public static void forceUpdate(JDA jda) {
-        // updateStats(jda);
     }
 
     private static synchronized void updateStats(JDA jda) {
@@ -61,7 +59,6 @@ public class ServerStatsService {
                          "- ⏱️ Uptime: `" + uptimeStr + "`\n" +
                          "- 📈 Availability: `" + String.format("%.1f", availability) + "%`";
 
-        // updateDiscordMessage(jda, content);
     }
 
     private static String formatDuration(long ms) {
