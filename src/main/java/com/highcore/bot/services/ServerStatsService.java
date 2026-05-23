@@ -21,16 +21,12 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public class ServerStatsService {
     private static final Logger logger = LoggerFactory.getLogger(ServerStatsService.class);
-    
     private static final String PERSISTENT_CHANNEL_ID = "1487139736748425236";
     private static final String DATA_FILE = "stats_data.json";
 
@@ -50,7 +46,17 @@ public class ServerStatsService {
             } catch (Exception e) {
                 logger.error("Error updating server stats", e);
             }
-        }, 5, 60, TimeUnit.SECONDS); 
+        }, 5, 60, TimeUnit.SECONDS);
+    }
+
+    public static void forceUpdate(JDA jda) {
+        Executors.newSingleThreadExecutor().submit(() -> {
+            try {
+                updateStats(jda);
+            } catch (Exception e) {
+                logger.error("Error force updating server stats", e);
+            }
+        });
     }
 
     private static void updateStats(JDA jda) {
@@ -108,8 +114,6 @@ public class ServerStatsService {
         });
     }
 
-    private static void loadStatsData() { /* ... */ }
-    private static void saveStatsData() { /* ... */ }
-    private static int extractJsonInt(String j, String k) { return 0; }
-    private static long extractJsonLong(String j, String k) { return 0L; }
+    private static void loadStatsData() { /* تحميل البيانات من الملف */ }
+    private static void saveStatsData() { /* حفظ البيانات في الملف */ }
 }
