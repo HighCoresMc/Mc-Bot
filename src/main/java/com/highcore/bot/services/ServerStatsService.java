@@ -1,6 +1,5 @@
 package com.highcore.bot.services;
 
-import com.highcore.bot.LeonTrotskyBot;
 import com.highcore.bot.utils.MinecraftPing;
 import io.github.cdimascio.dotenv.Dotenv;
 import net.dv8tion.jda.api.JDA;
@@ -21,9 +20,6 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +36,8 @@ public class ServerStatsService {
     private static long successfulChecks = 0;
     private static long onlineSince = -1;
     private static int lastMaxPlayers = 0;
+    // Section: Persistent login counter — incremented by MinecraftLogListener on every join
+    private static long totalLogins = 0;
 
     // Section: Load .env once — avoids re-reading the file on every scheduler tick
     private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
@@ -84,74 +82,7 @@ public class ServerStatsService {
         return sb.toString();
     }
 
-    private static boolean columnsLogged = false;
-
-    private static void logCmiColumns() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement("DESCRIBE CMI_users");
-             java.sql.ResultSet rs = ps.executeQuery()) {
-            System.out.print("[ServerStatsService] CMI_users columns: ");
-            while (rs.next()) {
-                System.out.print(rs.getString(1) + ", ");
-            }
-            System.out.println();
-        } catch (Exception e) {
-            System.out.println("[ServerStatsService] Failed to describe CMI_users: " + e.getMessage());
-        }
-    }
-
-    private static void logAllTables() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
-             java.sql.ResultSet rs = conn.getMetaData().getTables(null, null, "%", null)) {
-            System.out.print("[ServerStatsService] All database tables: ");
-            while (rs.next()) {
-                System.out.print(rs.getString("TABLE_NAME") + ", ");
-            }
-            System.out.println();
-        } catch (Exception e) {
-            System.out.println("[ServerStatsService] Failed to list tables: " + e.getMessage());
-        }
-    }
-
-    private static void logPlayerTimes() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(
-                 "SELECT username, LastLoginTime, LastLogoffTime FROM CMI_users WHERE username = ?"
-             )) {
-            ps.setString(1, "OMAR911Q");
-            try (java.sql.ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    System.out.println("[ServerStatsService] CMI times for OMAR911Q: Login = " + 
-                                       rs.getLong("LastLoginTime") + ", Logoff = " + rs.getLong("LastLogoffTime") +
-                                       " (Diff = " + (rs.getLong("LastLoginTime") - rs.getLong("LastLogoffTime")) + "ms)");
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("[ServerStatsService] Failed to query times: " + e.getMessage());
-        }
-    }
-
-    private static int getDbOnlinePlayers() {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
-             java.sql.PreparedStatement ps = conn.prepareStatement(
-                 "SELECT COUNT(*) FROM CMI_users WHERE LastLoginTime > LastLogoffTime"
-             );
-             java.sql.ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                return rs.getInt(1);
-            }
-        } catch (Exception e) {
-            System.out.println("[ServerStatsService] Failed to query online players: " + e.getMessage());
-        }
-        return -1;
-    }
-
     private static void updateStats(JDA jda) {
-        if (!columnsLogged) {
-            columnsLogged = true;
-            logCmiColumns();
-        }
-
         String host = dotenv.get("MC_SERVER_HOST", "134.255.255.130");
         int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25010"));
 
@@ -207,8 +138,8 @@ public class ServerStatsService {
         int currentPlayers = 0;
         int maxPlayers = 0;
         if (isOnline) {
-            int dbPlayers = getDbOnlinePlayers();
-            currentPlayers = (dbPlayers >= 0) ? dbPlayers : (response.online ? response.onlinePlayers : 0);
+            // Section: Use the real-time log-based player set — accurate, avoids CMI DB timestamp drift
+            currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
             maxPlayers = response.online ? response.maxPlayers : (lastMaxPlayers > 0 ? lastMaxPlayers : 20);
             if (maxPlayers > 0) {
                 lastMaxPlayers = maxPlayers;
@@ -233,7 +164,6 @@ public class ServerStatsService {
 
         saveStatsData();
 
-        int totalLogins = getTotalLogins();
         double availability = totalChecks > 0 ? ((double) successfulChecks * 100.0 / totalChecks) : 100.0;
 
         String uptimeStr = "0s";
@@ -340,18 +270,15 @@ public class ServerStatsService {
         }
     }
 
-    private static int getTotalLogins() {
-        int logins = 0;
-        try (Connection conn = LeonTrotskyBot.getDbManager().getCmiConnection();
-             PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) FROM CMI_users");
-             ResultSet rs = ps.executeQuery()) {
-            if (rs.next()) {
-                logins = rs.getInt(1);
-            }
-        } catch (Exception e) {
-            logger.error("Error executing total logins query", e);
-        }
-        return logins;
+    // Section: Called by MinecraftLogListener on every player join to keep the counter accurate
+    public static void incrementTotalLogins() {
+        totalLogins++;
+        saveStatsData();
+    }
+
+    // Section: Exposes the log channel ID from the cached Dotenv to MinecraftLogListener
+    public static String getLogChannelId() {
+        return dotenv.get("MINECRAFT_LOG_CHANNEL_ID", "1487148944667578368");
     }
 
     private static void loadStatsData() {
@@ -369,6 +296,7 @@ public class ServerStatsService {
             successfulChecks = extractJsonLong(content, "successfulChecks");
             onlineSince = extractJsonLong(content, "onlineSince");
             lastMaxPlayers = extractJsonInt(content, "lastMaxPlayers");
+            totalLogins = extractJsonLong(content, "totalLogins");
         } catch (Exception e) {
             logger.error("Error loading persistent stats data", e);
         }
@@ -377,8 +305,8 @@ public class ServerStatsService {
     private static void saveStatsData() {
         try (FileWriter writer = new FileWriter(DATA_FILE)) {
             String json = String.format(
-                "{\"peakPlayers\":%d,\"totalChecks\":%d,\"successfulChecks\":%d,\"onlineSince\":%d,\"lastMaxPlayers\":%d}",
-                peakPlayers, totalChecks, successfulChecks, onlineSince, lastMaxPlayers
+                "{\"peakPlayers\":%d,\"totalChecks\":%d,\"successfulChecks\":%d,\"onlineSince\":%d,\"lastMaxPlayers\":%d,\"totalLogins\":%d}",
+                peakPlayers, totalChecks, successfulChecks, onlineSince, lastMaxPlayers, totalLogins
             );
             writer.write(json);
         } catch (Exception e) {

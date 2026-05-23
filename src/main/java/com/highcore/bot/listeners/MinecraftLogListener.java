@@ -25,8 +25,7 @@ public class MinecraftLogListener extends ListenerAdapter {
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
         String channelId = event.getChannel().getId();
-        io.github.cdimascio.dotenv.Dotenv dotenv = io.github.cdimascio.dotenv.Dotenv.configure().ignoreIfMissing().load();
-        String targetChannelId = dotenv.get("MINECRAFT_LOG_CHANNEL_ID", LOG_CHANNEL_ID);
+        String targetChannelId = com.highcore.bot.services.ServerStatsService.getLogChannelId();
 
         if (channelId.equals(targetChannelId)) {
             String content = event.getMessage().getContentRaw();
@@ -64,7 +63,11 @@ public class MinecraftLogListener extends ListenerAdapter {
         if (joinMatcher.find()) {
             String username = joinMatcher.group(1);
             onlinePlayers.add(username);
-            if (!isInit) System.out.println("[MinecraftLogListener] Player JOINED: " + username + " (Current count: " + onlinePlayers.size() + ")");
+            if (!isInit) {
+                System.out.println("[MinecraftLogListener] Player JOINED: " + username + " (Current count: " + onlinePlayers.size() + ")");
+                // Section: Increment persistent login counter on every confirmed join
+                com.highcore.bot.services.ServerStatsService.incrementTotalLogins();
+            }
             return;
         }
 
@@ -81,8 +84,7 @@ public class MinecraftLogListener extends ListenerAdapter {
      */
     public static void initializeOnlinePlayers(JDA jda) {
         onlinePlayers.clear();
-        io.github.cdimascio.dotenv.Dotenv dotenv = io.github.cdimascio.dotenv.Dotenv.configure().ignoreIfMissing().load();
-        String targetChannelId = dotenv.get("MINECRAFT_LOG_CHANNEL_ID", LOG_CHANNEL_ID);
+        String targetChannelId = com.highcore.bot.services.ServerStatsService.getLogChannelId();
 
         TextChannel channel = jda.getTextChannelById(targetChannelId);
         if (channel != null) {
