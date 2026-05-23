@@ -6,15 +6,13 @@ import java.nio.charset.StandardCharsets;
 
 public class MinecraftPing {
     public static class StatusResponse {
-        public boolean online = false;
-        public int onlinePlayers = 0;
-        public int maxPlayers = 0;
-        public long ping = -1;
+        public boolean online;
+        public int onlinePlayers, maxPlayers;
+        public long ping;
     }
 
     public static StatusResponse ping(String host, int port, int timeout) {
         StatusResponse R = new StatusResponse();
-        long startTime = System.currentTimeMillis();
         try (Socket S = new Socket()) {
             S.connect(new InetSocketAddress(host, port), timeout);
             OutputStream out = S.getOutputStream();
@@ -45,17 +43,17 @@ public class MinecraftPing {
             R.online = true;
             R.onlinePlayers = Integer.parseInt(extract(json, "\"online\":"));
             R.maxPlayers = Integer.parseInt(extract(json, "\"max\":"));
-            R.ping = System.currentTimeMillis() - startTime;
+            R.ping = 0; 
         } catch (Exception e) {
             R.online = false;
         }
-        return R;
+        return R; 
     }
 
     private static String extract(String j, String k) {
-        int idx = j.indexOf(k);
+        int idx = j.indexOf(k); 
         if (idx == -1) return "0";
-        String val = j.substring(idx + k.length());
+        String val = j.substring(idx + k.length()); 
         return val.replaceAll("[^0-9]", "").isEmpty() ? "0" : val.replaceAll("[^0-9].*", "");
     }
 }
