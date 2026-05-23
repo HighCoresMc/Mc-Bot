@@ -41,6 +41,9 @@ public class ServerStatsService {
     private static long onlineSince = -1;
     private static int lastMaxPlayers = 0;
 
+    // Section: Load .env once — avoids re-reading the file on every scheduler tick
+    private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
     public static void startScheduler(JDA jda) {
@@ -149,7 +152,6 @@ public class ServerStatsService {
             logCmiColumns();
         }
 
-        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         String host = dotenv.get("MC_SERVER_HOST", "134.255.255.130");
         int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25010"));
 
