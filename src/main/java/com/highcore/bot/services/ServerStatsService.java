@@ -207,14 +207,13 @@ public class ServerStatsService {
         if (isOnline) {
             int dbPlayers = getDbOnlinePlayers();
             currentPlayers = (dbPlayers >= 0) ? dbPlayers : (response.online ? response.onlinePlayers : 0);
-            maxPlayers = response.online ? response.maxPlayers : 100;
+            maxPlayers = response.online ? response.maxPlayers : (lastMaxPlayers > 0 ? lastMaxPlayers : 20);
             if (maxPlayers > 0) {
                 lastMaxPlayers = maxPlayers;
             }
         } else {
-            maxPlayers = lastMaxPlayers > 0 ? lastMaxPlayers : 0;
+            maxPlayers = lastMaxPlayers > 0 ? lastMaxPlayers : 20;
         }
-
         long networkPing = response.online ? response.ping : -1;
 
         totalChecks++;
