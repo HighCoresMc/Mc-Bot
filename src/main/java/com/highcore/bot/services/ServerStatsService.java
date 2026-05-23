@@ -181,14 +181,6 @@ public class ServerStatsService {
             response = MinecraftPing.ping("127.0.0.1", port, 2000);
         }
 
-        if (!response.online) {
-            System.out.println("[ServerStatsService] TCP ping failed. Attempting Web API fallback query...");
-            MinecraftPing.StatusResponse webResp = queryWebApi(host, port);
-            if (webResp.online) {
-                response = webResp;
-            }
-        }
-
         System.out.println("[ServerStatsService] Query complete. Online: " + response.online + 
                            ", Players: " + response.onlinePlayers + "/" + response.maxPlayers + 
                            ", Ping: " + response.ping + "ms");
@@ -466,72 +458,5 @@ public class ServerStatsService {
             System.out.println("[ServerStatsService] Exception while querying Pterodactyl API: " + e.getMessage());
         }
         return stats;
-    }
-
-    private static MinecraftPing.StatusResponse queryWebApi(String host, int port) {
-        MinecraftPing.StatusResponse response = new MinecraftPing.StatusResponse();
-        try {
-            java.net.URL url = new java.net.URL("https://api.minetools.eu/ping/" + host + "/" + port);
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
-            if (conn.getResponseCode() == 200) {
-                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
-                    java.lang.StringBuilder sb = new java.lang.StringBuilder();
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    String json = sb.toString();
-                    if (!json.contains("\"error\"")) {
-                        response.online = true;
-                        
-                        response.onlinePlayers = extractJsonInt(json, "online");
-                        response.maxPlayers = extractJsonInt(json, "max");
-                        response.ping = extractJsonLong(json, "latency");
-                        
-                        if (response.ping <= 0) response.ping = 15;
-                        
-                        return response;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("[ServerStatsService] Minetools API query failed: " + e.getMessage());
-        }
-
-        try {
-            java.net.URL url = new java.net.URL("https://api.mcsrvstat.us/2/" + host + ":" + port);
-            java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("GET");
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
-            if (conn.getResponseCode() == 200) {
-                try (java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
-                    java.lang.StringBuilder sb = new java.lang.StringBuilder();
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        sb.append(line);
-                    }
-                    String json = sb.toString();
-                    if (json.contains("\"online\":true")) {
-                        response.online = true;
-                        
-                        response.onlinePlayers = extractJsonInt(json, "online");
-                        response.maxPlayers = extractJsonInt(json, "max");
-                        response.ping = extractJsonLong(json, "ping");
-                        
-                        if (response.ping <= 0) {
-                            response.ping = 15;
-                        }
-                        return response;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("[ServerStatsService] mcsrvstat API query failed: " + e.getMessage());
-        }
-        return response;
     }
 }
