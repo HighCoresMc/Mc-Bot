@@ -6,9 +6,10 @@ import java.nio.charset.StandardCharsets;
 
 public class MinecraftPing {
     public static class StatusResponse {
-        public boolean online;
-        public int onlinePlayers, maxPlayers;
-        public long ping;
+        public boolean online = false;
+        public int onlinePlayers = 0;
+        public int maxPlayers = 0;
+        public long ping = -1;
     }
 
     public static StatusResponse ping(String host, int port, int timeout) {
