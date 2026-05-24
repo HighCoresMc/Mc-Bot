@@ -218,7 +218,7 @@ public class PanelCommand extends ListenerAdapter {
 
             StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:" + (isRestart ? "restart" : "stop"))
                     .setPlaceholder("اختر سبب التوقف...")
-                    .addOption("صيانة دورية وتحسينات", "maintenance", "صيانة دورية وتحسينات عامة للمخدم")
+                    .addOption("صيانة دورية وتحسينات", "maintenance", "صيانة دورية وتحسينات عامة للخادم")
                     .addOption("تطوير وتحديث الأنظمة", "dev", "تطوير وتحديث برمجي للأنظمة")
                     .addOption("إصلاح أخطاء تقنية", "bug", "إصلاح بعض المشاكل والأخطاء التقنية")
                     .addOption("سبب مخصص...", "custom", "كتابة سبب مخصص يدوياً")
@@ -365,6 +365,7 @@ public class PanelCommand extends ListenerAdapter {
                     saveMaintenanceState(state);
                     startMaintenanceScheduler(event.getJDA(), state);
                     updateMaintenanceMessage(event.getJDA(), state);
+                    com.highcore.bot.services.ServerStatsService.forceUpdate(event.getJDA());
                     hook.sendMessage("تم تمديد فترة الصيانة بنجاح إلى: <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)").setEphemeral(true).queue();
                 });
             });
@@ -537,6 +538,7 @@ public class PanelCommand extends ListenerAdapter {
                 state.channelId = msg.getChannel().getId();
                 saveMaintenanceState(state);
                 startMaintenanceScheduler(jda, state);
+                com.highcore.bot.services.ServerStatsService.forceUpdate(jda);
 
                 channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
 
@@ -582,6 +584,7 @@ public class PanelCommand extends ListenerAdapter {
             maintenanceTimer = null;
         }
         clearMaintenanceState();
+        com.highcore.bot.services.ServerStatsService.forceUpdate(jda);
     }
 
     // UPDATE MAINTENANCE MESSAGE
@@ -657,7 +660,7 @@ public class PanelCommand extends ListenerAdapter {
         }
         if (state.reason == null) return "أعمال صيانة وتحديث عامة";
         return switch (state.reason) {
-            case "maintenance" -> "صيانة دورية وتحسينات عامة للمخدم";
+            case "maintenance" -> "صيانة دورية وتحسينات عامة للخادم";
             case "dev" -> "تطوير وتحديث برمجي للأنظمة";
             case "bug" -> "إصلاح بعض المشاكل والأخطاء التقنية";
             default -> "أعمال صيانة وتحديث عامة";

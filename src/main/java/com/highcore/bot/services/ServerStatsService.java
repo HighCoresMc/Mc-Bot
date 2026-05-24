@@ -168,8 +168,6 @@ public class ServerStatsService {
         if (pteroEnabled && ptero != null && ptero.apiSuccess) {
             if (!ptero.online) {
                 isOnline = false;
-            } else if (!response.online) {
-                isOnline = true;
             }
         }
         
@@ -242,12 +240,41 @@ public class ServerStatsService {
             uptimeStr = sb.toString();
         }
 
-        String statusEmoji = isOnline ? "🟢" : "🔴";
-        String statusDesc = isOnline 
-            ? "Players can join and enjoy the gameplay experience." 
-            : "Server is currently offline. Please check back later!";
+        boolean isMaintenance = false;
+        long maintenanceReturnTimestamp = 0;
+        File maintFile = new File("maintenance_state.json");
+        if (maintFile.exists()) {
+            try (FileReader reader = new FileReader(maintFile)) {
+                java.lang.StringBuilder sb = new java.lang.StringBuilder();
+                int ch;
+                while ((ch = reader.read()) != -1) {
+                    sb.append((char) ch);
+                }
+                JsonObject json = JsonParser.parseString(sb.toString()).getAsJsonObject();
+                maintenanceReturnTimestamp = json.get("returnTimestamp").getAsLong();
+                isMaintenance = true;
+            } catch (Exception ignored) {}
+        }
 
-        String healthPercentage = isOnline ? "100.0%" : "0.0%";
+        String statusEmoji;
+        String statusDesc;
+        String serverStatusText;
+        String healthPercentage;
+
+        if (isMaintenance) {
+            statusEmoji = "🟡";
+            statusDesc = "Under Maintenance\n**Expected Return:** <t:" + (maintenanceReturnTimestamp / 1000) + ":F> (<t:" + (maintenanceReturnTimestamp / 1000) + ":R>)";
+            serverStatusText = "Maintenance ⚠️";
+            healthPercentage = "Maintenance";
+            currentPlayers = 0;
+        } else {
+            statusEmoji = isOnline ? "🟢" : "🔴";
+            statusDesc = isOnline 
+                ? "Players can join and enjoy the gameplay experience." 
+                : "Server is currently offline. Please check back later!";
+            serverStatusText = isOnline ? "Open 🔓" : "Closed 🔒";
+            healthPercentage = isOnline ? "100.0%" : "0.0%";
+        }
 
         Container container = Container.of(
             Section.of(
@@ -269,7 +296,7 @@ public class ServerStatsService {
                            "📥 **Total Logins:** `" + totalLogins + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### 🚦 Status & Health\n" +
-                           "🚦 **Server Status:** `" + (isOnline ? "Open 🔓" : "Closed 🔒") + "`\n" +
+                           "🚦 **Server Status:** `" + serverStatusText + "`\n" +
                            "📡 **Server Ping:** `" + (networkPing != -1 ? networkPing + "ms" : "N/A") + "`\n" +
                            "🔋 **Health:** `" + healthPercentage + "`\n" +
                            "📈 **Availability:** " + getProgressBar(availability)),
