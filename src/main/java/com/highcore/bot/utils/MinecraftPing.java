@@ -14,7 +14,7 @@ public class MinecraftPing {
         public long ping;            // Round-trip time in ms (0 = unknown)
     }
 
-    // Section: VarInt encoding — required by the Minecraft 1.7+ status protocol
+    // Section: VarInt encoding
     private static void writeVarInt(OutputStream out, int value) throws IOException {
         while ((value & 0xFFFFFF80) != 0) {
             out.write((value & 0x7F) | 0x80);
@@ -38,7 +38,7 @@ public class MinecraftPing {
     public static StatusResponse ping(String host, int port, int timeout) {
         StatusResponse R = new StatusResponse();
         try (Socket S = new Socket()) {
-            // Section: Attempt TCP connect with a hard deadline — catch refused separately
+            // Section: TCP connect
             long connectStart = System.nanoTime();
             try {
                 S.connect(new InetSocketAddress(host, port), timeout);
@@ -47,7 +47,7 @@ public class MinecraftPing {
                 R.portRefused = true;
                 return R;
             }
-            // Section: TCP handshake succeeded — server IS listening
+            // Section: TCP handshake check
             R.portOpen = true;
             // Use nanoTime for sub-millisecond accuracy — ensures at least 1ms when TCP is instant
             R.ping = Math.max(1L, (System.nanoTime() - connectStart) / 1_000_000L);
@@ -56,7 +56,7 @@ public class MinecraftPing {
             OutputStream rawOut = S.getOutputStream();
             InputStream  rawIn  = S.getInputStream();
 
-            // Section: Build Minecraft handshake packet body
+            // Section: Minecraft handshake packet
             ByteArrayOutputStream packetBody = new ByteArrayOutputStream();
             DataOutputStream      body       = new DataOutputStream(packetBody);
             writeVarInt(packetBody, 0x00);                                // Packet ID: Handshake
@@ -67,14 +67,14 @@ public class MinecraftPing {
             body.writeShort(port);
             writeVarInt(packetBody, 1);                                   // Next state: Status
 
-            // Section: Send handshake then status request
+            // Section: Send handshake
             writeVarInt(rawOut, packetBody.size());
             rawOut.write(packetBody.toByteArray());
             writeVarInt(rawOut, 1);  // Status request length
             writeVarInt(rawOut, 0x00); // Packet ID: Status Request
             rawOut.flush();
 
-            // Section: Read status response and measure RTT
+            // Section: Read status response
             long rttStart = System.nanoTime();
             readVarInt(rawIn);              // Packet length
             readVarInt(rawIn);              // Packet ID (0x00)

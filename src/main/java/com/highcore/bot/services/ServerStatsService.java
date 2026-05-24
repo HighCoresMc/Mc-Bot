@@ -40,10 +40,10 @@ public class ServerStatsService {
     private static long successfulChecks = 0;
     private static long onlineSince = -1;
     private static int lastMaxPlayers = 0;
-    // Section: Persistent login counter — incremented by MinecraftLogListener on every join
+    // Section: Persistent login counter
     private static long totalLogins = 0;
 
-    // Section: Load .env once — avoids re-reading the file on every scheduler tick
+    // Section: Load .env once
     private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
 
     private static final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
@@ -97,7 +97,7 @@ public class ServerStatsService {
         String[] javaParts = javaIp.split(":");
         String javaHost    = javaParts[0];
         String javaPortStr = javaParts.length > 1 ? javaParts[1] : "25565";
-        // Section: Parse Java port as int — Velocity proxy is the correct ping target (not backend)
+        // Section: Parse Java port as int
         int javaPort = 25565;
         try { javaPort = Integer.parseInt(javaPortStr); } catch (Exception ignored) {}
         
@@ -115,15 +115,14 @@ public class ServerStatsService {
             ptero = fetchPterodactylStats(pteroUrl, pteroKey, pteroId);
         }
 
-        // Section: Ping the Velocity proxy (javaHost:javaPort) — responds to MC handshake properly
-        //          Gives correct max players, real MC protocol RTT, and reliable online detection
+        // Section: Ping Velocity proxy
         System.out.println("[ServerStatsService] Pinging Velocity proxy at " + javaHost + ":" + javaPort + "...");
         MinecraftPing.StatusResponse response = MinecraftPing.ping(javaHost, javaPort, 3000);
         boolean portOpen    = response.portOpen;
         boolean portRefused = response.portRefused;
         long    tcpPing     = response.ping;
 
-        // Section: Localhost fallback — only when external ping failed and host is not already local
+        // Section: Localhost fallback
         if (!response.online && !portOpen && !portRefused
                 && !"127.0.0.1".equals(javaHost) && !"localhost".equals(javaHost)) {
             System.out.println("[ServerStatsService] Main ping failed. Attempting fallback to localhost...");
@@ -133,7 +132,7 @@ public class ServerStatsService {
             if (local.online || local.portOpen) response = local;
         }
 
-        // Section: Web API fallback — query Velocity address (same as ping target)
+        // Section: Web API fallback
         long webPing = 0;
         if (!response.online) {
             if (portRefused && !portOpen) {
@@ -144,7 +143,7 @@ public class ServerStatsService {
                 MinecraftPing.StatusResponse webResp = queryWebApi(javaHost, javaPort);
                 webPing = webResp.ping;
                 if (webResp.online) {
-                    // Section: Prefer minetools ping (EU neutral) over Railway TCP RTT
+
                     long savedPing = webPing > 0 ? webPing : tcpPing;
                     response = webResp;
                     response.ping = savedPing;
@@ -154,7 +153,7 @@ public class ServerStatsService {
                 }
             }
         } else {
-            // Section: Direct MC protocol succeeded — ping is already measured
+
             webPing = response.ping;
         }
 
@@ -171,14 +170,14 @@ public class ServerStatsService {
             }
         }
         
-        // Section: Max players — env var takes priority, then API response, then cached value (no hardcoded default)
+        // Section: Max players
         int envMax = 0;
         try { envMax = Integer.parseInt(dotenv.get("MC_MAX_PLAYERS", "0")); } catch (Exception ignored) {}
 
         int currentPlayers = 0;
         int maxPlayers = 0;
         if (isOnline) {
-            // Section: Use the real-time log-based player set — accurate, avoids CMI DB timestamp drift
+            // Section: Real-time player set
             currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
             maxPlayers = envMax > 0 ? envMax
                        : (response.online && response.maxPlayers > 0 ? response.maxPlayers
@@ -190,7 +189,7 @@ public class ServerStatsService {
             maxPlayers = envMax > 0 ? envMax : (lastMaxPlayers > 0 ? lastMaxPlayers : 0);
         }
 
-        // Section: Ping display — minetools EU latency (neutral server, more accurate than Railway RTT)
+        // Section: Ping display
         long networkPing = isOnline ? (webPing > 0 ? webPing : tcpPing > 0 ? tcpPing : -1) : -1;
         totalChecks++;
         if (isOnline) {
@@ -314,19 +313,19 @@ public class ServerStatsService {
         }
     }
 
-    // Section: Called by MinecraftLogListener on every player join to keep the counter accurate
+
     public static void incrementTotalLogins() {
         totalLogins++;
         saveStatsData();
         savePersistentStatsToDB();
     }
 
-    // Section: Exposes the log channel ID from the cached Dotenv to MinecraftLogListener
+
     public static String getLogChannelId() {
         return dotenv.get("MINECRAFT_LOG_CHANNEL_ID", "1487148944667578368");
     }
 
-    // Section: Server lifecycle hooks — called by MinecraftLogListener on stop/start events
+    // Section: Server lifecycle hooks
     public static void notifyServerStarted() {
         onlineSince = System.currentTimeMillis();
         saveStatsData();
@@ -337,12 +336,12 @@ public class ServerStatsService {
         saveStatsData();
     }
 
-    // Section: Called during history scan to restore server uptime from Discord message timestamp
+
     public static void setOnlineSince(long epochMs) {
         onlineSince = epochMs;
     }
 
-    // Section: MySQL persistence — survives Railway redeployments
+    // Section: MySQL persistence
     private static void initPersistentStats() {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement create = conn.prepareStatement(
@@ -538,11 +537,11 @@ public class ServerStatsService {
                     String json = sb.toString();
                     if (!json.contains("\"error\"")) {
                         response.online = true;
-                        // Section: minetools uses {"players":{"online":N,"max":N},"latency":F}
+
                         response.onlinePlayers = extractJsonInt(json, "online");
                         response.maxPlayers    = extractJsonInt(json, "max");
                         response.ping          = extractJsonLong(json, "latency");
-                        // Section: leave ping as 0 if not provided — display shows N/A for 0/-1
+
                         return response;
                     }
                 }
@@ -567,7 +566,7 @@ public class ServerStatsService {
                     String json = sb.toString();
                     if (json.contains("\"online\":true")) {
                         response.online = true;
-                        // Section: mcsrvstat uses {"players":{"online":N,"max":N}}
+
                         response.onlinePlayers = extractJsonInt(json, "online");
                         response.maxPlayers    = extractJsonInt(json, "max");
                         response.ping          = extractJsonLong(json, "ping");
