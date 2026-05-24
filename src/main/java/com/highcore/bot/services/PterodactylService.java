@@ -339,4 +339,47 @@ public class PterodactylService {
         matcher.appendTail(sb);
         return sb.toString();
     }
+
+    public boolean isConsoleDisconnected() {
+        return currentWebSocket == null || currentWebSocket.isInputClosed() || currentWebSocket.isOutputClosed();
+    }
+
+    public String getFileContents(String path) {
+        if (API_KEY == null || SERVER_ID == null) {
+            return null;
+        }
+        try {
+            String encodedPath = java.net.URLEncoder.encode(path, java.nio.charset.StandardCharsets.UTF_8);
+            String url = PANEL_URL + "/api/client/servers/" + SERVER_ID + "/files/contents?file=" + encodedPath;
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + API_KEY)
+                    .header("Accept", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                return response.body();
+            }
+        } catch (Exception e) {
+            logger.error("Failed to fetch file contents from Pterodactyl: " + path, e);
+        }
+        return null;
+    }
+
+    public java.util.List<String> getLatestLogs(int maxLines) {
+        String content = getFileContents("logs/latest.log");
+        java.util.List<String> result = new java.util.ArrayList<>();
+        if (content != null && !content.trim().isEmpty()) {
+            String clean = cleanAnsiForDiscord(content);
+            String[] lines = clean.split("\\r?\\n");
+            int start = Math.max(0, lines.length - maxLines);
+            for (int i = start; i < lines.length; i++) {
+                result.add(lines[i]);
+            }
+        }
+        return result;
+    }
 }

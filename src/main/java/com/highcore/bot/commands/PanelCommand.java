@@ -67,6 +67,83 @@ public class PanelCommand extends ListenerAdapter {
         if (jda != null) {
             loadAndResumeMaintenance(jda);
         }
+        refreshConsoleBufferFromFile();
+    }
+
+    private void refreshConsoleBufferFromFileSync() {
+        try {
+            java.util.List<String> fileLogs = pterodactylService.getLatestLogs(30);
+            if (fileLogs != null && !fileLogs.isEmpty()) {
+                synchronized (consoleBuffer) {
+                    consoleBuffer.clear();
+                    consoleBuffer.addAll(fileLogs);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void refreshConsoleBufferFromFile() {
+        java.util.concurrent.CompletableFuture.runAsync(this::refreshConsoleBufferFromFileSync);
+    }
+
+    private void updatePanelMessage(net.dv8tion.jda.api.JDA jda) {
+        if (activeMessageId == null || activeChannelId == null) return;
+        try {
+            Container updatedContainer = buildContainer(cachedResources, isKillState);
+            MessageEditData editData = new MessageEditBuilder()
+                    .setComponents(updatedContainer)
+                    .setEmbeds(java.util.Collections.emptyList())
+                    .useComponentsV2(true)
+                    .build();
+            var channel = jda.getTextChannelById(activeChannelId);
+            if (channel != null) {
+                channel.editMessageById(activeMessageId, editData).useComponentsV2().queue(null, err -> {});
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private synchronized void ensurePanelUpdaterRunning(net.dv8tion.jda.api.JDA jda) {
+        if (activeMessageId == null || activeChannelId == null) return;
+        if (panelExecutor != null && !panelExecutor.isShutdown()) {
+            return;
+        }
+        if (resourcesExecutor != null && !resourcesExecutor.isShutdown()) resourcesExecutor.shutdownNow();
+        resourcesExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "PanelResourcesFetcher");
+            t.setDaemon(true);
+            return t;
+        });
+        resourcesExecutor.scheduleAtFixedRate(() -> {
+            try {
+                JsonObject fresh = pterodactylService.getServerResources();
+                if (fresh != null) {
+                    cachedResources = fresh;
+                    lastResourcesFetchTime = System.currentTimeMillis();
+                }
+            } catch (Throwable ignored) {}
+        }, 0, 5, TimeUnit.SECONDS);
+
+        panelExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "PanelUpdateTimer");
+            t.setDaemon(true);
+            return t;
+        });
+        panelExecutor.scheduleAtFixedRate(() -> {
+            if (activeMessageId == null || activeChannelId == null) return;
+            try {
+                boolean isOfflineOrStarting = true;
+                if (cachedResources != null) {
+                    String state = cachedResources.get("current_state").getAsString();
+                    if ("running".equals(state)) {
+                        isOfflineOrStarting = false;
+                    }
+                }
+                if (pterodactylService.isConsoleDisconnected() || isOfflineOrStarting) {
+                    refreshConsoleBufferFromFileSync();
+                }
+                updatePanelMessage(jda);
+            } catch (Throwable ignored) {}
+        }, 3, 3, TimeUnit.SECONDS);
     }
 
     @Override
@@ -125,13 +202,13 @@ public class PanelCommand extends ListenerAdapter {
         if (!event.getName().equals("panel")) return;
         event.deferReply().queue(hook -> {
             java.util.concurrent.CompletableFuture.runAsync(() -> {
-                // RESOURCES
                 JsonObject resources = pterodactylService.getServerResources();
                 if (resources != null) {
                     cachedResources = resources;
                     lastResourcesFetchTime = System.currentTimeMillis();
                 }
                 isKillState = false;
+                refreshConsoleBufferFromFileSync();
                 Container container = buildContainer(cachedResources, isKillState);
 
                 MessageCreateData messageData = new MessageCreateBuilder()
@@ -144,45 +221,12 @@ public class PanelCommand extends ListenerAdapter {
                     activeMessageId = message.getId();
                     activeChannelId = message.getChannel().getId();
 
-                    // TIMER
                     if (panelExecutor != null && !panelExecutor.isShutdown()) panelExecutor.shutdownNow();
                     if (resourcesExecutor != null && !resourcesExecutor.isShutdown()) resourcesExecutor.shutdownNow();
+                    panelExecutor = null;
+                    resourcesExecutor = null;
 
-                    resourcesExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-                        Thread t = new Thread(r, "PanelResourcesFetcher");
-                        t.setDaemon(true);
-                        return t;
-                    });
-                    resourcesExecutor.scheduleAtFixedRate(() -> {
-                        try {
-                            JsonObject fresh = pterodactylService.getServerResources();
-                            if (fresh != null) {
-                                cachedResources = fresh;
-                                lastResourcesFetchTime = System.currentTimeMillis();
-                            }
-                        } catch (Throwable ignored) {}
-                    }, 0, 5, TimeUnit.SECONDS);
-
-                    panelExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
-                        Thread t = new Thread(r, "PanelUpdateTimer");
-                        t.setDaemon(true);
-                        return t;
-                    });
-                    panelExecutor.scheduleAtFixedRate(() -> {
-                        if (activeMessageId == null || activeChannelId == null) return;
-                        try {
-                            Container updatedContainer = buildContainer(cachedResources, isKillState);
-                            MessageEditData editData = new MessageEditBuilder()
-                                    .setComponents(updatedContainer)
-                                    .setEmbeds(java.util.Collections.emptyList())
-                                    .useComponentsV2(true)
-                                    .build();
-                            var channel = event.getJDA().getTextChannelById(activeChannelId);
-                            if (channel != null) {
-                                channel.editMessageById(activeMessageId, editData).useComponentsV2().queue(null, err -> {});
-                            }
-                        } catch (Throwable ignored) {}
-                    }, 3, 3, TimeUnit.SECONDS);
+                    ensurePanelUpdaterRunning(event.getJDA());
                 });
             });
         });
@@ -193,6 +237,12 @@ public class PanelCommand extends ListenerAdapter {
         if (!event.getComponentId().startsWith("ptdl_") && !event.getComponentId().startsWith("ec_")) return;
 
         String id = event.getComponentId();
+
+        if (id.startsWith("ptdl_") && event.getMessageId() != null) {
+            activeMessageId = event.getMessageId();
+            activeChannelId = event.getChannel().getId();
+            ensurePanelUpdaterRunning(event.getJDA());
+        }
 
         if (id.equals("ec_end")) {
             event.deferEdit().queue();
@@ -391,6 +441,13 @@ public class PanelCommand extends ListenerAdapter {
                 isKillState = false;
                 pterodactylService.sendPowerSignal("start");
                 pterodactylService.reconnectConsole();
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    for (int i = 0; i < 6; i++) {
+                        try { Thread.sleep(1000); } catch (Exception ignored) {}
+                        refreshConsoleBufferFromFileSync();
+                        updatePanelMessage(event.getJDA());
+                    }
+                });
             } else if (id.equals("ptdl_kill")) {
                 isKillState = false;
                 pterodactylService.sendPowerSignal("kill");
@@ -611,6 +668,15 @@ public class PanelCommand extends ListenerAdapter {
         if (!state.isFromEc) {
             pterodactylService.sendPowerSignal(state.isRestart ? "restart" : "stop");
             pterodactylService.reconnectConsole();
+            if (state.isRestart) {
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    for (int i = 0; i < 6; i++) {
+                        try { Thread.sleep(1000); } catch (Exception ignored) {}
+                        refreshConsoleBufferFromFileSync();
+                        updatePanelMessage(jda);
+                    }
+                });
+            }
         }
         long durationMs = parseDurationToMs(state.duration, state.customDurationText);
         state.returnTimestamp = System.currentTimeMillis() + durationMs;
