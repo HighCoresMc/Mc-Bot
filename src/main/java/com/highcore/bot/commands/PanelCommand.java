@@ -91,14 +91,15 @@ public class PanelCommand extends ListenerAdapter {
         String id = event.getComponentId();
         
         if (id.equals("ptdl_cmd")) {
-            TextInput commandInput = TextInput.create("command", "Command", TextInputStyle.SHORT)
+            TextInput commandInput = TextInput.create("command", TextInputStyle.SHORT)
+                    .setLabel("Command")
                     .setPlaceholder("ex: say hello")
                     .setMinLength(1)
                     .setRequired(true)
                     .build();
 
             Modal modal = Modal.create("ptdl_modal", "Send Console Command")
-                    .addComponents(ActionRow.of(commandInput))
+                    .addActionRow(commandInput)
                     .build();
             
             event.replyModal(modal).queue();
