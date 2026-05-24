@@ -74,40 +74,22 @@ public class PanelCommand extends ListenerAdapter {
         if (event.getName().equals("ec")) {
             event.deferReply(true).queue(hook -> {
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
-                    java.io.File file = new java.io.File(STATE_FILE);
-                    if (!file.exists()) {
+                    MaintenanceState state = getActiveMaintenanceState();
+                    if (state == null) {
                         hook.sendMessage("لا توجد حالة صيانة أو توقف نشطة حالياً.").queue();
                         return;
                     }
                     try {
-                        java.io.FileReader reader = new java.io.FileReader(file);
-                        java.lang.StringBuilder sb = new java.lang.StringBuilder();
-                        int ch;
-                        while ((ch = reader.read()) != -1) {
-                            sb.append((char) ch);
-                        }
-                        reader.close();
-                        JsonObject json = com.google.gson.JsonParser.parseString(sb.toString()).getAsJsonObject();
-                        MaintenanceState state = new MaintenanceState();
-                        state.isRestart = json.get("isRestart").getAsBoolean();
-                        state.reason = json.has("reason") && !json.get("reason").isJsonNull() ? json.get("reason").getAsString() : null;
-                        state.duration = json.has("duration") && !json.get("duration").isJsonNull() ? json.get("duration").getAsString() : null;
-                        state.customReasonText = json.has("customReasonText") && !json.get("customReasonText").isJsonNull() ? json.get("customReasonText").getAsString() : null;
-                        state.customDurationText = json.has("customDurationText") && !json.get("customDurationText").isJsonNull() ? json.get("customDurationText").getAsString() : null;
-                        state.messageId = json.has("messageId") && !json.get("messageId").isJsonNull() ? json.get("messageId").getAsString() : null;
-                        state.channelId = json.has("channelId") && !json.get("channelId").isJsonNull() ? json.get("channelId").getAsString() : null;
-                        state.returnTimestamp = json.get("returnTimestamp").getAsLong();
-                        state.actualReason = json.has("actualReason") && !json.get("actualReason").isJsonNull() ? json.get("actualReason").getAsString() : null;
-
-                        if (maintenanceTimer != null) {
-                            maintenanceTimer.cancel();
-                            maintenanceTimer = null;
-                        }
-
-                        finishMaintenance(event.getJDA(), state, true);
-                        hook.sendMessage("تم إنهاء حالة الصيانة بنجاح وإرسال الإشعار.").queue();
+                        Button extendBtn = Button.primary("ec_extend", "تمديد الصيانة");
+                        Button endBtn = Button.danger("ec_end", "إنهاء الصيانة");
+                        MessageCreateData choiceMsg = new MessageCreateBuilder()
+                                .setContent("### إدارة حالة الصيانة الحالية\nيرجى اختيار الإجراء المطلوب:")
+                                .setComponents(ActionRow.of(extendBtn, endBtn))
+                                .useComponentsV2(true)
+                                .build();
+                        hook.sendMessage(choiceMsg).queue();
                     } catch (Exception e) {
-                        hook.sendMessage("حدث خطأ أثناء إنهاء حالة الصيانة.").queue();
+                        hook.sendMessage("حدث خطأ أثناء عرض خيارات الصيانة.").queue();
                     }
                 });
             });
@@ -182,9 +164,37 @@ public class PanelCommand extends ListenerAdapter {
 
     @Override
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
-        if (!event.getComponentId().startsWith("ptdl_")) return;
+        if (!event.getComponentId().startsWith("ptdl_") && !event.getComponentId().startsWith("ec_")) return;
 
         String id = event.getComponentId();
+
+        if (id.equals("ec_end")) {
+            event.deferEdit().queue();
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                MaintenanceState state = getActiveMaintenanceState();
+                if (state == null) {
+                    event.getHook().sendMessage("لا توجد حالة صيانة نشطة حالياً.").setEphemeral(true).queue();
+                    return;
+                }
+                finishMaintenance(event.getJDA(), state, true);
+                event.getHook().editOriginal("تم إنهاء حالة الصيانة بنجاح وإرسال الإشعار.")
+                        .setComponents(java.util.Collections.emptyList())
+                        .queue();
+            });
+            return;
+        }
+
+        if (id.equals("ec_extend")) {
+            TextInput durationInput = TextInput.create("new_duration", TextInputStyle.SHORT)
+                    .setPlaceholder("مثال: 30m, 1h, 18:30")
+                    .setRequired(true)
+                    .build();
+            Modal modal = Modal.create("ec_extend_modal", "تمديد فترة الصيانة")
+                    .addComponents(Label.of("أدخل المدة أو وقت العودة الجديد:", durationInput))
+                    .build();
+            event.replyModal(modal).queue();
+            return;
+        }
         
         if (id.equals("ptdl_cmd")) {
             TextInput commandInput = TextInput.create("command", TextInputStyle.SHORT)
@@ -339,6 +349,28 @@ public class PanelCommand extends ListenerAdapter {
     @Override
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         String modalId = event.getModalId();
+        if (modalId.equals("ec_extend_modal")) {
+            event.deferReply(true).queue(hook -> {
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    MaintenanceState state = getActiveMaintenanceState();
+                    if (state == null) {
+                        hook.sendMessage("⚠️ لا توجد صيانة نشطة حالياً لتمديدها.").setEphemeral(true).queue();
+                        return;
+                    }
+                    String input = event.getValue("new_duration").getAsString();
+                    long durationMs = parseDurationToMs("custom", input);
+                    state.returnTimestamp = System.currentTimeMillis() + durationMs;
+                    state.duration = "custom";
+                    state.customDurationText = input;
+                    saveMaintenanceState(state);
+                    startMaintenanceScheduler(event.getJDA(), state);
+                    updateMaintenanceMessage(event.getJDA(), state);
+                    hook.sendMessage("تم تمديد فترة الصيانة بنجاح إلى: <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)").setEphemeral(true).queue();
+                });
+            });
+            return;
+        }
+
         if (modalId.equals("ptdl_modal")) {
             String command = event.getValue("command").getAsString();
             pterodactylService.sendCommand(command);
@@ -493,27 +525,6 @@ public class PanelCommand extends ListenerAdapter {
 
         TextChannel channel = jda.getTextChannelById("1487139736748425236");
         if (channel != null) {
-            String reasonType = formatReasonType(state);
-            Container alertContainer = Container.of(
-                Section.of(
-                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
-                    TextDisplay.of("### 🚨 بدأت حالة " + reasonType + "\n" +
-                                   "تم إيقاف الخادم لبدء أعمال **" + reasonType + "**.\n" +
-                                   "**السبب:** `" + state.actualReason + "`\n\n" +
-                                   "**وقت العودة المتوقع:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)\n\n" +
-                                   "إشعار: <@&1499896841150402692>")
-                )
-            );
-            MessageCreateData startNotificationMsg = new MessageCreateBuilder()
-                    .setComponents(alertContainer)
-                    .useComponentsV2(true)
-                    .build();
-            channel.sendMessage(startNotificationMsg).useComponentsV2().queue(msg -> {
-                channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
-            }, err -> {
-                logger.error("Failed to send maintenance start alert message", err);
-            });
-
             Container container = buildMaintenanceContainer(state, durationMs, false, false);
             MessageCreateData message = new MessageCreateBuilder()
                     .setComponents(container)
@@ -525,6 +536,8 @@ public class PanelCommand extends ListenerAdapter {
                 state.channelId = msg.getChannel().getId();
                 saveMaintenanceState(state);
                 startMaintenanceScheduler(jda, state);
+
+                channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
 
                 if (hook != null) {
                     hook.sendMessage("تم بدء الإجراء بنجاح وتم نشر الإشعار في القناة المحددة.").setEphemeral(true).queue();
@@ -555,27 +568,17 @@ public class PanelCommand extends ListenerAdapter {
                             .setComponents(container)
                             .useComponentsV2(true)
                             .build();
-                    channel.editMessageById(state.messageId, edit).useComponentsV2().queue(null, err -> {});
+                    channel.editMessageById(state.messageId, edit).useComponentsV2().queue(msg -> {
+                        channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
+                    }, err -> {
+                        logger.error("Failed to edit maintenance message to finished state", err);
+                    });
                 }
-                String reasonType = formatReasonType(state);
-                Container completionContainer = Container.of(
-                    Section.of(
-                        Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
-                        TextDisplay.of("### ✅ انتهت حالة " + reasonType + "\n" +
-                                       "عاد الخادم للعمل الآن بشكل طبيعي، بإمكانكم الدخول واللعب.\n\n" +
-                                       "إشعار: <@&1499896841150402692>")
-                    )
-                );
-                MessageCreateData completionMsg = new MessageCreateBuilder()
-                        .setComponents(completionContainer)
-                        .useComponentsV2(true)
-                        .build();
-                channel.sendMessage(completionMsg).useComponentsV2().queue(msg -> {
-                    channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
-                }, err -> {
-                    logger.error("Failed to send maintenance completion alert message", err);
-                });
             }
+        }
+        if (maintenanceTimer != null) {
+            maintenanceTimer.cancel();
+            maintenanceTimer = null;
         }
         clearMaintenanceState();
     }
@@ -752,14 +755,9 @@ public class PanelCommand extends ListenerAdapter {
             @Override
             public void run() {
                 try {
-                    JsonObject resources = pterodactylService.getServerResources();
-                    String currentState = "offline";
-                    if (resources != null) {
-                        currentState = resources.get("current_state").getAsString();
-                    }
                     long timeLeft = state.returnTimestamp - System.currentTimeMillis();
-                    if ("running".equals(currentState) || timeLeft <= 0) {
-                        finishMaintenance(jda, state, "running".equals(currentState));
+                    if (timeLeft <= 0) {
+                        finishMaintenance(jda, state, true);
                         cancel();
                     }
                 } catch (Throwable t) {
@@ -770,23 +768,48 @@ public class PanelCommand extends ListenerAdapter {
 
     // CONTAINER UTILS
     private Container buildMaintenanceContainer(MaintenanceState state, long timeLeftMs, boolean finished, boolean serverRunning) {
-        String title = state.isRestart ? "إعادة تشغيل مجدولة" : "صيانة مجدولة";
-        String statusText = finished ? (serverRunning ? "يعمل الآن بشكل طبيعي" : "انتهت فترة الصيانة") : "تحت الصيانة حالياً";
+        String reasonType = formatReasonType(state);
+        String title = finished ? "✅ انتهت حالة " + reasonType : "🚨 بدأت حالة " + reasonType;
         String reasonStr = formatReason(state);
-        String timeInfo;
+        String bodyText;
         if (finished) {
-            timeInfo = "اكتملت العملية بنجاح.";
+            bodyText = "انتهت حالة **" + reasonType + "** وعاد الخادم للعمل الآن بشكل طبيعي، بإمكانكم الدخول واللعب.";
         } else {
-            timeInfo = "**وقت العودة:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)";
+            bodyText = "تم إيقاف الخادم لبدء أعمال **" + reasonType + "**.\n" +
+                       "**السبب:** `" + reasonStr + "`\n\n" +
+                       "**وقت العودة المتوقع:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)";
         }
         return Container.of(
             Section.of(
                 Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
-                TextDisplay.of("### " + title + "\n" +
-                               "**الحالة:** `" + statusText + "`\n" +
-                               "**السبب:** `" + reasonStr + "`\n\n" +
-                               timeInfo)
+                TextDisplay.of("### " + title + "\n" + bodyText)
             )
         );
+    }
+
+    private MaintenanceState getActiveMaintenanceState() {
+        java.io.File file = new java.io.File(STATE_FILE);
+        if (!file.exists()) return null;
+        try (java.io.FileReader reader = new java.io.FileReader(file)) {
+            java.lang.StringBuilder sb = new java.lang.StringBuilder();
+            int ch;
+            while ((ch = reader.read()) != -1) {
+                sb.append((char) ch);
+            }
+            JsonObject json = com.google.gson.JsonParser.parseString(sb.toString()).getAsJsonObject();
+            MaintenanceState state = new MaintenanceState();
+            state.isRestart = json.get("isRestart").getAsBoolean();
+            state.reason = json.has("reason") && !json.get("reason").isJsonNull() ? json.get("reason").getAsString() : null;
+            state.duration = json.has("duration") && !json.get("duration").isJsonNull() ? json.get("duration").getAsString() : null;
+            state.customReasonText = json.has("customReasonText") && !json.get("customReasonText").isJsonNull() ? json.get("customReasonText").getAsString() : null;
+            state.customDurationText = json.has("customDurationText") && !json.get("customDurationText").isJsonNull() ? json.get("customDurationText").getAsString() : null;
+            state.messageId = json.has("messageId") && !json.get("messageId").isJsonNull() ? json.get("messageId").getAsString() : null;
+            state.channelId = json.has("channelId") && !json.get("channelId").isJsonNull() ? json.get("channelId").getAsString() : null;
+            state.returnTimestamp = json.get("returnTimestamp").getAsLong();
+            state.actualReason = json.has("actualReason") && !json.get("actualReason").isJsonNull() ? json.get("actualReason").getAsString() : null;
+            return state;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }
