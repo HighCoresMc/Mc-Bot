@@ -50,6 +50,8 @@ public class PanelCommand extends ListenerAdapter {
     private boolean isKillState = false;
     private volatile JsonObject cachedResources = null;
     private long lastResourcesFetchTime = 0;
+    private final java.util.concurrent.atomic.AtomicBoolean isEditing = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private String lastSentMessagePayload = "";
 
     private final Map<String, MaintenanceState> userStates = new ConcurrentHashMap<>();
     private Timer maintenanceTimer;
@@ -88,7 +90,34 @@ public class PanelCommand extends ListenerAdapter {
 
     private void updatePanelMessage(net.dv8tion.jda.api.JDA jda) {
         if (activeMessageId == null || activeChannelId == null) return;
+        if (!isEditing.compareAndSet(false, true)) return;
         try {
+            String state = "Offline";
+            String cpu = "0%";
+            String ram = "0 MB";
+            String disk = "0 MB";
+            String uptimeStr = "0s";
+            if (cachedResources != null) {
+                state = cachedResources.get("current_state").getAsString();
+                JsonObject util = cachedResources.getAsJsonObject("resources");
+                if (util != null) {
+                    cpu = String.format("%.2f%%", util.get("cpu_absolute").getAsDouble());
+                    ram = formatBytes(util.get("memory_bytes").getAsLong());
+                    disk = formatBytes(util.get("disk_bytes").getAsLong());
+                    uptimeStr = String.valueOf(util.get("uptime").getAsLong());
+                }
+            }
+            StringBuilder consoleSignature = new StringBuilder();
+            synchronized (consoleBuffer) {
+                for (String line : consoleBuffer) {
+                    consoleSignature.append(line).append("\n");
+                }
+            }
+            String currentPayload = state + "|" + cpu + "|" + ram + "|" + disk + "|" + uptimeStr + "|" + isKillState + "|" + consoleSignature.toString();
+            if (currentPayload.equals(lastSentMessagePayload)) {
+                isEditing.set(false);
+                return;
+            }
             Container updatedContainer = buildContainer(cachedResources, isKillState);
             MessageEditData editData = new MessageEditBuilder()
                     .setComponents(updatedContainer)
@@ -97,9 +126,18 @@ public class PanelCommand extends ListenerAdapter {
                     .build();
             var channel = jda.getTextChannelById(activeChannelId);
             if (channel != null) {
-                channel.editMessageById(activeMessageId, editData).useComponentsV2().queue(null, err -> {});
+                channel.editMessageById(activeMessageId, editData).useComponentsV2().queue(msg -> {
+                    lastSentMessagePayload = currentPayload;
+                    isEditing.set(false);
+                }, err -> {
+                    isEditing.set(false);
+                });
+            } else {
+                isEditing.set(false);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+            isEditing.set(false);
+        }
     }
 
     private synchronized void ensurePanelUpdaterRunning(net.dv8tion.jda.api.JDA jda) {
@@ -143,7 +181,7 @@ public class PanelCommand extends ListenerAdapter {
                 }
                 updatePanelMessage(jda);
             } catch (Throwable ignored) {}
-        }, 3, 3, TimeUnit.SECONDS);
+        }, 5, 5, TimeUnit.SECONDS);
     }
 
     @Override
@@ -442,8 +480,8 @@ public class PanelCommand extends ListenerAdapter {
                 pterodactylService.sendPowerSignal("start");
                 pterodactylService.reconnectConsole();
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
-                    for (int i = 0; i < 6; i++) {
-                        try { Thread.sleep(1000); } catch (Exception ignored) {}
+                    for (int i = 0; i < 4; i++) {
+                        try { Thread.sleep(2000); } catch (Exception ignored) {}
                         refreshConsoleBufferFromFileSync();
                         updatePanelMessage(event.getJDA());
                     }
@@ -670,8 +708,8 @@ public class PanelCommand extends ListenerAdapter {
             pterodactylService.reconnectConsole();
             if (state.isRestart) {
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
-                    for (int i = 0; i < 6; i++) {
-                        try { Thread.sleep(1000); } catch (Exception ignored) {}
+                    for (int i = 0; i < 4; i++) {
+                        try { Thread.sleep(2000); } catch (Exception ignored) {}
                         refreshConsoleBufferFromFileSync();
                         updatePanelMessage(jda);
                     }
