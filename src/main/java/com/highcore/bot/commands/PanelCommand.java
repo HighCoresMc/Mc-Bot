@@ -68,90 +68,92 @@ public class PanelCommand extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
         if (!event.getName().equals("panel")) return;
-        event.deferReply().queue();
-
-        // RESOURCES
-        JsonObject resources = pterodactylService.getServerResources();
-        if (resources != null) {
-            cachedResources = resources;
-            lastResourcesFetchTime = System.currentTimeMillis();
-        }
-        isKillState = false;
-        Container container = buildContainer(cachedResources, isKillState);
-
-        MessageCreateData messageData = new MessageCreateBuilder()
-                .setComponents(container)
-                .setEmbeds(java.util.Collections.emptyList())
-                .useComponentsV2(true)
-                .build();
-
-        event.getHook().sendMessage(messageData).queue(message -> {
-            activeMessageId = message.getId();
-            activeChannelId = message.getChannel().getId();
-            lastPanelContentHash = null;
-            
-            // TIMER
-            if (updateTimer != null) {
-                updateTimer.cancel();
-            }
-            updateTimer = new Timer();
-            updateTimer.scheduleAtFixedRate(new TimerTask() {
-                @Override
-                public void run() {
-                    if (activeMessageId != null && activeChannelId != null) {
-                        try {
-                            long now = System.currentTimeMillis();
-                            if (cachedResources == null || now - lastResourcesFetchTime >= 5000) {
-                                JsonObject freshResources = pterodactylService.getServerResources();
-                                if (freshResources != null) {
-                                    cachedResources = freshResources;
-                                    lastResourcesFetchTime = now;
-                                }
-                            }
-
-                            String state = "offline";
-                            String cpu = "0%";
-                            String ram = "0 MB";
-                            String uptimeStr = "0s";
-                            if (cachedResources != null) {
-                                state = cachedResources.get("current_state").getAsString();
-                                JsonObject util = cachedResources.getAsJsonObject("resources");
-                                if (util != null) {
-                                    cpu = util.get("cpu_absolute").getAsString();
-                                    ram = util.get("memory_bytes").getAsString();
-                                    uptimeStr = util.get("uptime").getAsString();
-                                }
-                            }
-                            StringBuilder consoleText = new StringBuilder();
-                            synchronized (consoleBuffer) {
-                                for (String line : consoleBuffer) {
-                                    consoleText.append(line);
-                                }
-                            }
-                            String currentHash = state + cpu + ram + uptimeStr + consoleText.toString();
-                            if (currentHash.equals(lastPanelContentHash)) {
-                                return;
-                            }
-                            lastPanelContentHash = currentHash;
-
-                            Container updatedContainer = buildContainer(cachedResources, isKillState);
-                            
-                            MessageEditData editData = new MessageEditBuilder()
-                                    .setComponents(updatedContainer)
-                                    .setEmbeds(java.util.Collections.emptyList())
-                                    .useComponentsV2(true)
-                                    .build();
-
-                            var channel = event.getJDA().getTextChannelById(activeChannelId);
-                            if (channel != null) {
-                                channel.editMessageById(activeMessageId, editData).queue(null, error -> {
-                                });
-                            }
-                        } catch (Exception e) {
-                        }
-                    }
+        event.deferReply().queue(hook -> {
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                // RESOURCES
+                JsonObject resources = pterodactylService.getServerResources();
+                if (resources != null) {
+                    cachedResources = resources;
+                    lastResourcesFetchTime = System.currentTimeMillis();
                 }
-            }, 1000, 1000);
+                isKillState = false;
+                Container container = buildContainer(cachedResources, isKillState);
+
+                MessageCreateData messageData = new MessageCreateBuilder()
+                        .setComponents(container)
+                        .setEmbeds(java.util.Collections.emptyList())
+                        .useComponentsV2(true)
+                        .build();
+
+                hook.sendMessage(messageData).queue(message -> {
+                    activeMessageId = message.getId();
+                    activeChannelId = message.getChannel().getId();
+                    lastPanelContentHash = null;
+
+                    // TIMER
+                    if (updateTimer != null) {
+                        updateTimer.cancel();
+                    }
+                    updateTimer = new Timer();
+                    updateTimer.scheduleAtFixedRate(new TimerTask() {
+                        @Override
+                        public void run() {
+                            if (activeMessageId != null && activeChannelId != null) {
+                                try {
+                                    long now = System.currentTimeMillis();
+                                    if (cachedResources == null || now - lastResourcesFetchTime >= 5000) {
+                                        lastResourcesFetchTime = now;
+                                        JsonObject freshResources = pterodactylService.getServerResources();
+                                        if (freshResources != null) {
+                                            cachedResources = freshResources;
+                                        }
+                                    }
+
+                                    String state = "offline";
+                                    String cpu = "0%";
+                                    String ram = "0 MB";
+                                    String uptimeStr = "0s";
+                                    if (cachedResources != null) {
+                                        state = cachedResources.get("current_state").getAsString();
+                                        JsonObject util = cachedResources.getAsJsonObject("resources");
+                                        if (util != null) {
+                                            cpu = util.get("cpu_absolute").getAsString();
+                                            ram = util.get("memory_bytes").getAsString();
+                                            uptimeStr = util.get("uptime").getAsString();
+                                        }
+                                    }
+                                    StringBuilder consoleText = new StringBuilder();
+                                    synchronized (consoleBuffer) {
+                                        for (String line : consoleBuffer) {
+                                            consoleText.append(line);
+                                        }
+                                    }
+                                    String currentHash = state + cpu + ram + uptimeStr + consoleText.toString();
+                                    if (currentHash.equals(lastPanelContentHash)) {
+                                        return;
+                                    }
+                                    lastPanelContentHash = currentHash;
+
+                                    Container updatedContainer = buildContainer(cachedResources, isKillState);
+
+                                    MessageEditData editData = new MessageEditBuilder()
+                                            .setComponents(updatedContainer)
+                                            .setEmbeds(java.util.Collections.emptyList())
+                                            .useComponentsV2(true)
+                                            .build();
+
+                                    var channel = event.getJDA().getTextChannelById(activeChannelId);
+                                    if (channel != null) {
+                                        channel.editMessageById(activeMessageId, editData).queue(null, error -> {
+                                        });
+                                    }
+                                } catch (Exception e) {
+                                }
+                            }
+                        }
+                    }, 1000, 1000);
+                });
+            });
         });
     }
 
@@ -248,7 +250,9 @@ public class PanelCommand extends ListenerAdapter {
             }
 
             event.deferEdit().queue();
-            executeMaintenance(event.getJDA(), state, event.getHook(), event.getUser().getId());
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                executeMaintenance(event.getJDA(), state, event.getHook(), event.getUser().getId());
+            });
             return;
         }
 
@@ -262,32 +266,33 @@ public class PanelCommand extends ListenerAdapter {
         }
 
         event.deferEdit().queue();
-
-        if (id.equals("ptdl_start")) {
-            isKillState = false;
-            pterodactylService.sendPowerSignal("start");
-        } else if (id.equals("ptdl_kill")) {
-            isKillState = false;
-            pterodactylService.sendPowerSignal("kill");
-        }
-
-        try {
-            JsonObject currentResources = pterodactylService.getServerResources();
-            if (currentResources != null) {
-                cachedResources = currentResources;
-                lastResourcesFetchTime = System.currentTimeMillis();
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            if (id.equals("ptdl_start")) {
+                isKillState = false;
+                pterodactylService.sendPowerSignal("start");
+            } else if (id.equals("ptdl_kill")) {
+                isKillState = false;
+                pterodactylService.sendPowerSignal("kill");
             }
-            Container updatedContainer = buildContainer(cachedResources, isKillState);
-            
-            MessageEditData editData = new MessageEditBuilder()
-                    .setComponents(updatedContainer)
-                    .setEmbeds(java.util.Collections.emptyList())
-                    .useComponentsV2(true)
-                    .build();
 
-            event.getHook().editMessageById(event.getMessageId(), editData).queue();
-        } catch (Exception e) {
-        }
+            try {
+                JsonObject currentResources = pterodactylService.getServerResources();
+                if (currentResources != null) {
+                    cachedResources = currentResources;
+                    lastResourcesFetchTime = System.currentTimeMillis();
+                }
+                Container updatedContainer = buildContainer(cachedResources, isKillState);
+
+                MessageEditData editData = new MessageEditBuilder()
+                        .setComponents(updatedContainer)
+                        .setEmbeds(java.util.Collections.emptyList())
+                        .useComponentsV2(true)
+                        .build();
+
+                event.getHook().editMessageById(event.getMessageId(), editData).queue();
+            } catch (Exception e) {
+            }
+        });
     }
 
     @Override
