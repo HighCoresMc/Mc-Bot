@@ -77,16 +77,15 @@ public class PanelCommand extends ListenerAdapter {
                     MaintenanceState state = getActiveMaintenanceState();
                     if (state == null) {
                         try {
-                            Button initStopBtn = Button.danger("ec_init_stop", "بدء صيانة (إيقاف)");
-                            Button initRestartBtn = Button.primary("ec_init_restart", "بدء صيانة (إعادة تشغيل)");
+                            Button initBtn = Button.primary("ec_init", "بدء صيانة");
                             Container container = Container.of(
                                 Section.of(
                                     Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
                                     TextDisplay.of("### 🛠️ بدء صيانة جديدة\n" +
-                                                   "يرجى تحديد نوع الإجراء المطلوب لتفعيل وضع الصيانة:")
+                                                   "انقر على الزر بالأسفل لتفعيل وضع الصيانة:")
                                 ),
                                 Separator.createDivider(Separator.Spacing.SMALL),
-                                ActionRow.of(initStopBtn, initRestartBtn)
+                                ActionRow.of(initBtn)
                             );
                             MessageCreateData choiceMsg = new MessageCreateBuilder()
                                     .setComponents(container)
@@ -211,16 +210,15 @@ public class PanelCommand extends ListenerAdapter {
             return;
         }
 
-        if (id.equals("ec_init_stop") || id.equals("ec_init_restart")) {
+        if (id.equals("ec_init")) {
             event.deferEdit().queue();
             java.util.concurrent.CompletableFuture.runAsync(() -> {
-                boolean isRestart = id.equals("ec_init_restart");
                 MaintenanceState state = new MaintenanceState();
-                state.isRestart = isRestart;
+                state.isRestart = false;
                 state.isFromEc = true;
                 userStates.put(event.getUser().getId(), state);
 
-                StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:" + (isRestart ? "restart" : "stop"))
+                StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:ec")
                         .setPlaceholder("اختر سبب التوقف...")
                         .addOption("صيانة دورية وتحسينات", "maintenance", "صيانة دورية وتحسينات عامة للخادم")
                         .addOption("تطوير وتحديث الأنظمة", "dev", "تطوير وتحديث برمجي للأنظمة")
@@ -228,7 +226,7 @@ public class PanelCommand extends ListenerAdapter {
                         .addOption("سبب مخصص...", "custom", "كتابة سبب مخصص يدوياً")
                         .build();
 
-                StringSelectMenu durationMenu = StringSelectMenu.create("ptdl_duration:" + (isRestart ? "restart" : "stop"))
+                StringSelectMenu durationMenu = StringSelectMenu.create("ptdl_duration:ec")
                         .setPlaceholder("اختر وقت العودة المتوقع...")
                         .addOption("15 دقيقة", "15m")
                         .addOption("30 دقيقة", "30m")
@@ -240,7 +238,7 @@ public class PanelCommand extends ListenerAdapter {
                         .addOption("وقت مخصص...", "custom", "تحديد ساعة أو مدة مخصصة")
                         .build();
 
-                Button confirmBtn = Button.success("ptdl_confirm:" + (isRestart ? "restart" : "stop"), "تأكيد الإجراء");
+                Button confirmBtn = Button.success("ptdl_confirm:ec", "تأكيد الإجراء");
                 Button cancelBtn = Button.danger("ptdl_cancel", "إلغاء الإجراء");
 
                 Container container = Container.of(
@@ -692,7 +690,9 @@ public class PanelCommand extends ListenerAdapter {
                         .setComponents(container)
                         .useComponentsV2(true)
                         .build();
-                channel.editMessageById(state.messageId, edit).useComponentsV2().queue(null, err -> {});
+                channel.editMessageById(state.messageId, edit).useComponentsV2().queue(msg -> {
+                    channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
+                }, err -> {});
             }
         }
     }
@@ -872,11 +872,11 @@ public class PanelCommand extends ListenerAdapter {
         String reasonStr = formatReason(state);
         String bodyText;
         if (finished) {
-            bodyText = "انتهت حالة **" + reasonType + "** وعاد الخادم للعمل الآن بشكل طبيعي، بإمكانكم الدخول واللعب.";
+            bodyText = "انتهت حالة **" + reasonType + "** وعاد الخادم للعمل الآن بشكل طبيعي، بإمكانكم الدخول واللعب.\n\nتنبيه: <@&1499896841150402692>";
         } else {
             bodyText = "تم إيقاف الخادم لبدء أعمال **" + reasonType + "**.\n" +
                        "**السبب:** `" + reasonStr + "`\n\n" +
-                       "**وقت العودة المتوقع:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)";
+                       "**وقت العودة المتوقع:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)\n\nتنبيه: <@&1499896841150402692>";
         }
         return Container.of(
             Section.of(

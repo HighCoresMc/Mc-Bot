@@ -164,13 +164,33 @@ public class ServerStatsService {
                            ", Players: " + response.onlinePlayers + "/" + response.maxPlayers +
                            ", Ping: " + response.ping + "ms, PortOpen: " + portOpen + ", PortRefused: " + portRefused);
 
+        boolean isMaintenance = false;
+        long maintenanceReturnTimestamp = 0;
+        File maintFile = new File("maintenance_state.json");
+        if (maintFile.exists()) {
+            try (FileReader reader = new FileReader(maintFile)) {
+                java.lang.StringBuilder sb = new java.lang.StringBuilder();
+                int ch;
+                while ((ch = reader.read()) != -1) {
+                    sb.append((char) ch);
+                }
+                JsonObject json = JsonParser.parseString(sb.toString()).getAsJsonObject();
+                maintenanceReturnTimestamp = json.get("returnTimestamp").getAsLong();
+                isMaintenance = true;
+            } catch (Exception ignored) {}
+        }
+
         boolean isOnline = response.online;
         if (pteroEnabled && ptero != null && ptero.apiSuccess) {
             if (!ptero.online) {
                 isOnline = false;
             }
         }
-        
+
+        if (isMaintenance) {
+            isOnline = false;
+        }
+
         // Section: Max players
         int envMax = 0;
         try { envMax = Integer.parseInt(dotenv.get("MC_MAX_PLAYERS", "0")); } catch (Exception ignored) {}
@@ -192,14 +212,19 @@ public class ServerStatsService {
 
         // Section: Ping display
         long networkPing = isOnline ? (webPing > 0 ? webPing : tcpPing > 0 ? tcpPing : -1) : -1;
-        totalChecks++;
-        if (isOnline) {
-            successfulChecks++;
-            if (onlineSince == -1) {
-                onlineSince = System.currentTimeMillis();
-            }
-            if (currentPlayers > peakPlayers) {
-                peakPlayers = currentPlayers;
+        
+        if (!isMaintenance) {
+            totalChecks++;
+            if (isOnline) {
+                successfulChecks++;
+                if (onlineSince == -1) {
+                    onlineSince = System.currentTimeMillis();
+                }
+                if (currentPlayers > peakPlayers) {
+                    peakPlayers = currentPlayers;
+                }
+            } else {
+                onlineSince = -1;
             }
         } else {
             onlineSince = -1;
@@ -211,49 +236,35 @@ public class ServerStatsService {
         double availability = totalChecks > 0 ? ((double) successfulChecks * 100.0 / totalChecks) : 100.0;
 
         String uptimeStr = "0s";
-        if (pteroEnabled && ptero != null && ptero.apiSuccess && ptero.online && ptero.uptimeMs > 0) {
-            long secs = ptero.uptimeMs / 1000;
-            long days = secs / 86400;
-            long hours = (secs % 86400) / 3600;
-            long minutes = (secs % 3600) / 60;
-            long remainingSecs = secs % 60;
+        if (!isMaintenance) {
+            if (pteroEnabled && ptero != null && ptero.apiSuccess && ptero.online && ptero.uptimeMs > 0) {
+                long secs = ptero.uptimeMs / 1000;
+                long days = secs / 86400;
+                long hours = (secs % 86400) / 3600;
+                long minutes = (secs % 3600) / 60;
+                long remainingSecs = secs % 60;
 
-            java.lang.StringBuilder sb = new java.lang.StringBuilder();
-            if (days > 0) sb.append(days).append("d ");
-            if (hours > 0) sb.append(hours).append("h ");
-            if (minutes > 0) sb.append(minutes).append("m ");
-            sb.append(remainingSecs).append("s");
-            uptimeStr = sb.toString();
-        } else if (isOnline && onlineSince != -1) {
-            long diff = System.currentTimeMillis() - onlineSince;
-            long secs = diff / 1000;
-            long days = secs / 86400;
-            long hours = (secs % 86400) / 3600;
-            long minutes = (secs % 3600) / 60;
-            long remainingSecs = secs % 60;
-
-            java.lang.StringBuilder sb = new java.lang.StringBuilder();
-            if (days > 0) sb.append(days).append("d ");
-            if (hours > 0) sb.append(hours).append("h ");
-            if (minutes > 0) sb.append(minutes).append("m ");
-            sb.append(remainingSecs).append("s");
-            uptimeStr = sb.toString();
-        }
-
-        boolean isMaintenance = false;
-        long maintenanceReturnTimestamp = 0;
-        File maintFile = new File("maintenance_state.json");
-        if (maintFile.exists()) {
-            try (FileReader reader = new FileReader(maintFile)) {
                 java.lang.StringBuilder sb = new java.lang.StringBuilder();
-                int ch;
-                while ((ch = reader.read()) != -1) {
-                    sb.append((char) ch);
-                }
-                JsonObject json = JsonParser.parseString(sb.toString()).getAsJsonObject();
-                maintenanceReturnTimestamp = json.get("returnTimestamp").getAsLong();
-                isMaintenance = true;
-            } catch (Exception ignored) {}
+                if (days > 0) sb.append(days).append("d ");
+                if (hours > 0) sb.append(hours).append("h ");
+                if (minutes > 0) sb.append(minutes).append("m ");
+                sb.append(remainingSecs).append("s");
+                uptimeStr = sb.toString();
+            } else if (isOnline && onlineSince != -1) {
+                long diff = System.currentTimeMillis() - onlineSince;
+                long secs = diff / 1000;
+                long days = secs / 86400;
+                long hours = (secs % 86400) / 3600;
+                long minutes = (secs % 3600) / 60;
+                long remainingSecs = secs % 60;
+
+                java.lang.StringBuilder sb = new java.lang.StringBuilder();
+                if (days > 0) sb.append(days).append("d ");
+                if (hours > 0) sb.append(hours).append("h ");
+                if (minutes > 0) sb.append(minutes).append("m ");
+                sb.append(remainingSecs).append("s");
+                uptimeStr = sb.toString();
+            }
         }
 
         String statusEmoji;
