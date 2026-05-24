@@ -79,9 +79,18 @@ public class PanelCommand extends ListenerAdapter {
                         try {
                             Button initStopBtn = Button.danger("ec_init_stop", "بدء صيانة (إيقاف)");
                             Button initRestartBtn = Button.primary("ec_init_restart", "بدء صيانة (إعادة تشغيل)");
+                            Container container = Container.of(
+                                Section.of(
+                                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                                    TextDisplay.of("### 🛠️ بدء صيانة جديدة\n" +
+                                                   "يرجى تحديد نوع الإجراء المطلوب لتفعيل وضع الصيانة:")
+                                ),
+                                Separator.createDivider(Separator.Spacing.SMALL),
+                                ActionRow.of(initStopBtn, initRestartBtn)
+                            );
                             MessageCreateData choiceMsg = new MessageCreateBuilder()
-                                    .setContent("### بدء حالة صيانة جديدة\nيرجى اختيار نوع الإجراء لبدء معالج الصيانة:")
-                                    .setComponents(ActionRow.of(initStopBtn, initRestartBtn))
+                                    .setComponents(container)
+                                    .useComponentsV2(true)
                                     .build();
                             hook.sendMessage(choiceMsg).queue();
                         } catch (Exception e) {
@@ -92,9 +101,18 @@ public class PanelCommand extends ListenerAdapter {
                     try {
                         Button extendBtn = Button.primary("ec_extend", "تمديد الصيانة");
                         Button endBtn = Button.danger("ec_end", "إنهاء الصيانة");
+                        Container container = Container.of(
+                            Section.of(
+                                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                                TextDisplay.of("### 🛠️ إدارة الصيانة الحالية\n" +
+                                               "الخادم خاضع للصيانة حالياً. حدد الإجراء المطلوب لإدارة الصيانة:")
+                            ),
+                            Separator.createDivider(Separator.Spacing.SMALL),
+                            ActionRow.of(extendBtn, endBtn)
+                        );
                         MessageCreateData choiceMsg = new MessageCreateBuilder()
-                                .setContent("### إدارة حالة الصيانة الحالية\nيرجى اختيار الإجراء المطلوب:")
-                                .setComponents(ActionRow.of(extendBtn, endBtn))
+                                .setComponents(container)
+                                .useComponentsV2(true)
                                 .build();
                         hook.sendMessage(choiceMsg).queue();
                     } catch (Exception e) {
@@ -199,6 +217,7 @@ public class PanelCommand extends ListenerAdapter {
                 boolean isRestart = id.equals("ec_init_restart");
                 MaintenanceState state = new MaintenanceState();
                 state.isRestart = isRestart;
+                state.isFromEc = true;
                 userStates.put(event.getUser().getId(), state);
 
                 StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:" + (isRestart ? "restart" : "stop"))
@@ -224,14 +243,23 @@ public class PanelCommand extends ListenerAdapter {
                 Button confirmBtn = Button.success("ptdl_confirm:" + (isRestart ? "restart" : "stop"), "تأكيد الإجراء");
                 Button cancelBtn = Button.danger("ptdl_cancel", "إلغاء الإجراء");
 
-                MessageCreateData wizardData = new MessageCreateBuilder()
-                        .setContent("### معالج إيقاف وإعادة تشغيل السيرفر\nيرجى تحديد تفاصيل التوقف لإشعار اللاعبين:")
-                        .addComponents(ActionRow.of(reasonMenu))
-                        .addComponents(ActionRow.of(durationMenu))
-                        .addComponents(ActionRow.of(confirmBtn, cancelBtn))
+                Container container = Container.of(
+                    Section.of(
+                        Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                        TextDisplay.of("### 🛠️ معالج بدء الصيانة\n" +
+                                       "يرجى تحديد تفاصيل التوقف والمدة المقدرة بالأسفل لإشعار اللاعبين:")
+                    ),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    ActionRow.of(reasonMenu),
+                    ActionRow.of(durationMenu),
+                    ActionRow.of(confirmBtn, cancelBtn)
+                );
+                MessageEditData editData = new MessageEditBuilder()
+                        .setComponents(container)
+                        .useComponentsV2(true)
                         .build();
 
-                event.getHook().editOriginal(MessageEditData.fromCreateData(wizardData)).queue();
+                event.getHook().editOriginal(editData).queue();
             });
             return;
         }
@@ -292,11 +320,20 @@ public class PanelCommand extends ListenerAdapter {
             Button confirmBtn = Button.success("ptdl_confirm:" + (isRestart ? "restart" : "stop"), "تأكيد الإجراء");
             Button cancelBtn = Button.danger("ptdl_cancel", "إلغاء الإجراء");
 
+            Container container = Container.of(
+                Section.of(
+                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                    TextDisplay.of("### 🛠️ معالج بدء الصيانة\n" +
+                                   "يرجى تحديد تفاصيل التوقف والمدة المقدرة بالأسفل لإشعار اللاعبين:")
+                ),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(reasonMenu),
+                ActionRow.of(durationMenu),
+                ActionRow.of(confirmBtn, cancelBtn)
+            );
             MessageCreateData wizardData = new MessageCreateBuilder()
-                    .setContent("### معالج إيقاف وإعادة تشغيل السيرفر\nيرجى تحديد تفاصيل التوقف لإشعار اللاعبين:")
-                    .addComponents(ActionRow.of(reasonMenu))
-                    .addComponents(ActionRow.of(durationMenu))
-                    .addComponents(ActionRow.of(confirmBtn, cancelBtn))
+                    .setComponents(container)
+                    .useComponentsV2(true)
                     .build();
 
             event.reply(wizardData).setEphemeral(true).queue();
@@ -560,6 +597,7 @@ public class PanelCommand extends ListenerAdapter {
     // MAINTENANCE STATE CLASS
     public static class MaintenanceState {
         public boolean isRestart;
+        public boolean isFromEc;
         public String reason;
         public String duration;
         public String customReasonText;
@@ -572,8 +610,10 @@ public class PanelCommand extends ListenerAdapter {
 
     // MAINTENANCE EXECUTION
     private void executeMaintenance(net.dv8tion.jda.api.JDA jda, MaintenanceState state, net.dv8tion.jda.api.interactions.InteractionHook hook, String userId) {
-        pterodactylService.sendPowerSignal(state.isRestart ? "restart" : "stop");
-        pterodactylService.reconnectConsole();
+        if (!state.isFromEc) {
+            pterodactylService.sendPowerSignal(state.isRestart ? "restart" : "stop");
+            pterodactylService.reconnectConsole();
+        }
         long durationMs = parseDurationToMs(state.duration, state.customDurationText);
         state.returnTimestamp = System.currentTimeMillis() + durationMs;
         state.actualReason = formatReason(state);
@@ -754,6 +794,7 @@ public class PanelCommand extends ListenerAdapter {
         try (java.io.FileWriter writer = new java.io.FileWriter(STATE_FILE)) {
             JsonObject json = new JsonObject();
             json.addProperty("isRestart", state.isRestart);
+            json.addProperty("isFromEc", state.isFromEc);
             json.addProperty("reason", state.reason);
             json.addProperty("duration", state.duration);
             json.addProperty("customReasonText", state.customReasonText);
@@ -789,6 +830,7 @@ public class PanelCommand extends ListenerAdapter {
             JsonObject json = com.google.gson.JsonParser.parseString(sb.toString()).getAsJsonObject();
             MaintenanceState state = new MaintenanceState();
             state.isRestart = json.get("isRestart").getAsBoolean();
+            state.isFromEc = json.has("isFromEc") && json.get("isFromEc").getAsBoolean();
             state.reason = json.has("reason") && !json.get("reason").isJsonNull() ? json.get("reason").getAsString() : null;
             state.duration = json.has("duration") && !json.get("duration").isJsonNull() ? json.get("duration").getAsString() : null;
             state.customReasonText = json.has("customReasonText") && !json.get("customReasonText").isJsonNull() ? json.get("customReasonText").getAsString() : null;
@@ -856,6 +898,7 @@ public class PanelCommand extends ListenerAdapter {
             JsonObject json = com.google.gson.JsonParser.parseString(sb.toString()).getAsJsonObject();
             MaintenanceState state = new MaintenanceState();
             state.isRestart = json.get("isRestart").getAsBoolean();
+            state.isFromEc = json.has("isFromEc") && json.get("isFromEc").getAsBoolean();
             state.reason = json.has("reason") && !json.get("reason").isJsonNull() ? json.get("reason").getAsString() : null;
             state.duration = json.has("duration") && !json.get("duration").isJsonNull() ? json.get("duration").getAsString() : null;
             state.customReasonText = json.has("customReasonText") && !json.get("customReasonText").isJsonNull() ? json.get("customReasonText").getAsString() : null;

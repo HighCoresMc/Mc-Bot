@@ -95,11 +95,8 @@ public class LeonTrotskyBot {
 
             jda.updateCommands().addCommands(globalCommands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
 
-            // Register /ec as guild command for immediate availability
             for (net.dv8tion.jda.api.entities.Guild guild : jda.getGuilds()) {
-                guild.updateCommands().addCommands(
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec", "إنهاء حالة الصيانة أو التوقف الحالية")
-                ).queue(cmds -> logger.info("Registered guild commands for: {}", guild.getName()));
+                guild.updateCommands().queue();
             }
             
             jda.addEventListener(new ProfileCommand());
