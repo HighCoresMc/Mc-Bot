@@ -218,14 +218,24 @@ public class PterodactylService {
             String content = matcher.group(1);
             String[] parts = content.split(";");
             java.util.List<String> validParts = new java.util.ArrayList<>();
+            boolean hasForeground = false;
             for (String part : parts) {
                 if (part.isEmpty()) continue;
                 try {
                     int val = Integer.parseInt(part);
                     if (val == 0 || val == 1 || val == 4 || (val >= 30 && val <= 37) || (val >= 40 && val <= 47)) {
-                        validParts.add(part);
+                        if (val >= 30 && val <= 37) {
+                            hasForeground = true;
+                            if (val == 34) {
+                                val = 36;
+                            }
+                        }
+                        validParts.add(String.valueOf(val));
                     }
                 } catch (NumberFormatException ignored) {}
+            }
+            if (hasForeground && !validParts.contains("1")) {
+                validParts.add("1");
             }
             if (validParts.isEmpty()) {
                 matcher.appendReplacement(sb, "");
