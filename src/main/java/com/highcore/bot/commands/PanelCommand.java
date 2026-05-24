@@ -33,6 +33,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -40,12 +43,12 @@ public class PanelCommand extends ListenerAdapter {
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PanelCommand.class);
     private final PterodactylService pterodactylService = new PterodactylService();
     private final List<String> consoleBuffer = new ArrayList<>();
-    private Timer updateTimer;
+    private ScheduledExecutorService panelExecutor;
+    private ScheduledExecutorService resourcesExecutor;
     private String activeMessageId = null;
     private String activeChannelId = null;
     private boolean isKillState = false;
-    private int forceRefreshCounter = 0;
-    private JsonObject cachedResources = null;
+    private volatile JsonObject cachedResources = null;
     private long lastResourcesFetchTime = 0;
 
     private final Map<String, MaintenanceState> userStates = new ConcurrentHashMap<>();
@@ -132,47 +135,46 @@ public class PanelCommand extends ListenerAdapter {
                 hook.sendMessage(messageData).queue(message -> {
                     activeMessageId = message.getId();
                     activeChannelId = message.getChannel().getId();
-                    forceRefreshCounter = 0;
 
                     // TIMER
-                    if (updateTimer != null) {
-                        updateTimer.cancel();
-                    }
-                    updateTimer = new Timer();
-                    updateTimer.scheduleAtFixedRate(new TimerTask() {
-                        @Override
-                        public void run() {
-                            if (activeMessageId != null && activeChannelId != null) {
-                                try {
-                                    long now = System.currentTimeMillis();
-                                    if (cachedResources == null || now - lastResourcesFetchTime >= 5000) {
-                                        lastResourcesFetchTime = now;
-                                        JsonObject freshResources = pterodactylService.getServerResources();
-                                        if (freshResources != null) {
-                                            cachedResources = freshResources;
-                                        }
-                                    }
+                    if (panelExecutor != null && !panelExecutor.isShutdown()) panelExecutor.shutdownNow();
+                    if (resourcesExecutor != null && !resourcesExecutor.isShutdown()) resourcesExecutor.shutdownNow();
 
-                                    forceRefreshCounter++;
-
-                                    Container updatedContainer = buildContainer(cachedResources, isKillState);
-
-                                    MessageEditData editData = new MessageEditBuilder()
-                                            .setComponents(updatedContainer)
-                                            .setEmbeds(java.util.Collections.emptyList())
-                                            .useComponentsV2(true)
-                                            .build();
-
-                                    var channel = event.getJDA().getTextChannelById(activeChannelId);
-                                    if (channel != null) {
-                                        channel.editMessageById(activeMessageId, editData).useComponentsV2().queue(null, error -> {
-                                        });
-                                    }
-                                } catch (Exception e) {
-                                }
+                    resourcesExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+                        Thread t = new Thread(r, "PanelResourcesFetcher");
+                        t.setDaemon(true);
+                        return t;
+                    });
+                    resourcesExecutor.scheduleAtFixedRate(() -> {
+                        try {
+                            JsonObject fresh = pterodactylService.getServerResources();
+                            if (fresh != null) {
+                                cachedResources = fresh;
+                                lastResourcesFetchTime = System.currentTimeMillis();
                             }
-                        }
-                    }, 3000, 3000);
+                        } catch (Throwable ignored) {}
+                    }, 0, 5, TimeUnit.SECONDS);
+
+                    panelExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+                        Thread t = new Thread(r, "PanelUpdateTimer");
+                        t.setDaemon(true);
+                        return t;
+                    });
+                    panelExecutor.scheduleAtFixedRate(() -> {
+                        if (activeMessageId == null || activeChannelId == null) return;
+                        try {
+                            Container updatedContainer = buildContainer(cachedResources, isKillState);
+                            MessageEditData editData = new MessageEditBuilder()
+                                    .setComponents(updatedContainer)
+                                    .setEmbeds(java.util.Collections.emptyList())
+                                    .useComponentsV2(true)
+                                    .build();
+                            var channel = event.getJDA().getTextChannelById(activeChannelId);
+                            if (channel != null) {
+                                channel.editMessageById(activeMessageId, editData).useComponentsV2().queue(null, err -> {});
+                            }
+                        } catch (Throwable ignored) {}
+                    }, 3, 3, TimeUnit.SECONDS);
                 });
             });
         });
@@ -726,9 +728,7 @@ public class PanelCommand extends ListenerAdapter {
                     if ("running".equals(currentState) || timeLeft <= 0) {
                         finishMaintenance(jda, state, "running".equals(currentState));
                         cancel();
-                        return;
                     }
-                    updateMaintenanceMessage(jda, state);
                 } catch (Throwable t) {
                 }
             }
@@ -737,15 +737,14 @@ public class PanelCommand extends ListenerAdapter {
 
     // CONTAINER UTILS
     private Container buildMaintenanceContainer(MaintenanceState state, long timeLeftMs, boolean finished, boolean serverRunning) {
-        String title = state.isRestart ? "إعادة تشغيل مجدولة مخدم HighCore MC" : "صيانة مجدولة مخدم HighCore MC";
-        String statusText = finished ? (serverRunning ? "المخدم يعمل الآن بشكل طبيعي" : "انتهت فترة الصيانة") : "المخدم تحت الصيانة حالياً";
+        String title = state.isRestart ? "إعادة تشغيل مجدولة" : "صيانة مجدولة";
+        String statusText = finished ? (serverRunning ? "يعمل الآن بشكل طبيعي" : "انتهت فترة الصيانة") : "تحت الصيانة حالياً";
         String reasonStr = formatReason(state);
         String timeInfo;
         if (finished) {
             timeInfo = "اكتملت العملية بنجاح.";
         } else {
-            timeInfo = "**العودة التقريبية:** " + formatCountdown(timeLeftMs) + "\n" +
-                       "**الوقت المحدد:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)";
+            timeInfo = "**وقت العودة:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)";
         }
         return Container.of(
             TextDisplay.of("<@&1499896841150402692>"),
