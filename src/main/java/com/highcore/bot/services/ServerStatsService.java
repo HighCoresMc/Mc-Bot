@@ -185,7 +185,17 @@ public class ServerStatsService {
             maxPlayers = envMax > 0 ? envMax : (lastMaxPlayers > 0 ? lastMaxPlayers : 0);
         }
 
-        long networkPing = isOnline ? (response.ping > 0 ? response.ping : -1) : -1;
+        // Section: Ping display — minetools EU latency (neutral server, more accurate than Railway RTT)
+        long networkPing = -1;
+        if (isOnline) {
+            MinecraftPing.StatusResponse latencyResp = queryWebApi(javaHost, javaPort);
+            if (latencyResp.ping > 0) {
+                networkPing = latencyResp.ping;               // EU neutral server latency — accurate
+            } else if (response.ping > 0) {
+                networkPing = response.ping;                  // fallback to direct ping only when API gives 0
+            }
+        }
+
 
 
         totalChecks++;
@@ -202,6 +212,7 @@ public class ServerStatsService {
         }
 
         saveStatsData();
+        savePersistentStatsToDB();
 
         double availability = totalChecks > 0 ? ((double) successfulChecks * 100.0 / totalChecks) : 100.0;
 
@@ -313,7 +324,7 @@ public class ServerStatsService {
     public static void incrementTotalLogins() {
         totalLogins++;
         saveStatsData();
-        saveTotalLoginsToDB();
+        savePersistentStatsToDB();
     }
 
     // Section: Exposes the log channel ID from the cached Dotenv to MinecraftLogListener
@@ -337,7 +348,7 @@ public class ServerStatsService {
         onlineSince = epochMs;
     }
 
-    // Section: MySQL-backed persistence for totalLogins — survives Railway redeployments
+    // Section: MySQL persistence — survives Railway redeployments
     private static void initPersistentStats() {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement create = conn.prepareStatement(
@@ -346,31 +357,55 @@ public class ServerStatsService {
         } catch (Exception e) {
             logger.error("Failed to create bot_stats table", e);
         }
-        // Section: Load totalLogins from DB (overwrites file-based value which resets on redeploy)
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                 "INSERT INTO bot_stats (stat_key, stat_value) VALUES ('totalLogins', 0) ON DUPLICATE KEY UPDATE stat_key=stat_key");
-             PreparedStatement sel = conn.prepareStatement(
-                 "SELECT stat_value FROM bot_stats WHERE stat_key = 'totalLogins'")) {
-            ps.executeUpdate();
-            try (ResultSet rs = sel.executeQuery()) {
-                if (rs.next()) totalLogins = rs.getLong(1);
+        // Section: Load all persistent counters from DB
+        String[] keys = {"totalLogins", "totalChecks", "successfulChecks", "peakPlayers"};
+        for (String key : keys) {
+            try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+                 PreparedStatement ins = conn.prepareStatement(
+                     "INSERT INTO bot_stats (stat_key, stat_value) VALUES (?, 0) ON DUPLICATE KEY UPDATE stat_key=stat_key");
+                 PreparedStatement sel = conn.prepareStatement(
+                     "SELECT stat_value FROM bot_stats WHERE stat_key = ?")) {
+                ins.setString(1, key);
+                ins.executeUpdate();
+                sel.setString(1, key);
+                try (ResultSet rs = sel.executeQuery()) {
+                    if (rs.next()) {
+                        long val = rs.getLong(1);
+                        switch (key) {
+                            case "totalLogins"     -> totalLogins      = val;
+                            case "totalChecks"     -> totalChecks      = val;
+                            case "successfulChecks"-> successfulChecks = val;
+                            case "peakPlayers"     -> peakPlayers      = (int) val;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Failed to load {} from DB", key, e);
             }
-            System.out.println("[ServerStatsService] Loaded totalLogins from DB: " + totalLogins);
-        } catch (Exception e) {
-            logger.error("Failed to load totalLogins from DB", e);
         }
+        System.out.println("[ServerStatsService] Loaded from DB — logins:" + totalLogins +
+            ", checks:" + totalChecks + ", ok:" + successfulChecks + ", peak:" + peakPlayers);
     }
 
-    private static void saveTotalLoginsToDB() {
+    private static void savePersistentStatsToDB() {
+        Object[][] rows = {
+            {"totalLogins",      totalLogins},
+            {"totalChecks",      totalChecks},
+            {"successfulChecks", successfulChecks},
+            {"peakPlayers",      (long) peakPlayers}
+        };
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(
-                 "INSERT INTO bot_stats (stat_key, stat_value) VALUES ('totalLogins', ?) ON DUPLICATE KEY UPDATE stat_value = ?")) {
-            ps.setLong(1, totalLogins);
-            ps.setLong(2, totalLogins);
-            ps.executeUpdate();
+                 "INSERT INTO bot_stats (stat_key, stat_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE stat_value = ?")) {
+            for (Object[] row : rows) {
+                ps.setString(1, (String) row[0]);
+                ps.setLong(2, (long) row[1]);
+                ps.setLong(3, (long) row[1]);
+                ps.addBatch();
+            }
+            ps.executeBatch();
         } catch (Exception e) {
-            logger.error("Failed to save totalLogins to DB", e);
+            logger.error("Failed to save persistent stats to DB", e);
         }
     }
 
