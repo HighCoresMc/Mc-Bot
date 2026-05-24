@@ -287,15 +287,31 @@ public class ServerStatsService {
                     }
                 }
 
-                if (botMessage != null) {
+                final Message finalBotMessage = botMessage;
+                if (finalBotMessage != null) {
                     MessageEditData editData = new MessageEditBuilder()
                             .setComponents(container)
                             .setEmbeds(java.util.Collections.emptyList())
                             .useComponentsV2(true)
                             .build();
-                    botMessage.editMessage(editData).queue(
+                    finalBotMessage.editMessage(editData).queue(
                         success -> logger.debug("Successfully edited persistent server stats message."),
-                        error -> logger.error("Failed to edit persistent status message", error)
+                        error -> {
+                            logger.error("Failed to edit persistent status message, deleting and recreating...", error);
+                            finalBotMessage.delete().queue(
+                                deleted -> {
+                                    MessageCreateData createData = new MessageCreateBuilder()
+                                            .setComponents(container)
+                                            .useComponentsV2(true)
+                                            .build();
+                                    persistentChannel.sendMessage(createData).queue(
+                                        success2 -> logger.debug("Successfully recreated persistent server stats message."),
+                                        error2 -> logger.error("Failed to recreate persistent status message", error2)
+                                    );
+                                },
+                                delError -> logger.error("Failed to delete legacy persistent status message", delError)
+                            );
+                        }
                     );
                 } else {
                     MessageCreateData createData = new MessageCreateBuilder()

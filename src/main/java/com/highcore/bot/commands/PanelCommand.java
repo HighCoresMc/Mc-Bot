@@ -493,9 +493,24 @@ public class PanelCommand extends ListenerAdapter {
 
         TextChannel channel = jda.getTextChannelById("1487139736748425236");
         if (channel != null) {
+            String reasonType = formatReasonType(state);
+            net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
+            eb.setColor(new java.awt.Color(0xE74C3C));
+            eb.setTitle("🚨 بدأت حالة " + reasonType);
+            eb.setDescription("تم إيقاف الخادم لبدء أعمال " + reasonType + ".\n" +
+                              "**السبب:** " + state.actualReason + "\n" +
+                              "**وقت العودة المتوقع:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)");
+            eb.setTimestamp(java.time.Instant.now());
+            MessageCreateData startNotificationMsg = new MessageCreateBuilder()
+                    .setContent("<@&1499896841150402692>")
+                    .setEmbeds(eb.build())
+                    .build();
+            channel.sendMessage(startNotificationMsg).queue(null, err -> {
+                logger.error("Failed to send maintenance start alert message", err);
+            });
+
             Container container = buildMaintenanceContainer(state, durationMs, false, false);
             MessageCreateData message = new MessageCreateBuilder()
-                    .setContent("<@&1499896841150402692>")
                     .setComponents(container)
                     .useComponentsV2(true)
                     .build();
@@ -532,7 +547,6 @@ public class PanelCommand extends ListenerAdapter {
                 if (state.messageId != null) {
                     Container container = buildMaintenanceContainer(state, 0, true, serverRunning);
                     MessageEditData edit = new MessageEditBuilder()
-                            .setContent("")
                             .setComponents(container)
                             .useComponentsV2(true)
                             .build();
