@@ -172,7 +172,7 @@ public class PanelCommand extends ListenerAdapter {
                                 }
                             }
                         }
-                    }, 1000, 1000);
+                    }, 3000, 3000);
                 });
             });
         });
@@ -491,10 +491,8 @@ public class PanelCommand extends ListenerAdapter {
 
         TextChannel channel = jda.getTextChannelById("1487139736748425236");
         if (channel != null) {
-            String mention = "<@&1499896841150402692>";
             Container container = buildMaintenanceContainer(state, durationMs, false, false);
             MessageCreateData message = new MessageCreateBuilder()
-                    .setContent(mention)
                     .setComponents(container)
                     .useComponentsV2(true)
                     .build();
@@ -750,6 +748,7 @@ public class PanelCommand extends ListenerAdapter {
                        "**الوقت المحدد:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)";
         }
         return Container.of(
+            TextDisplay.of("<@&1499896841150402692>"),
             Section.of(
                 Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
                 TextDisplay.of("### " + title + "\n" +
