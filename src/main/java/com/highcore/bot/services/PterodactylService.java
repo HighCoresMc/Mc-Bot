@@ -339,6 +339,22 @@ public class PterodactylService {
                     validParts.set(k, "36");
                 }
             }
+            boolean hasForeground = false;
+            for (String p : validParts) {
+                try {
+                    int val = Integer.parseInt(p);
+                    if (val >= 30 && val <= 37) {
+                        hasForeground = true;
+                        break;
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (hasForeground) {
+                validParts.remove("0");
+                if (!validParts.contains("1")) {
+                    validParts.add(0, "1");
+                }
+            }
             if (validParts.isEmpty()) {
                 matcher.appendReplacement(sb, "");
             } else {
