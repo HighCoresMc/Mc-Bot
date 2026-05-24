@@ -134,6 +134,7 @@ public class ServerStatsService {
         }
 
         // Section: Web API fallback — query Velocity address (same as ping target)
+        long webPing = 0;
         if (!response.online) {
             if (portRefused && !portOpen) {
                 System.out.println("[ServerStatsService] Port refused on all attempts — server is offline, skipping web API cache.");
@@ -141,16 +142,20 @@ public class ServerStatsService {
                 System.out.println("[ServerStatsService] " +
                     (portOpen ? "MC protocol rejected (port is open) — using web API." : "TCP uncertain — using web API."));
                 MinecraftPing.StatusResponse webResp = queryWebApi(javaHost, javaPort);
+                webPing = webResp.ping;
                 if (webResp.online) {
-                    long savedPing = tcpPing > 0 ? tcpPing : webResp.ping;
+                    // Section: Prefer minetools ping (EU neutral) over Railway TCP RTT
+                    long savedPing = webPing > 0 ? webPing : tcpPing;
                     response = webResp;
                     response.ping = savedPing;
                 } else if (portOpen) {
-                    // TCP handshake succeeded but web API also says offline — trust TCP (port is open)
                     response.online = true;
                     response.ping   = tcpPing;
                 }
             }
+        } else {
+            // Section: Direct MC protocol succeeded — ping is already measured
+            webPing = response.ping;
         }
 
         System.out.println("[ServerStatsService] Query complete. Online: " + response.online +
@@ -186,18 +191,7 @@ public class ServerStatsService {
         }
 
         // Section: Ping display — minetools EU latency (neutral server, more accurate than Railway RTT)
-        long networkPing = -1;
-        if (isOnline) {
-            MinecraftPing.StatusResponse latencyResp = queryWebApi(javaHost, javaPort);
-            if (latencyResp.ping > 0) {
-                networkPing = latencyResp.ping;               // EU neutral server latency — accurate
-            } else if (response.ping > 0) {
-                networkPing = response.ping;                  // fallback to direct ping only when API gives 0
-            }
-        }
-
-
-
+        long networkPing = isOnline ? (webPing > 0 ? webPing : tcpPing > 0 ? tcpPing : -1) : -1;
         totalChecks++;
         if (isOnline) {
             successfulChecks++;
