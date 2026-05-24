@@ -221,7 +221,7 @@ public class PanelCommand extends ListenerAdapter {
         }
 
         // CONSOLE TEXT
-        StringBuilder consoleText = new StringBuilder("```log\n");
+        StringBuilder consoleText = new StringBuilder("```ansi\n");
         synchronized (consoleBuffer) {
             if (consoleBuffer.isEmpty()) {
                 consoleText.append("Loading console logs...\n");

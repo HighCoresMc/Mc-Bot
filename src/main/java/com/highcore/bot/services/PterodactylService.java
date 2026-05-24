@@ -142,7 +142,7 @@ public class PterodactylService {
                                         if ("console output".equals(event)) {
                                             JsonArray args = json.getAsJsonArray("args");
                                             if (args != null && args.size() > 0) {
-                                                String line = args.get(0).getAsString().replaceAll("\u001B\\[[;\\d]*m", "");
+                                                String line = cleanAnsiForDiscord(args.get(0).getAsString());
                                                 if (messageListener != null) {
                                                     messageListener.accept(line);
                                                 }
@@ -203,5 +203,37 @@ public class PterodactylService {
             String msg = "{\"event\":\"send command\",\"args\":[\"" + command.replace("\"", "\\\"") + "\"]}";
             currentWebSocket.sendText(msg, true);
         }
+    }
+
+    private String cleanAnsiForDiscord(String input) {
+        if (input == null) return null;
+        String mapped = input.replaceAll("\u001B\\[(?:0;)?9([0-7])m", "\u001B[1;3$1m");
+        mapped = mapped.replaceAll("\u001B\\[1;9([0-7])m", "\u001B[1;3$1m");
+        mapped = mapped.replaceAll("\u001B\\[(?:0;)?10([0-7])m", "\u001B[4$1m");
+        
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\u001B\\[([0-9;]*)m");
+        java.util.regex.Matcher matcher = pattern.matcher(mapped);
+        StringBuilder sb = new StringBuilder();
+        while (matcher.find()) {
+            String content = matcher.group(1);
+            String[] parts = content.split(";");
+            java.util.List<String> validParts = new java.util.ArrayList<>();
+            for (String part : parts) {
+                if (part.isEmpty()) continue;
+                try {
+                    int val = Integer.parseInt(part);
+                    if (val == 0 || val == 1 || val == 4 || (val >= 30 && val <= 37) || (val >= 40 && val <= 47)) {
+                        validParts.add(part);
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            if (validParts.isEmpty()) {
+                matcher.appendReplacement(sb, "");
+            } else {
+                matcher.appendReplacement(sb, "\u001B[" + String.join(";", validParts) + "m");
+            }
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
     }
 }
