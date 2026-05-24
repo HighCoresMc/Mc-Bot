@@ -37,12 +37,7 @@ public class PanelCommand extends ListenerAdapter {
     private String activeChannelId = null;
     private boolean isKillState = false;
 
-    @Override
-    public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-        if (!event.getName().equals("panel")) return;
-        event.deferReply().queue();
-
-        // WEBSOCKET LISTENER
+    public PanelCommand() {
         pterodactylService.connectToConsole(line -> {
             synchronized (consoleBuffer) {
                 consoleBuffer.add(line);
@@ -51,6 +46,12 @@ public class PanelCommand extends ListenerAdapter {
                 }
             }
         });
+    }
+
+    @Override
+    public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
+        if (!event.getName().equals("panel")) return;
+        event.deferReply().queue();
 
         // RESOURCES
         JsonObject resources = pterodactylService.getServerResources();
@@ -252,11 +253,12 @@ public class PanelCommand extends ListenerAdapter {
             startBtn = startBtn.asDisabled();
             restartBtn = restartBtn.asDisabled();
             cmdBtn = cmdBtn.asDisabled();
+            stopBtn = Button.danger("ptdl_kill", "Kill");
         } else if (isStopping) {
             startBtn = startBtn.asDisabled();
             restartBtn = restartBtn.asDisabled();
             cmdBtn = cmdBtn.asDisabled();
-            stopBtn = Button.danger("ptdl_kill", "Kill"); 
+            stopBtn = Button.danger("ptdl_kill", "Kill");
         }
 
         return Container.of(
@@ -270,7 +272,7 @@ public class PanelCommand extends ListenerAdapter {
                 TextDisplay.of("💻 **Console Output (Last 30 lines):**\n" + consoleText.toString()),
                 Separator.createDivider(Separator.Spacing.SMALL),
                 ActionRow.of(startBtn, restartBtn, stopBtn, cmdBtn)
-        ).withAccentColor(Color.decode("#2F3136"));
+        );
     }
     
     private String formatBytes(long bytes) {

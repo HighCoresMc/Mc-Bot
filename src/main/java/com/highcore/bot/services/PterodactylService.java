@@ -14,6 +14,9 @@ import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 public class PterodactylService {
@@ -25,6 +28,13 @@ public class PterodactylService {
     private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();
 
     private WebSocket currentWebSocket = null;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
+    private Consumer<String> messageListener = null;
+    private boolean isReconnecting = false;
 
     // INIT
     public boolean sendPowerSignal(String signal) {
@@ -77,6 +87,9 @@ public class PterodactylService {
 
     // WEBSOCKET CONNECTION
     public void connectToConsole(Consumer<String> onMessageReceived) {
+        if (onMessageReceived != null) {
+            this.messageListener = onMessageReceived;
+        }
         if (API_KEY == null || SERVER_ID == null) {
             return;
         }
@@ -97,7 +110,9 @@ public class PterodactylService {
                 String token = data.get("token").getAsString();
 
                 if (currentWebSocket != null) {
-                    currentWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Reconnecting");
+                    try {
+                        currentWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Reconnecting");
+                    } catch (Exception ignored) {}
                 }
 
                 CompletableFuture<WebSocket> wsFuture = HTTP_CLIENT.newWebSocketBuilder()
@@ -128,7 +143,9 @@ public class PterodactylService {
                                             JsonArray args = json.getAsJsonArray("args");
                                             if (args != null && args.size() > 0) {
                                                 String line = args.get(0).getAsString().replaceAll("\u001B\\[[;\\d]*m", "");
-                                                onMessageReceived.accept(line);
+                                                if (messageListener != null) {
+                                                    messageListener.accept(line);
+                                                }
                                             }
                                         }
                                     } catch (Exception e) {
@@ -139,18 +156,37 @@ public class PterodactylService {
                             }
 
                             @Override
+                            public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                                scheduleReconnect();
+                                return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+                            }
+
+                            @Override
                             public void onError(WebSocket webSocket, Throwable error) {
-                                logger.error("WebSocket Error", error);
+                                scheduleReconnect();
                                 WebSocket.Listener.super.onError(webSocket, error);
                             }
                         });
                         
                 currentWebSocket = wsFuture.join();
                 currentWebSocket.sendText("{\"event\":\"send logs\",\"args\":[]}", true);
+            } else {
+                scheduleReconnect();
             }
         } catch (Exception e) {
-            logger.error("Failed to connect to Pterodactyl WebSocket", e);
+            scheduleReconnect();
         }
+    }
+
+    private synchronized void scheduleReconnect() {
+        if (isReconnecting) return;
+        isReconnecting = true;
+        scheduler.schedule(() -> {
+            synchronized (this) {
+                isReconnecting = false;
+            }
+            connectToConsole(this.messageListener);
+        }, 5, TimeUnit.SECONDS);
     }
 
     // CLOSE
