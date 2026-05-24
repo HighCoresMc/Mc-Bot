@@ -76,7 +76,17 @@ public class PanelCommand extends ListenerAdapter {
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
                     MaintenanceState state = getActiveMaintenanceState();
                     if (state == null) {
-                        hook.sendMessage("لا توجد حالة صيانة أو توقف نشطة حالياً.").queue();
+                        try {
+                            Button initStopBtn = Button.danger("ec_init_stop", "بدء صيانة (إيقاف)");
+                            Button initRestartBtn = Button.primary("ec_init_restart", "بدء صيانة (إعادة تشغيل)");
+                            MessageCreateData choiceMsg = new MessageCreateBuilder()
+                                    .setContent("### بدء حالة صيانة جديدة\nيرجى اختيار نوع الإجراء لبدء معالج الصيانة:")
+                                    .setComponents(ActionRow.of(initStopBtn, initRestartBtn))
+                                    .build();
+                            hook.sendMessage(choiceMsg).queue();
+                        } catch (Exception e) {
+                            hook.sendMessage("حدث خطأ أثناء عرض معالج بدء الصيانة.").queue();
+                        }
                         return;
                     }
                     try {
@@ -179,6 +189,49 @@ public class PanelCommand extends ListenerAdapter {
                 event.getHook().editOriginal("تم إنهاء حالة الصيانة بنجاح وإرسال الإشعار.")
                         .setComponents(java.util.Collections.emptyList())
                         .queue();
+            });
+            return;
+        }
+
+        if (id.equals("ec_init_stop") || id.equals("ec_init_restart")) {
+            event.deferEdit().queue();
+            java.util.concurrent.CompletableFuture.runAsync(() -> {
+                boolean isRestart = id.equals("ec_init_restart");
+                MaintenanceState state = new MaintenanceState();
+                state.isRestart = isRestart;
+                userStates.put(event.getUser().getId(), state);
+
+                StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:" + (isRestart ? "restart" : "stop"))
+                        .setPlaceholder("اختر سبب التوقف...")
+                        .addOption("صيانة دورية وتحسينات", "maintenance", "صيانة دورية وتحسينات عامة للخادم")
+                        .addOption("تطوير وتحديث الأنظمة", "dev", "تطوير وتحديث برمجي للأنظمة")
+                        .addOption("إصلاح أخطاء تقنية", "bug", "إصلاح بعض المشاكل والأخطاء التقنية")
+                        .addOption("سبب مخصص...", "custom", "كتابة سبب مخصص يدوياً")
+                        .build();
+
+                StringSelectMenu durationMenu = StringSelectMenu.create("ptdl_duration:" + (isRestart ? "restart" : "stop"))
+                        .setPlaceholder("اختر وقت العودة المتوقع...")
+                        .addOption("15 دقيقة", "15m")
+                        .addOption("30 دقيقة", "30m")
+                        .addOption("ساعة واحدة", "1h")
+                        .addOption("ساعتين", "2h")
+                        .addOption("6 ساعات", "6h")
+                        .addOption("12 ساعة", "12h")
+                        .addOption("يوم كامل", "1d")
+                        .addOption("وقت مخصص...", "custom", "تحديد ساعة أو مدة مخصصة")
+                        .build();
+
+                Button confirmBtn = Button.success("ptdl_confirm:" + (isRestart ? "restart" : "stop"), "تأكيد الإجراء");
+                Button cancelBtn = Button.danger("ptdl_cancel", "إلغاء الإجراء");
+
+                MessageCreateData wizardData = new MessageCreateBuilder()
+                        .setContent("### معالج إيقاف وإعادة تشغيل السيرفر\nيرجى تحديد تفاصيل التوقف لإشعار اللاعبين:")
+                        .addComponents(ActionRow.of(reasonMenu))
+                        .addComponents(ActionRow.of(durationMenu))
+                        .addComponents(ActionRow.of(confirmBtn, cancelBtn))
+                        .build();
+
+                event.getHook().editOriginal(MessageEditData.fromCreateData(wizardData)).queue();
             });
             return;
         }

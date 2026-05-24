@@ -258,22 +258,17 @@ public class ServerStatsService {
 
         String statusEmoji;
         String statusDesc;
-        String serverStatusText;
-        String healthPercentage;
+        String serverStatusText = isOnline ? "Open 🔓" : "Closed 🔒";
+        String healthPercentage = isOnline ? "100.0%" : "0.0%";
 
         if (isMaintenance) {
             statusEmoji = "🟡";
-            statusDesc = "Under Maintenance\n**Expected Return:** <t:" + (maintenanceReturnTimestamp / 1000) + ":F> (<t:" + (maintenanceReturnTimestamp / 1000) + ":R>)";
-            serverStatusText = "Maintenance ⚠️";
-            healthPercentage = "Maintenance";
-            currentPlayers = 0;
+            statusDesc = "The server is currently under maintenance. (To know the duration, check the details below)";
         } else {
             statusEmoji = isOnline ? "🟢" : "🔴";
             statusDesc = isOnline 
                 ? "Players can join and enjoy the gameplay experience." 
                 : "Server is currently offline. Please check back later!";
-            serverStatusText = isOnline ? "Open 🔓" : "Closed 🔒";
-            healthPercentage = isOnline ? "100.0%" : "0.0%";
         }
 
         Container container = Container.of(
