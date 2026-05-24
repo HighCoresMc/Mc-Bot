@@ -46,7 +46,7 @@ public class PanelCommand extends ListenerAdapter {
         pterodactylService.connectToConsole(line -> {
             synchronized (consoleBuffer) {
                 consoleBuffer.add(line);
-                if (consoleBuffer.size() > 10) {
+                if (consoleBuffer.size() > 30) {
                     consoleBuffer.remove(0);
                 }
             }
@@ -54,19 +54,12 @@ public class PanelCommand extends ListenerAdapter {
 
         // RESOURCES
         JsonObject resources = pterodactylService.getServerResources();
-        Container container = buildContainer(resources);
         isKillState = false;
+        Container container = buildContainer(resources, isKillState);
 
         MessageCreateData messageData = new MessageCreateBuilder()
-                .setComponents(
-                        container,
-                        ActionRow.of(
-                                Button.success("ptdl_start", "Start"),
-                                Button.primary("ptdl_restart", "Restart"),
-                                Button.danger("ptdl_stop", "Stop"),
-                                Button.secondary("ptdl_cmd", "Send Command")
-                        )
-                )
+                .setComponents(container)
+                .setEmbeds(java.util.Collections.emptyList())
                 .useComponentsV2(true)
                 .build();
 
@@ -85,17 +78,11 @@ public class PanelCommand extends ListenerAdapter {
                     if (activeMessageId != null && activeChannelId != null) {
                         try {
                             JsonObject currentResources = pterodactylService.getServerResources();
-                            Container updatedContainer = buildContainer(currentResources);
+                            Container updatedContainer = buildContainer(currentResources, isKillState);
                             
-                            ActionRow buttonsRow = ActionRow.of(
-                                    Button.success("ptdl_start", "Start"),
-                                    Button.primary("ptdl_restart", "Restart"),
-                                    isKillState ? Button.danger("ptdl_kill", "Kill") : Button.danger("ptdl_stop", "Stop"),
-                                    Button.secondary("ptdl_cmd", "Send Command")
-                            );
-
                             MessageEditData editData = new MessageEditBuilder()
-                                    .setComponents(updatedContainer, buttonsRow)
+                                    .setComponents(updatedContainer)
+                                    .setEmbeds(java.util.Collections.emptyList())
                                     .useComponentsV2(true)
                                     .build();
 
@@ -107,7 +94,7 @@ public class PanelCommand extends ListenerAdapter {
                         }
                     }
                 }
-            }, 3000, 3000);
+            }, 1000, 1000);
         });
     }
 
@@ -147,18 +134,11 @@ public class PanelCommand extends ListenerAdapter {
             // UI UPDATE
             try {
                 JsonObject currentResources = pterodactylService.getServerResources();
-                Container updatedContainer = buildContainer(currentResources);
+                Container updatedContainer = buildContainer(currentResources, isKillState);
                 
                 MessageEditData editData = new MessageEditBuilder()
-                        .setComponents(
-                                updatedContainer,
-                                ActionRow.of(
-                                        Button.success("ptdl_start", "Start"),
-                                        Button.primary("ptdl_restart", "Restart"),
-                                        Button.danger("ptdl_kill", "Kill"),
-                                        Button.secondary("ptdl_cmd", "Send Command")
-                                )
-                        )
+                        .setComponents(updatedContainer)
+                        .setEmbeds(java.util.Collections.emptyList())
                         .useComponentsV2(true)
                         .build();
 
@@ -174,18 +154,11 @@ public class PanelCommand extends ListenerAdapter {
         // UI UPDATE
         try {
             JsonObject currentResources = pterodactylService.getServerResources();
-            Container updatedContainer = buildContainer(currentResources);
+            Container updatedContainer = buildContainer(currentResources, isKillState);
             
             MessageEditData editData = new MessageEditBuilder()
-                    .setComponents(
-                            updatedContainer,
-                            ActionRow.of(
-                                    Button.success("ptdl_start", "Start"),
-                                    Button.primary("ptdl_restart", "Restart"),
-                                    isKillState ? Button.danger("ptdl_kill", "Kill") : Button.danger("ptdl_stop", "Stop"),
-                                    Button.secondary("ptdl_cmd", "Send Command")
-                            )
-                    )
+                    .setComponents(updatedContainer)
+                    .setEmbeds(java.util.Collections.emptyList())
                     .useComponentsV2(true)
                     .build();
 
@@ -203,7 +176,7 @@ public class PanelCommand extends ListenerAdapter {
         }
     }
 
-    private Container buildContainer(JsonObject resources) {
+    private Container buildContainer(JsonObject resources, boolean killStateActive) {
         // STATUS VARS
         String state = "Offline";
         String stateEmoji = "🔴";
@@ -211,9 +184,11 @@ public class PanelCommand extends ListenerAdapter {
         String ram = "0 MB";
         String disk = "0 MB";
         String uptimeStr = "0s";
+        
+        String currentState = "offline";
 
         if (resources != null) {
-            String currentState = resources.get("current_state").getAsString();
+            currentState = resources.get("current_state").getAsString();
             if ("running".equals(currentState)) {
                 state = "Running";
                 stateEmoji = "🟢";
@@ -257,6 +232,33 @@ public class PanelCommand extends ListenerAdapter {
         }
         consoleText.append("```");
 
+        boolean isRunning = "running".equals(currentState);
+        boolean isOffline = "offline".equals(currentState) || resources == null;
+        boolean isStarting = "starting".equals(currentState);
+        boolean isStopping = "stopping".equals(currentState);
+
+        Button startBtn = Button.success("ptdl_start", "Start");
+        Button restartBtn = Button.primary("ptdl_restart", "Restart");
+        Button stopBtn = killStateActive ? Button.danger("ptdl_kill", "Kill") : Button.danger("ptdl_stop", "Stop");
+        Button cmdBtn = Button.secondary("ptdl_cmd", "Send Command");
+
+        if (isOffline) {
+            restartBtn = restartBtn.asDisabled();
+            stopBtn = stopBtn.asDisabled();
+            cmdBtn = cmdBtn.asDisabled();
+        } else if (isRunning) {
+            startBtn = startBtn.asDisabled();
+        } else if (isStarting) {
+            startBtn = startBtn.asDisabled();
+            restartBtn = restartBtn.asDisabled();
+            cmdBtn = cmdBtn.asDisabled();
+        } else if (isStopping) {
+            startBtn = startBtn.asDisabled();
+            restartBtn = restartBtn.asDisabled();
+            cmdBtn = cmdBtn.asDisabled();
+            stopBtn = Button.danger("ptdl_kill", "Kill"); 
+        }
+
         return Container.of(
                 Section.of(
                         Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
@@ -265,7 +267,9 @@ public class PanelCommand extends ListenerAdapter {
                                        "💿 **Disk:** `" + disk + "`   •   ⏱️ **Uptime:** `" + uptimeStr + "`")
                 ),
                 Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("💻 **Console Output (Last 10 lines):**\n" + consoleText.toString())
+                TextDisplay.of("💻 **Console Output (Last 30 lines):**\n" + consoleText.toString()),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(startBtn, restartBtn, stopBtn, cmdBtn)
         ).withAccentColor(Color.decode("#2F3136"));
     }
     
