@@ -337,6 +337,8 @@ public class PterodactylService {
                 String p = validParts.get(k);
                 if (p.equals("34")) {
                     validParts.set(k, "36");
+                } else if (p.equals("31")) {
+                    validParts.set(k, "35");
                 }
             }
             boolean hasForeground = false;
@@ -450,13 +452,13 @@ public class PterodactylService {
 
     private String colorizeLogLine(String line) {
         if (line == null) return null;
-        if (line.contains("\u001B[")) return line;
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+\\[[^\\]]+\\/(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]:|^\\[\\d{2}:\\d{2}:\\d{2}\\s+(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]:)\\s*(.*)$").matcher(line);
+        String clean = line.replaceAll("\u001B\\[[0-9;]*m", "");
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\[?\\d{2}:\\d{2}:\\d{2}\\]?\\s*(?:\\[[^\\]]+\\/)?(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]?:?)\\s*(.*)$").matcher(clean);
         if (m.find()) {
             String prefix = m.group(1);
             String rest = m.group(2);
             String coloredPrefix = prefix;
-            boolean isError = prefix.contains("ERROR") || prefix.contains("FATAL") || rest.toLowerCase().contains("exception") || rest.toLowerCase().contains("error:");
+            boolean isError = prefix.contains("ERROR") || prefix.contains("FATAL") || rest.toLowerCase().contains("exception") || rest.toLowerCase().contains("error") || rest.toLowerCase().contains("invalid") || rest.toLowerCase().contains("not valid");
             boolean isWarn = prefix.contains("WARN") || prefix.contains("WARNING");
             if (prefix.contains("INFO")) {
                 coloredPrefix = prefix.replace("INFO", "\u001B[1;32mINFO\u001B[0m");
@@ -465,15 +467,15 @@ public class PterodactylService {
             } else if (prefix.contains("WARNING")) {
                 coloredPrefix = prefix.replace("WARNING", "\u001B[1;33mWARNING\u001B[0m");
             } else if (prefix.contains("ERROR")) {
-                coloredPrefix = prefix.replace("ERROR", "\u001B[1;31mERROR\u001B[0m");
+                coloredPrefix = prefix.replace("ERROR", "\u001B[1;35mERROR\u001B[0m");
             } else if (prefix.contains("FATAL")) {
-                coloredPrefix = prefix.replace("FATAL", "\u001B[1;31mFATAL\u001B[0m");
+                coloredPrefix = prefix.replace("FATAL", "\u001B[1;35mFATAL\u001B[0m");
             } else if (prefix.contains("DEBUG")) {
                 coloredPrefix = prefix.replace("DEBUG", "\u001B[1;36mDEBUG\u001B[0m");
             }
             String coloredRest = rest;
             if (isError) {
-                coloredRest = "\u001B[1;31m" + rest + "\u001B[0m";
+                coloredRest = "\u001B[1;35m" + rest + "\u001B[0m";
             } else if (isWarn) {
                 coloredRest = "\u001B[1;33m" + rest + "\u001B[0m";
             } else {
@@ -498,12 +500,13 @@ public class PterodactylService {
             }
             return coloredPrefix + " " + coloredRest;
         }
-        if (line.contains(" ERROR]:") || line.toLowerCase().contains("exception") || line.toLowerCase().contains("error:")) {
-            return "\u001B[1;31m" + line + "\u001B[0m";
+        String cleanLower = clean.toLowerCase();
+        if (clean.contains(" ERROR]:") || cleanLower.contains("exception") || cleanLower.contains("error") || clean.contains("<--[HERE]") || clean.startsWith("\tat ") || clean.contains("Caused by:")) {
+            return "\u001B[1;35m" + clean + "\u001B[0m";
         }
-        if (line.contains(" WARN]:") || line.contains(" WARNING]:")) {
-            return "\u001B[1;33m" + line + "\u001B[0m";
+        if (clean.contains(" WARN]:") || clean.contains(" WARNING]:") || cleanLower.contains("warning") || cleanLower.contains("warn")) {
+            return "\u001B[1;33m" + clean + "\u001B[0m";
         }
-        return line;
+        return clean;
     }
 }
