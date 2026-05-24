@@ -318,6 +318,7 @@ public class ServerStatsService {
                 persistentChannel.retrieveMessageById(statsMessageId).queue(
                     botMessage -> {
                         MessageEditData editData = new MessageEditBuilder()
+                                .setContent("")
                                 .setComponents(container)
                                 .setEmbeds(java.util.Collections.emptyList())
                                 .useComponentsV2(true)
