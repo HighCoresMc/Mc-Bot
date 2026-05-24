@@ -12,6 +12,7 @@ import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.textinput.TextInput;
 import net.dv8tion.jda.api.components.textinput.TextInputStyle;
+import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.modals.Modal;
 import org.jetbrains.annotations.NotNull;
 
@@ -92,14 +93,13 @@ public class PanelCommand extends ListenerAdapter {
         
         if (id.equals("ptdl_cmd")) {
             TextInput commandInput = TextInput.create("command", TextInputStyle.SHORT)
-                    .setLabel("Command")
                     .setPlaceholder("ex: say hello")
                     .setMinLength(1)
                     .setRequired(true)
                     .build();
 
             Modal modal = Modal.create("ptdl_modal", "Send Console Command")
-                    .addActionRow(commandInput)
+                    .addComponents(Label.of("Command", commandInput))
                     .build();
             
             event.replyModal(modal).queue();
