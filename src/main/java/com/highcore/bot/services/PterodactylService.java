@@ -149,15 +149,20 @@ public class PterodactylService {
                                                     try {
                                                         JsonObject json = JsonParser.parseString(completeMessage).getAsJsonObject();
                                                         String event = json.get("event").getAsString();
-                                                        if ("console output".equals(event)) {
-                                                            JsonArray args = json.getAsJsonArray("args");
-                                                            if (args != null && args.size() > 0) {
-                                                                String line = cleanAnsiForDiscord(args.get(0).getAsString());
-                                                                if (messageListener != null) {
-                                                                    messageListener.accept(line);
-                                                                }
-                                                            }
-                                                        }
+                                                         if ("console output".equals(event)) {
+                                                             JsonArray args = json.getAsJsonArray("args");
+                                                             if (args != null && args.size() > 0) {
+                                                                 String cleanLog = cleanAnsiForDiscord(args.get(0).getAsString());
+                                                                 if (cleanLog != null) {
+                                                                     String[] lines = cleanLog.split("\\r?\\n");
+                                                                     for (String singleLine : lines) {
+                                                                         if (messageListener != null) {
+                                                                             messageListener.accept(singleLine);
+                                                                         }
+                                                                     }
+                                                                 }
+                                                             }
+                                                         }
                                                     } catch (Exception e) {
                                                         logger.error("Error parsing websocket message", e);
                                                     }
