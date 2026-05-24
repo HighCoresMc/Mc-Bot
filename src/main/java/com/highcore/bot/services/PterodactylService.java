@@ -435,23 +435,13 @@ public class PterodactylService {
     private String colorizeLogLine(String line) {
         if (line == null) return null;
         if (line.contains("\u001B[")) return line;
-        if (line.contains(" ERROR]:") || line.toLowerCase().contains("exception") || line.toLowerCase().contains("error:")) {
-            return "\u001B[1;31m" + line + "\u001B[0m";
-        }
-        if (line.contains(" WARN]:") || line.contains(" WARNING]:")) {
-            return "\u001B[1;33m" + line + "\u001B[0m";
-        }
-        if (line.contains(" joined the game") || line.contains(" left the game") || line.contains(" lost connection:")) {
-            return "\u001B[1;33m" + line + "\u001B[0m";
-        }
-        if (line.contains(" issued server command:")) {
-            return "\u001B[1;36m" + line + "\u001B[0m";
-        }
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+\\[[^\\]]+\\/(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]:|^\\[\\d{2}:\\d{2}:\\d{2}\\s+(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]:)\\s*(.*)$").matcher(line);
         if (m.find()) {
             String prefix = m.group(1);
             String rest = m.group(2);
             String coloredPrefix = prefix;
+            boolean isError = prefix.contains("ERROR") || prefix.contains("FATAL") || rest.toLowerCase().contains("exception") || rest.toLowerCase().contains("error:");
+            boolean isWarn = prefix.contains("WARN") || prefix.contains("WARNING");
             if (prefix.contains("INFO")) {
                 coloredPrefix = prefix.replace("INFO", "\u001B[1;32mINFO\u001B[0m");
             } else if (prefix.contains("WARN")) {
@@ -466,12 +456,37 @@ public class PterodactylService {
                 coloredPrefix = prefix.replace("DEBUG", "\u001B[1;36mDEBUG\u001B[0m");
             }
             String coloredRest = rest;
-            java.util.regex.Matcher bracketMatcher = java.util.regex.Pattern.compile("\\[([^\\]]+)\\]").matcher(rest);
-            if (bracketMatcher.find()) {
-                String pluginName = bracketMatcher.group(1);
-                coloredRest = rest.replace("[" + pluginName + "]", "[\u001B[1;32m" + pluginName + "\u001B[0m]");
+            if (isError) {
+                coloredRest = "\u001B[1;31m" + rest + "\u001B[0m";
+            } else if (isWarn) {
+                coloredRest = "\u001B[1;33m" + rest + "\u001B[0m";
+            } else {
+                if (rest.contains(" joined the game")) {
+                    coloredRest = rest.replace("joined the game", "\u001B[1;33mjoined the game\u001B[0m");
+                } else if (rest.contains(" left the game")) {
+                    coloredRest = rest.replace("left the game", "\u001B[1;33mleft the game\u001B[0m");
+                } else if (rest.contains(" lost connection:")) {
+                    coloredRest = rest.replace("lost connection:", "\u001B[1;33mlost connection:\u001B[0m");
+                } else if (rest.contains(" issued server command:")) {
+                    int index = rest.indexOf("issued server command:");
+                    String cmdPart = rest.substring(index + "issued server command:".length());
+                    String namePart = rest.substring(0, index);
+                    coloredRest = namePart + "issued server command: \u001B[1;37m" + cmdPart.trim() + "\u001B[0m";
+                } else {
+                    java.util.regex.Matcher bracketMatcher = java.util.regex.Pattern.compile("\\[([^\\]]+)\\]").matcher(rest);
+                    if (bracketMatcher.find()) {
+                        String pluginName = bracketMatcher.group(1);
+                        coloredRest = rest.replace("[" + pluginName + "]", "[\u001B[1;32m" + pluginName + "\u001B[0m]");
+                    }
+                }
             }
             return coloredPrefix + " " + coloredRest;
+        }
+        if (line.contains(" ERROR]:") || line.toLowerCase().contains("exception") || line.toLowerCase().contains("error:")) {
+            return "\u001B[1;31m" + line + "\u001B[0m";
+        }
+        if (line.contains(" WARN]:") || line.contains(" WARNING]:")) {
+            return "\u001B[1;33m" + line + "\u001B[0m";
         }
         return line;
     }
