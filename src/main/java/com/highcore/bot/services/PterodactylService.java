@@ -167,7 +167,7 @@ public class PterodactylService {
                                                                     String[] lines = cleanLog.split("\\r?\\n");
                                                                     for (String singleLine : lines) {
                                                                         if (messageListener != null) {
-                                                                            messageListener.accept(singleLine);
+                                                                            messageListener.accept(colorizeLogLine(singleLine));
                                                                         }
                                                                     }
                                                                 }
