@@ -234,8 +234,11 @@ public class PterodactylService {
                     }
                 } catch (NumberFormatException ignored) {}
             }
-            if (hasForeground && !validParts.contains("1")) {
-                validParts.add("1");
+            if (hasForeground) {
+                validParts.remove("0");
+                if (!validParts.contains("1")) {
+                    validParts.add(0, "1");
+                }
             }
             if (validParts.isEmpty()) {
                 matcher.appendReplacement(sb, "");
