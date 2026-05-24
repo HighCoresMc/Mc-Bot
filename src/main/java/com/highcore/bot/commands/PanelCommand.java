@@ -85,7 +85,6 @@ public class PanelCommand extends ListenerAdapter {
                         MessageCreateData choiceMsg = new MessageCreateBuilder()
                                 .setContent("### إدارة حالة الصيانة الحالية\nيرجى اختيار الإجراء المطلوب:")
                                 .setComponents(ActionRow.of(extendBtn, endBtn))
-                                .useComponentsV2(true)
                                 .build();
                         hook.sendMessage(choiceMsg).queue();
                     } catch (Exception e) {
@@ -303,6 +302,7 @@ public class PanelCommand extends ListenerAdapter {
             if (id.equals("ptdl_start")) {
                 isKillState = false;
                 pterodactylService.sendPowerSignal("start");
+                pterodactylService.reconnectConsole();
             } else if (id.equals("ptdl_kill")) {
                 isKillState = false;
                 pterodactylService.sendPowerSignal("kill");
@@ -519,6 +519,7 @@ public class PanelCommand extends ListenerAdapter {
     // MAINTENANCE EXECUTION
     private void executeMaintenance(net.dv8tion.jda.api.JDA jda, MaintenanceState state, net.dv8tion.jda.api.interactions.InteractionHook hook, String userId) {
         pterodactylService.sendPowerSignal(state.isRestart ? "restart" : "stop");
+        pterodactylService.reconnectConsole();
         long durationMs = parseDurationToMs(state.duration, state.customDurationText);
         state.returnTimestamp = System.currentTimeMillis() + durationMs;
         state.actualReason = formatReason(state);

@@ -36,6 +36,7 @@ public class PterodactylService {
     private java.util.concurrent.ScheduledFuture<?> pingFuture = null;
     private Consumer<String> messageListener = null;
     private boolean isReconnecting = false;
+    private volatile long lastPongTime = 0;
 
     // INIT
     public boolean sendPowerSignal(String signal) {
@@ -133,10 +134,17 @@ public class PterodactylService {
                                             @Override
                                             public void onOpen(WebSocket webSocket) {
                                                 logger.info("Connected to Pterodactyl Console WebSocket");
+                                                lastPongTime = System.currentTimeMillis();
                                                 // AUTH
                                                 String authMessage = "{\"event\":\"auth\",\"args\":[\"" + token + "\"]}";
                                                 webSocket.sendText(authMessage, true);
                                                 WebSocket.Listener.super.onOpen(webSocket);
+                                            }
+
+                                            @Override
+                                            public CompletionStage<?> onPong(WebSocket webSocket, java.nio.ByteBuffer message) {
+                                                lastPongTime = System.currentTimeMillis();
+                                                return WebSocket.Listener.super.onPong(webSocket, message);
                                             }
 
                                             @Override
@@ -203,6 +211,15 @@ public class PterodactylService {
                                                 }
                                                 pingFuture = scheduler.scheduleAtFixedRate(() -> {
                                                     if (currentWebSocket != null && !currentWebSocket.isInputClosed() && !currentWebSocket.isOutputClosed()) {
+                                                        long now = System.currentTimeMillis();
+                                                        if (now - lastPongTime > 20000) {
+                                                            logger.warn("WebSocket connection is dead (no pong received), reconnecting...");
+                                                            try {
+                                                                currentWebSocket.abort();
+                                                            } catch (Exception ignored) {}
+                                                            scheduleReconnect();
+                                                            return;
+                                                        }
                                                         currentWebSocket.sendPing(java.nio.ByteBuffer.allocate(0)).whenComplete((pingWs, pingErr) -> {
                                                             if (pingErr != null) {
                                                                 logger.warn("Failed to send WebSocket keep-alive ping, reconnecting...", pingErr);
@@ -214,7 +231,7 @@ public class PterodactylService {
                                                             }
                                                         });
                                                     }
-                                                }, 30, 30, TimeUnit.SECONDS);
+                                                }, 10, 10, TimeUnit.SECONDS);
                                             }
                                         });
                             } catch (Exception e) {
@@ -257,6 +274,15 @@ public class PterodactylService {
             String msg = "{\"event\":\"send command\",\"args\":[\"" + command.replace("\"", "\\\"") + "\"]}";
             currentWebSocket.sendText(msg, true);
         }
+    }
+
+    public void reconnectConsole() {
+        if (currentWebSocket != null) {
+            try {
+                currentWebSocket.abort();
+            } catch (Exception ignored) {}
+        }
+        connectToConsole(this.messageListener);
     }
 
     private String cleanAnsiForDiscord(String input) {
