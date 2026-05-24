@@ -1,5 +1,6 @@
 package com.highcore.bot;
 
+import com.highcore.bot.commands.PanelCommand;
 import com.highcore.bot.commands.ProfileCommand;
 import com.highcore.bot.commands.StatsCommand;
 import com.highcore.bot.database.DatabaseManager;
@@ -85,13 +86,15 @@ public class LeonTrotskyBot {
 
             // Register Global Slash Commands
             jda.updateCommands().addCommands(
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض ملف اللاعب في HighCore")
-                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "اللاعب المراد عرض ملفه", false),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("stats", "تحديث وعرض حالة سيرفر HighCore MC")
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض الملف الشخصي والإحصائيات الخاصة باللاعب")
+                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "تحديد اللاعب المراد عرض ملفه الشخصي", false),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("stats", "عرض حالة الخادم والإحصائيات المباشرة"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("panel", "التحكم الكامل بالخادم وإدارة النظام")
             ).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
             
             jda.addEventListener(new ProfileCommand());
             jda.addEventListener(new StatsCommand());
+            jda.addEventListener(new PanelCommand());
             jda.addEventListener(new com.highcore.bot.listeners.MinecraftLogListener());
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
