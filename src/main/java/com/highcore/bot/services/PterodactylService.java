@@ -228,9 +228,19 @@ public class PterodactylService {
                             hasForeground = true;
                             if (val == 34) {
                                 val = 36;
+                                validParts.add(String.valueOf(val));
+                            } else if (val == 31) {
+                                validParts.add("37");
+                                validParts.add("41");
+                            } else if (val == 33) {
+                                validParts.add("30");
+                                validParts.add("43");
+                            } else {
+                                validParts.add(String.valueOf(val));
                             }
+                        } else {
+                            validParts.add(String.valueOf(val));
                         }
-                        validParts.add(String.valueOf(val));
                     }
                 } catch (NumberFormatException ignored) {}
             }
