@@ -94,8 +94,9 @@ public class LeonTrotskyBot {
 
             jda.updateCommands().addCommands(commands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
 
+            // Clear guild commands to prevent duplication
             for (net.dv8tion.jda.api.entities.Guild guild : jda.getGuilds()) {
-                guild.updateCommands().addCommands(commands).queue(cmds -> logger.info("Successfully registered {} guild commands for: {}", cmds.size(), guild.getName()));
+                guild.updateCommands().queue(cmds -> logger.info("Cleared guild commands for: {}", guild.getName()));
             }
             
             jda.addEventListener(new ProfileCommand());
