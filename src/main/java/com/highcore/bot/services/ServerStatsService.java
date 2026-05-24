@@ -95,8 +95,11 @@ public class ServerStatsService {
         String bedrockIp = dotenv.get("MC_BEDROCK_IP", "134.255.255.130:25010");
         
         String[] javaParts = javaIp.split(":");
-        String javaHost = javaParts[0];
+        String javaHost    = javaParts[0];
         String javaPortStr = javaParts.length > 1 ? javaParts[1] : "25565";
+        // Section: Parse Java port as int — Velocity proxy is the correct ping target (not backend)
+        int javaPort = 25565;
+        try { javaPort = Integer.parseInt(javaPortStr); } catch (Exception ignored) {}
         
         String[] bedrockParts = bedrockIp.split(":");
         String bedrockHost = bedrockParts[0];
@@ -104,7 +107,7 @@ public class ServerStatsService {
 
         String pteroUrl = dotenv.get("PTERODACTYL_URL", "https://panel.highcores.com");
         String pteroKey = dotenv.get("PTERODACTYL_API_KEY");
-        String pteroId = dotenv.get("PTERODACTYL_SERVER_ID", "7bc59359");
+        String pteroId  = dotenv.get("PTERODACTYL_SERVER_ID", "7bc59359");
 
         boolean pteroEnabled = pteroKey != null && !pteroKey.trim().isEmpty();
         PterodactylStats ptero = null;
@@ -112,29 +115,32 @@ public class ServerStatsService {
             ptero = fetchPterodactylStats(pteroUrl, pteroKey, pteroId);
         }
 
-        System.out.println("[ServerStatsService] Pinging Minecraft server at " + host + ":" + port + "...");
-        MinecraftPing.StatusResponse response = MinecraftPing.ping(host, port, 3000);
+        // Section: Ping the Velocity proxy (javaHost:javaPort) — responds to MC handshake properly
+        //          Gives correct max players, real MC protocol RTT, and reliable online detection
+        System.out.println("[ServerStatsService] Pinging Velocity proxy at " + javaHost + ":" + javaPort + "...");
+        MinecraftPing.StatusResponse response = MinecraftPing.ping(javaHost, javaPort, 3000);
         boolean portOpen    = response.portOpen;
         boolean portRefused = response.portRefused;
         long    tcpPing     = response.ping;
 
         // Section: Localhost fallback — only when external ping failed and host is not already local
-        if (!response.online && !portOpen && !"127.0.0.1".equals(host) && !"localhost".equals(host)) {
+        if (!response.online && !portOpen && !portRefused
+                && !"127.0.0.1".equals(javaHost) && !"localhost".equals(javaHost)) {
             System.out.println("[ServerStatsService] Main ping failed. Attempting fallback to localhost...");
-            MinecraftPing.StatusResponse local = MinecraftPing.ping("127.0.0.1", port, 2000);
+            MinecraftPing.StatusResponse local = MinecraftPing.ping("127.0.0.1", javaPort, 2000);
             if (local.portOpen)    { portOpen    = true; if (tcpPing == 0) tcpPing = local.ping; }
             if (local.portRefused) { portRefused = true; }
             if (local.online || local.portOpen) response = local;
         }
 
-        // Section: Web API fallback — skipped when port was explicitly refused (avoids stale cache)
+        // Section: Web API fallback — query Velocity address (same as ping target)
         if (!response.online) {
             if (portRefused && !portOpen) {
                 System.out.println("[ServerStatsService] Port refused on all attempts — server is offline, skipping web API cache.");
             } else {
                 System.out.println("[ServerStatsService] " +
                     (portOpen ? "MC protocol rejected (port is open) — using web API." : "TCP uncertain — using web API."));
-                MinecraftPing.StatusResponse webResp = queryWebApi(host, port);
+                MinecraftPing.StatusResponse webResp = queryWebApi(javaHost, javaPort);
                 if (webResp.online) {
                     long savedPing = tcpPing > 0 ? tcpPing : webResp.ping;
                     response = webResp;
