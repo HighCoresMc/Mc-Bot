@@ -15,6 +15,8 @@ import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;   
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,6 +38,7 @@ public class ServerStatsService {
     private static final String DATA_FILE = "stats_data.json";
 
     private static int peakPlayers = 0;
+    private static String statsMessageId = null;
     private static long totalChecks = 0;
     private static long successfulChecks = 0;
     private static long onlineSince = -1;
@@ -278,48 +281,73 @@ public class ServerStatsService {
 
         TextChannel persistentChannel = jda.getTextChannelById(PERSISTENT_CHANNEL_ID);
         if (persistentChannel != null) {
+            if (statsMessageId != null) {
+                persistentChannel.retrieveMessageById(statsMessageId).queue(
+                    botMessage -> {
+                        MessageEditData editData = new MessageEditBuilder()
+                                .setComponents(container)
+                                .setEmbeds(java.util.Collections.emptyList())
+                                .useComponentsV2(true)
+                                .build();
+                        botMessage.editMessage(editData).queue(
+                            success -> logger.debug("Successfully edited persistent server stats message."),
+                            error -> {
+                                logger.error("Failed to edit persistent status message, deleting and recreating...", error);
+                                botMessage.delete().queue(
+                                    deleted -> {
+                                        MessageCreateData createData = new MessageCreateBuilder()
+                                                .setComponents(container)
+                                                .useComponentsV2(true)
+                                                .build();
+                                        persistentChannel.sendMessage(createData).queue(
+                                            success2 -> {
+                                                logger.debug("Successfully recreated persistent server stats message.");
+                                                statsMessageId = success2.getId();
+                                                saveStatsData();
+                                            },
+                                            error2 -> logger.error("Failed to recreate persistent status message", error2)
+                                        );
+                                    },
+                                    delError -> logger.error("Failed to delete legacy persistent status message", delError)
+                                );
+                            }
+                        );
+                    },
+                    retrieveError -> {
+                        statsMessageId = null;
+                        updateStats(jda);
+                    }
+                );
+                return;
+            }
+
             persistentChannel.getHistory().retrievePast(10).queue(messages -> {
                 Message botMessage = null;
+                String maintenanceMsgId = getMaintenanceMessageId();
                 for (Message msg : messages) {
                     if (msg.getAuthor().getId().equals(jda.getSelfUser().getId())) {
-                        botMessage = msg;
-                        break;
+                        if (maintenanceMsgId == null || !msg.getId().equals(maintenanceMsgId)) {
+                            botMessage = msg;
+                            break;
+                        }
                     }
                 }
 
-                final Message finalBotMessage = botMessage;
-                if (finalBotMessage != null) {
-                    MessageEditData editData = new MessageEditBuilder()
-                            .setComponents(container)
-                            .setEmbeds(java.util.Collections.emptyList())
-                            .useComponentsV2(true)
-                            .build();
-                    finalBotMessage.editMessage(editData).queue(
-                        success -> logger.debug("Successfully edited persistent server stats mesذsage."),
-                        error -> {
-                            logger.error("Failed to edit persistent status message, deleting and recreating...", error);
-                            finalBotMessage.delete().queue(
-                                deleted -> {
-                                    MessageCreateData createData = new MessageCreateBuilder()
-                                            .setComponents(container)
-                                            .useComponentsV2(true)
-                                            .build();
-                                    persistentChannel.sendMessage(createData).queue(
-                                        success2 -> logger.debug("Successfully recreated persistent server stats message."),
-                                        error2 -> logger.error("Failed to recreate persistent status message", error2)
-                                    );
-                                },
-                                delError -> logger.error("Failed to delete legacy persistent status message", delError)
-                            );
-                        }
-                    );
+                if (botMessage != null) {
+                    statsMessageId = botMessage.getId();
+                    saveStatsData();
+                    updateStats(jda);
                 } else {
                     MessageCreateData createData = new MessageCreateBuilder()
                             .setComponents(container)
                             .useComponentsV2(true)
                             .build();
                     persistentChannel.sendMessage(createData).queue(
-                        success -> logger.debug("Successfully sent new persistent server stats message."),
+                        success -> {
+                            logger.debug("Successfully sent new persistent server stats message.");
+                            statsMessageId = success.getId();
+                            saveStatsData();
+                        },
                         error -> logger.error("Failed to send persistent status message", error)
                     );
                 }
@@ -427,13 +455,15 @@ public class ServerStatsService {
             while ((ch = reader.read()) != -1) {
                 sb.append((char) ch);
             }
-            String content = sb.toString();
-            peakPlayers = extractJsonInt(content, "peakPlayers");
-            totalChecks = extractJsonLong(content, "totalChecks");
-            successfulChecks = extractJsonLong(content, "successfulChecks");
-            onlineSince = extractJsonLong(content, "onlineSince");
-            lastMaxPlayers = extractJsonInt(content, "lastMaxPlayers");
-            totalLogins = extractJsonLong(content, "totalLogins");
+            JsonObject json = JsonParser.parseString(sb.toString()).getAsJsonObject();
+            peakPlayers = json.has("peakPlayers") ? json.get("peakPlayers").getAsInt() : 0;
+            totalChecks = json.has("totalChecks") ? json.get("totalChecks").getAsLong() : 0;
+            successfulChecks = json.has("successfulChecks") ? json.get("successfulChecks").getAsLong() : 0;
+            onlineSince = json.has("onlineSince") ? json.get("onlineSince").getAsLong() : -1;
+            lastMaxPlayers = json.has("lastMaxPlayers") ? json.get("lastMaxPlayers").getAsInt() : 0;
+            totalLogins = json.has("totalLogins") ? json.get("totalLogins").getAsLong() : 0;
+            statsMessageId = json.has("statsMessageId") && !json.get("statsMessageId").isJsonNull()
+                ? json.get("statsMessageId").getAsString() : null;
         } catch (Exception e) {
             logger.error("Error loading persistent stats data", e);
         }
@@ -441,14 +471,35 @@ public class ServerStatsService {
 
     private static void saveStatsData() {
         try (FileWriter writer = new FileWriter(DATA_FILE)) {
-            String json = String.format(
-                "{\"peakPlayers\":%d,\"totalChecks\":%d,\"successfulChecks\":%d,\"onlineSince\":%d,\"lastMaxPlayers\":%d,\"totalLogins\":%d}",
-                peakPlayers, totalChecks, successfulChecks, onlineSince, lastMaxPlayers, totalLogins
-            );
-            writer.write(json);
+            JsonObject json = new JsonObject();
+            json.addProperty("peakPlayers", peakPlayers);
+            json.addProperty("totalChecks", totalChecks);
+            json.addProperty("successfulChecks", successfulChecks);
+            json.addProperty("onlineSince", onlineSince);
+            json.addProperty("lastMaxPlayers", lastMaxPlayers);
+            json.addProperty("totalLogins", totalLogins);
+            json.addProperty("statsMessageId", statsMessageId);
+            writer.write(json.toString());
         } catch (Exception e) {
             logger.error("Error saving persistent stats data", e);
         }
+    }
+
+    private static String getMaintenanceMessageId() {
+        File file = new File("maintenance_state.json");
+        if (!file.exists()) return null;
+        try (FileReader reader = new FileReader(file)) {
+            java.lang.StringBuilder sb = new java.lang.StringBuilder();
+            int ch;
+            while ((ch = reader.read()) != -1) {
+                sb.append((char) ch);
+            }
+            JsonObject json = JsonParser.parseString(sb.toString()).getAsJsonObject();
+            if (json.has("messageId") && !json.get("messageId").isJsonNull()) {
+                return json.get("messageId").getAsString();
+            }
+        } catch (Exception e) {}
+        return null;
     }
 
     private static int extractJsonInt(String json, String key) {
