@@ -44,6 +44,8 @@ public class PanelCommand extends ListenerAdapter {
     private String activeChannelId = null;
     private boolean isKillState = false;
     private String lastPanelContentHash = null;
+    private JsonObject cachedResources = null;
+    private long lastResourcesFetchTime = 0;
 
     private final Map<String, MaintenanceState> userStates = new ConcurrentHashMap<>();
     private Timer maintenanceTimer;
@@ -70,8 +72,12 @@ public class PanelCommand extends ListenerAdapter {
 
         // RESOURCES
         JsonObject resources = pterodactylService.getServerResources();
+        if (resources != null) {
+            cachedResources = resources;
+            lastResourcesFetchTime = System.currentTimeMillis();
+        }
         isKillState = false;
-        Container container = buildContainer(resources, isKillState);
+        Container container = buildContainer(cachedResources, isKillState);
 
         MessageCreateData messageData = new MessageCreateBuilder()
                 .setComponents(container)
@@ -94,15 +100,22 @@ public class PanelCommand extends ListenerAdapter {
                 public void run() {
                     if (activeMessageId != null && activeChannelId != null) {
                         try {
-                            JsonObject currentResources = pterodactylService.getServerResources();
-                            
+                            long now = System.currentTimeMillis();
+                            if (cachedResources == null || now - lastResourcesFetchTime >= 5000) {
+                                JsonObject freshResources = pterodactylService.getServerResources();
+                                if (freshResources != null) {
+                                    cachedResources = freshResources;
+                                    lastResourcesFetchTime = now;
+                                }
+                            }
+
                             String state = "offline";
                             String cpu = "0%";
                             String ram = "0 MB";
                             String uptimeStr = "0s";
-                            if (currentResources != null) {
-                                state = currentResources.get("current_state").getAsString();
-                                JsonObject util = currentResources.getAsJsonObject("resources");
+                            if (cachedResources != null) {
+                                state = cachedResources.get("current_state").getAsString();
+                                JsonObject util = cachedResources.getAsJsonObject("resources");
                                 if (util != null) {
                                     cpu = util.get("cpu_absolute").getAsString();
                                     ram = util.get("memory_bytes").getAsString();
@@ -121,7 +134,7 @@ public class PanelCommand extends ListenerAdapter {
                             }
                             lastPanelContentHash = currentHash;
 
-                            Container updatedContainer = buildContainer(currentResources, isKillState);
+                            Container updatedContainer = buildContainer(cachedResources, isKillState);
                             
                             MessageEditData editData = new MessageEditBuilder()
                                     .setComponents(updatedContainer)
@@ -129,10 +142,11 @@ public class PanelCommand extends ListenerAdapter {
                                     .useComponentsV2(true)
                                     .build();
 
-                            event.getJDA().getTextChannelById(activeChannelId)
-                                    .editMessageById(activeMessageId, editData)
-                                    .queue(null, error -> {
-                                    });
+                            var channel = event.getJDA().getTextChannelById(activeChannelId);
+                            if (channel != null) {
+                                channel.editMessageById(activeMessageId, editData).queue(null, error -> {
+                                });
+                            }
                         } catch (Exception e) {
                         }
                     }
@@ -259,7 +273,11 @@ public class PanelCommand extends ListenerAdapter {
 
         try {
             JsonObject currentResources = pterodactylService.getServerResources();
-            Container updatedContainer = buildContainer(currentResources, isKillState);
+            if (currentResources != null) {
+                cachedResources = currentResources;
+                lastResourcesFetchTime = System.currentTimeMillis();
+            }
+            Container updatedContainer = buildContainer(cachedResources, isKillState);
             
             MessageEditData editData = new MessageEditBuilder()
                     .setComponents(updatedContainer)
