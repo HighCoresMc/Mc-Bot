@@ -426,9 +426,53 @@ public class PterodactylService {
             String[] lines = clean.split("\\r?\\n");
             int start = Math.max(0, lines.length - maxLines);
             for (int i = start; i < lines.length; i++) {
-                result.add(lines[i]);
+                result.add(colorizeLogLine(lines[i]));
             }
         }
         return result;
+    }
+
+    private String colorizeLogLine(String line) {
+        if (line == null) return null;
+        if (line.contains("\u001B[")) return line;
+        if (line.contains(" ERROR]:") || line.toLowerCase().contains("exception") || line.toLowerCase().contains("error:")) {
+            return "\u001B[1;31m" + line + "\u001B[0m";
+        }
+        if (line.contains(" WARN]:") || line.contains(" WARNING]:")) {
+            return "\u001B[1;33m" + line + "\u001B[0m";
+        }
+        if (line.contains(" joined the game") || line.contains(" left the game") || line.contains(" lost connection:")) {
+            return "\u001B[1;33m" + line + "\u001B[0m";
+        }
+        if (line.contains(" issued server command:")) {
+            return "\u001B[1;36m" + line + "\u001B[0m";
+        }
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\[\\d{2}:\\d{2}:\\d{2}\\]\\s+\\[[^\\]]+\\/(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]:|^\\[\\d{2}:\\d{2}:\\d{2}\\s+(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]:)\\s*(.*)$").matcher(line);
+        if (m.find()) {
+            String prefix = m.group(1);
+            String rest = m.group(2);
+            String coloredPrefix = prefix;
+            if (prefix.contains("INFO")) {
+                coloredPrefix = prefix.replace("INFO", "\u001B[1;32mINFO\u001B[0m");
+            } else if (prefix.contains("WARN")) {
+                coloredPrefix = prefix.replace("WARN", "\u001B[1;33mWARN\u001B[0m");
+            } else if (prefix.contains("WARNING")) {
+                coloredPrefix = prefix.replace("WARNING", "\u001B[1;33mWARNING\u001B[0m");
+            } else if (prefix.contains("ERROR")) {
+                coloredPrefix = prefix.replace("ERROR", "\u001B[1;31mERROR\u001B[0m");
+            } else if (prefix.contains("FATAL")) {
+                coloredPrefix = prefix.replace("FATAL", "\u001B[1;31mFATAL\u001B[0m");
+            } else if (prefix.contains("DEBUG")) {
+                coloredPrefix = prefix.replace("DEBUG", "\u001B[1;36mDEBUG\u001B[0m");
+            }
+            String coloredRest = rest;
+            java.util.regex.Matcher bracketMatcher = java.util.regex.Pattern.compile("\\[([^\\]]+)\\]").matcher(rest);
+            if (bracketMatcher.find()) {
+                String pluginName = bracketMatcher.group(1);
+                coloredRest = rest.replace("[" + pluginName + "]", "[\u001B[1;32m" + pluginName + "\u001B[0m]");
+            }
+            return coloredPrefix + " " + coloredRest;
+        }
+        return line;
     }
 }
