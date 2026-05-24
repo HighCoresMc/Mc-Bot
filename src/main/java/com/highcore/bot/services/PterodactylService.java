@@ -287,47 +287,56 @@ public class PterodactylService {
 
     private String cleanAnsiForDiscord(String input) {
         if (input == null) return null;
-        String mapped = input.replaceAll("\u001B\\[(?:0;)?9([0-7])m", "\u001B[1;3$1m");
-        mapped = mapped.replaceAll("\u001B\\[1;9([0-7])m", "\u001B[1;3$1m");
-        mapped = mapped.replaceAll("\u001B\\[(?:0;)?10([0-7])m", "\u001B[4$1m");
-        
         java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\u001B\\[([0-9;]*)m");
-        java.util.regex.Matcher matcher = pattern.matcher(mapped);
+        java.util.regex.Matcher matcher = pattern.matcher(input);
         StringBuilder sb = new StringBuilder();
         while (matcher.find()) {
             String content = matcher.group(1);
+            if (content.isEmpty()) {
+                matcher.appendReplacement(sb, "\u001B[0m");
+                continue;
+            }
             String[] parts = content.split(";");
             java.util.List<String> validParts = new java.util.ArrayList<>();
-            boolean hasForeground = false;
-            for (String part : parts) {
+            for (int i = 0; i < parts.length; i++) {
+                String part = parts[i];
                 if (part.isEmpty()) continue;
                 try {
                     int val = Integer.parseInt(part);
-                    if (val == 0 || val == 1 || val == 4 || (val >= 30 && val <= 37) || (val >= 40 && val <= 47)) {
-                        if (val >= 30 && val <= 37) {
-                            hasForeground = true;
-                            if (val == 34) {
-                                val = 36;
-                                validParts.add(String.valueOf(val));
-                            } else if (val == 31) {
-                                validParts.add("37");
-                                validParts.add("41");
-                            } else if (val == 33) {
-                                validParts.add("30");
-                                validParts.add("43");
-                            } else {
-                                validParts.add(String.valueOf(val));
-                            }
-                        } else {
-                            validParts.add(String.valueOf(val));
+                    if ((val == 38 || val == 48) && i + 2 < parts.length) {
+                        int type = Integer.parseInt(parts[i + 1]);
+                        if (type == 5) {
+                            int colorIndex = Integer.parseInt(parts[i + 2]);
+                            int basicColor = convert256ToBasic(colorIndex);
+                            int targetVal = (val == 38) ? (30 + basicColor) : (40 + basicColor);
+                            validParts.add(String.valueOf(targetVal));
+                            i += 2;
+                        } else if (type == 2 && i + 4 < parts.length) {
+                            int r = Integer.parseInt(parts[i + 2]);
+                            int g = Integer.parseInt(parts[i + 3]);
+                            int b = Integer.parseInt(parts[i + 4]);
+                            int basicColor = convertRgbToBasic(r, g, b);
+                            int targetVal = (val == 38) ? (30 + basicColor) : (40 + basicColor);
+                            validParts.add(String.valueOf(targetVal));
+                            i += 4;
                         }
+                    } else if (val == 0 || val == 1 || val == 4) {
+                        validParts.add(String.valueOf(val));
+                    } else if (val >= 30 && val <= 37) {
+                        validParts.add(String.valueOf(val));
+                    } else if (val >= 40 && val <= 47) {
+                        validParts.add(String.valueOf(val));
+                    } else if (val >= 90 && val <= 97) {
+                        validParts.add(String.valueOf(val - 60));
+                    } else if (val >= 100 && val <= 107) {
+                        validParts.add(String.valueOf(val - 60));
                     }
-                } catch (NumberFormatException ignored) {}
+                } catch (Exception ignored) {}
             }
-            if (hasForeground) {
-                validParts.remove("0");
-                if (!validParts.contains("1")) {
-                    validParts.add(0, "1");
+            for (int k = 0; k < validParts.size(); k++) {
+                String p = validParts.get(k);
+                if (p.equals("34")) {
+                    validParts.set(k, "36");
                 }
             }
             if (validParts.isEmpty()) {
@@ -338,6 +347,46 @@ public class PterodactylService {
         }
         matcher.appendTail(sb);
         return sb.toString();
+    }
+
+    private int convert256ToBasic(int index) {
+        if (index < 8) return index;
+        if (index < 16) return index - 8;
+        if (index >= 16 && index <= 231) {
+            int adjusted = index - 16;
+            int r = (adjusted / 36) * 51;
+            int g = ((adjusted % 36) / 6) * 51;
+            int b = (adjusted % 6) * 51;
+            return convertRgbToBasic(r, g, b);
+        }
+        int gray = 8 + (index - 232) * 10;
+        return convertRgbToBasic(gray, gray, gray);
+    }
+
+    private int convertRgbToBasic(int r, int g, int b) {
+        int[][] basicColors = {
+            {0, 0, 0},
+            {205, 0, 0},
+            {0, 205, 0},
+            {205, 205, 0},
+            {0, 0, 238},
+            {205, 0, 205},
+            {0, 205, 205},
+            {229, 229, 229}
+        };
+        int bestIndex = 7;
+        double minDistance = Double.MAX_VALUE;
+        for (int i = 0; i < basicColors.length; i++) {
+            int dr = r - basicColors[i][0];
+            int dg = g - basicColors[i][1];
+            int db = b - basicColors[i][2];
+            double dist = dr * dr + dg * dg + db * db;
+            if (dist < minDistance) {
+                minDistance = dist;
+                bestIndex = i;
+            }
+        }
+        return bestIndex;
     }
 
     public boolean isConsoleDisconnected() {
