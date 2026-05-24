@@ -494,18 +494,23 @@ public class PanelCommand extends ListenerAdapter {
         TextChannel channel = jda.getTextChannelById("1487139736748425236");
         if (channel != null) {
             String reasonType = formatReasonType(state);
-            net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
-            eb.setColor(new java.awt.Color(0xE74C3C));
-            eb.setTitle("🚨 بدأت حالة " + reasonType);
-            eb.setDescription("تم إيقاف الخادم لبدء أعمال " + reasonType + ".\n" +
-                              "**السبب:** " + state.actualReason + "\n" +
-                              "**وقت العودة المتوقع:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)");
-            eb.setTimestamp(java.time.Instant.now());
+            Container alertContainer = Container.of(
+                Section.of(
+                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                    TextDisplay.of("### 🚨 بدأت حالة " + reasonType + "\n" +
+                                   "تم إيقاف الخادم لبدء أعمال **" + reasonType + "**.\n" +
+                                   "**السبب:** `" + state.actualReason + "`\n\n" +
+                                   "**وقت العودة المتوقع:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)\n\n" +
+                                   "إشعار: <@&1499896841150402692>")
+                )
+            );
             MessageCreateData startNotificationMsg = new MessageCreateBuilder()
-                    .setContent("<@&1499896841150402692>")
-                    .setEmbeds(eb.build())
+                    .setComponents(alertContainer)
+                    .useComponentsV2(true)
                     .build();
-            channel.sendMessage(startNotificationMsg).queue(null, err -> {
+            channel.sendMessage(startNotificationMsg).useComponentsV2().queue(msg -> {
+                channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
+            }, err -> {
                 logger.error("Failed to send maintenance start alert message", err);
             });
 
@@ -553,16 +558,21 @@ public class PanelCommand extends ListenerAdapter {
                     channel.editMessageById(state.messageId, edit).useComponentsV2().queue(null, err -> {});
                 }
                 String reasonType = formatReasonType(state);
-                net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
-                eb.setColor(new java.awt.Color(0x2ECC71));
-                eb.setTitle("✅ انتهت حالة " + reasonType);
-                eb.setDescription("عاد الخادم للعمل الآن بشكل طبيعي، بإمكانكم الدخول واللعب.");
-                eb.setTimestamp(java.time.Instant.now());
+                Container completionContainer = Container.of(
+                    Section.of(
+                        Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                        TextDisplay.of("### ✅ انتهت حالة " + reasonType + "\n" +
+                                       "عاد الخادم للعمل الآن بشكل طبيعي، بإمكانكم الدخول واللعب.\n\n" +
+                                       "إشعار: <@&1499896841150402692>")
+                    )
+                );
                 MessageCreateData completionMsg = new MessageCreateBuilder()
-                        .setContent("<@&1499896841150402692>")
-                        .setEmbeds(eb.build())
+                        .setComponents(completionContainer)
+                        .useComponentsV2(true)
                         .build();
-                channel.sendMessage(completionMsg).queue(null, err -> {
+                channel.sendMessage(completionMsg).useComponentsV2().queue(msg -> {
+                    channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
+                }, err -> {
                     logger.error("Failed to send maintenance completion alert message", err);
                 });
             }

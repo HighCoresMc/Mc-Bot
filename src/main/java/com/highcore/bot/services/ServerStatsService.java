@@ -295,7 +295,7 @@ public class ServerStatsService {
                             .useComponentsV2(true)
                             .build();
                     finalBotMessage.editMessage(editData).queue(
-                        success -> logger.debug("Successfully edited persistent server stats message."),
+                        success -> logger.debug("Successfully edited persistent server stats mesذsage."),
                         error -> {
                             logger.error("Failed to edit persistent status message, deleting and recreating...", error);
                             finalBotMessage.delete().queue(
