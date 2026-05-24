@@ -44,7 +44,7 @@ public class PanelCommand extends ListenerAdapter {
     private String activeMessageId = null;
     private String activeChannelId = null;
     private boolean isKillState = false;
-    private String lastPanelContentHash = null;
+    private int forceRefreshCounter = 0;
     private JsonObject cachedResources = null;
     private long lastResourcesFetchTime = 0;
 
@@ -132,7 +132,7 @@ public class PanelCommand extends ListenerAdapter {
                 hook.sendMessage(messageData).queue(message -> {
                     activeMessageId = message.getId();
                     activeChannelId = message.getChannel().getId();
-                    lastPanelContentHash = null;
+                    forceRefreshCounter = 0;
 
                     // TIMER
                     if (updateTimer != null) {
@@ -153,30 +153,7 @@ public class PanelCommand extends ListenerAdapter {
                                         }
                                     }
 
-                                    String state = "offline";
-                                    String cpu = "0%";
-                                    String ram = "0 MB";
-                                    String uptimeStr = "0s";
-                                    if (cachedResources != null) {
-                                        state = cachedResources.get("current_state").getAsString();
-                                        JsonObject util = cachedResources.getAsJsonObject("resources");
-                                        if (util != null) {
-                                            cpu = util.get("cpu_absolute").getAsString();
-                                            ram = util.get("memory_bytes").getAsString();
-                                            uptimeStr = util.get("uptime").getAsString();
-                                        }
-                                    }
-                                    StringBuilder consoleText = new StringBuilder();
-                                    synchronized (consoleBuffer) {
-                                        for (String line : consoleBuffer) {
-                                            consoleText.append(line);
-                                        }
-                                    }
-                                    String currentHash = state + cpu + ram + uptimeStr + consoleText.toString();
-                                    if (currentHash.equals(lastPanelContentHash)) {
-                                        return;
-                                    }
-                                    lastPanelContentHash = currentHash;
+                                    forceRefreshCounter++;
 
                                     Container updatedContainer = buildContainer(cachedResources, isKillState);
 
