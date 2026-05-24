@@ -304,8 +304,7 @@ public class ServerStatsService {
             TextDisplay.of("### 🚦 Status & Health\n" +
                            "🚦 **Server Status:** `" + serverStatusText + "`\n" +
                            "📡 **Server Ping:** `" + (networkPing != -1 ? networkPing + "ms" : "N/A") + "`\n" +
-                           "🔋 **Health:** `" + healthPercentage + "`\n" +
-                           "📈 **Availability:** " + getProgressBar(availability)),
+                           "🔋 **Health:** `" + healthPercentage + "`"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("### ⏱️ Server Uptime\n" +
                            "⏱️ **Uptime:** `" + uptimeStr + "`\n" +
