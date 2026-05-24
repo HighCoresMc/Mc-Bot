@@ -39,6 +39,7 @@ public class MinecraftPing {
         StatusResponse R = new StatusResponse();
         try (Socket S = new Socket()) {
             // Section: Attempt TCP connect with a hard deadline — catch refused separately
+            long connectStart = System.nanoTime();
             try {
                 S.connect(new InetSocketAddress(host, port), timeout);
             } catch (ConnectException e) {
@@ -48,6 +49,8 @@ public class MinecraftPing {
             }
             // Section: TCP handshake succeeded — server IS listening
             R.portOpen = true;
+            // Use nanoTime for sub-millisecond accuracy — ensures at least 1ms when TCP is instant
+            R.ping = Math.max(1L, (System.nanoTime() - connectStart) / 1_000_000L);
             S.setSoTimeout(timeout); // Cap each individual read at `timeout` ms
 
             OutputStream rawOut = S.getOutputStream();
@@ -72,13 +75,13 @@ public class MinecraftPing {
             rawOut.flush();
 
             // Section: Read status response and measure RTT
-            long rttStart = System.currentTimeMillis();
+            long rttStart = System.nanoTime();
             readVarInt(rawIn);              // Packet length
             readVarInt(rawIn);              // Packet ID (0x00)
             int    jsonLen = readVarInt(rawIn);
             byte[] data    = new byte[jsonLen];
             new DataInputStream(rawIn).readFully(data);
-            R.ping = System.currentTimeMillis() - rttStart;
+            R.ping = Math.max(1L, (System.nanoTime() - rttStart) / 1_000_000L);
 
             String json     = new String(data, StandardCharsets.UTF_8);
             R.online        = true;

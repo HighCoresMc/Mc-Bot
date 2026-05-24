@@ -13,7 +13,7 @@ import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
-import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
+import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;   
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -132,7 +132,8 @@ public class ServerStatsService {
             if (portRefused && !portOpen) {
                 System.out.println("[ServerStatsService] Port refused on all attempts — server is offline, skipping web API cache.");
             } else {
-                System.out.println("[ServerStatsService] TCP uncertain. Attempting Web API fallback query...");
+                System.out.println("[ServerStatsService] " +
+                    (portOpen ? "MC protocol rejected (port is open) — using web API." : "TCP uncertain — using web API."));
                 MinecraftPing.StatusResponse webResp = queryWebApi(host, port);
                 if (webResp.online) {
                     long savedPing = tcpPing > 0 ? tcpPing : webResp.ping;
