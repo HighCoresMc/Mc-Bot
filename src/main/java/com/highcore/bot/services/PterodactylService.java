@@ -33,6 +33,7 @@ public class PterodactylService {
         t.setDaemon(true);
         return t;
     });
+    private java.util.concurrent.ScheduledFuture<?> pingFuture = null;
     private Consumer<String> messageListener = null;
     private boolean isReconnecting = false;
 
@@ -50,6 +51,7 @@ public class PterodactylService {
                     .header("Authorization", "Bearer " + API_KEY)
                     .header("Accept", "application/json")
                     .header("Content-Type", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(10))
                     .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
                     .build();
 
@@ -72,6 +74,7 @@ public class PterodactylService {
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + API_KEY)
                     .header("Accept", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(10))
                     .GET()
                     .build();
 
@@ -94,86 +97,131 @@ public class PterodactylService {
             return;
         }
         try {
-            // First, get the websocket details
             String url = PANEL_URL + "/api/client/servers/" + SERVER_ID + "/websocket";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Authorization", "Bearer " + API_KEY)
                     .header("Accept", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(10))
                     .GET()
                     .build();
 
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                JsonObject data = JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonObject("data");
-                String wssUrl = data.get("socket").getAsString();
-                String token = data.get("token").getAsString();
+            HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .whenComplete((response, err) -> {
+                        if (err != null) {
+                            logger.error("Failed to fetch WebSocket details from Pterodactyl", err);
+                            scheduleReconnect();
+                            return;
+                        }
+                        if (response.statusCode() == 200) {
+                            try {
+                                JsonObject data = JsonParser.parseString(response.body()).getAsJsonObject().getAsJsonObject("data");
+                                String wssUrl = data.get("socket").getAsString();
+                                String token = data.get("token").getAsString();
 
-                if (currentWebSocket != null) {
-                    try {
-                        currentWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Reconnecting");
-                    } catch (Exception ignored) {}
-                }
-
-                CompletableFuture<WebSocket> wsFuture = HTTP_CLIENT.newWebSocketBuilder()
-                        .header("Origin", PANEL_URL)
-                        .buildAsync(URI.create(wssUrl), new WebSocket.Listener() {
-                            StringBuilder messageBuffer = new StringBuilder();
-
-                            @Override
-                            public void onOpen(WebSocket webSocket) {
-                                logger.info("Connected to Pterodactyl Console WebSocket");
-                                // AUTH
-                                String authMessage = "{\"event\":\"auth\",\"args\":[\"" + token + "\"]}";
-                                webSocket.sendText(authMessage, true);
-                                WebSocket.Listener.super.onOpen(webSocket);
-                            }
-
-                            @Override
-                            public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-                                messageBuffer.append(data);
-                                if (last) {
-                                    String completeMessage = messageBuffer.toString();
-                                    messageBuffer.setLength(0);
-                                    
+                                if (currentWebSocket != null) {
                                     try {
-                                        JsonObject json = JsonParser.parseString(completeMessage).getAsJsonObject();
-                                        String event = json.get("event").getAsString();
-                                        if ("console output".equals(event)) {
-                                            JsonArray args = json.getAsJsonArray("args");
-                                            if (args != null && args.size() > 0) {
-                                                String line = cleanAnsiForDiscord(args.get(0).getAsString());
-                                                if (messageListener != null) {
-                                                    messageListener.accept(line);
-                                                }
-                                            }
-                                        }
-                                    } catch (Exception e) {
-                                        logger.error("Error parsing websocket message", e);
-                                    }
+                                        currentWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Reconnecting");
+                                    } catch (Exception ignored) {}
                                 }
-                                return WebSocket.Listener.super.onText(webSocket, data, last);
-                            }
 
-                            @Override
-                            public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-                                scheduleReconnect();
-                                return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
-                            }
+                                HTTP_CLIENT.newWebSocketBuilder()
+                                        .header("Origin", PANEL_URL)
+                                        .buildAsync(URI.create(wssUrl), new WebSocket.Listener() {
+                                            StringBuilder messageBuffer = new StringBuilder();
 
-                            @Override
-                            public void onError(WebSocket webSocket, Throwable error) {
+                                            @Override
+                                            public void onOpen(WebSocket webSocket) {
+                                                logger.info("Connected to Pterodactyl Console WebSocket");
+                                                // AUTH
+                                                String authMessage = "{\"event\":\"auth\",\"args\":[\"" + token + "\"]}";
+                                                webSocket.sendText(authMessage, true);
+                                                WebSocket.Listener.super.onOpen(webSocket);
+                                            }
+
+                                            @Override
+                                            public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+                                                messageBuffer.append(data);
+                                                if (last) {
+                                                    String completeMessage = messageBuffer.toString();
+                                                    messageBuffer.setLength(0);
+                                                    
+                                                    try {
+                                                        JsonObject json = JsonParser.parseString(completeMessage).getAsJsonObject();
+                                                        String event = json.get("event").getAsString();
+                                                        if ("console output".equals(event)) {
+                                                            JsonArray args = json.getAsJsonArray("args");
+                                                            if (args != null && args.size() > 0) {
+                                                                String line = cleanAnsiForDiscord(args.get(0).getAsString());
+                                                                if (messageListener != null) {
+                                                                    messageListener.accept(line);
+                                                                }
+                                                            }
+                                                        }
+                                                    } catch (Exception e) {
+                                                        logger.error("Error parsing websocket message", e);
+                                                    }
+                                                }
+                                                return WebSocket.Listener.super.onText(webSocket, data, last);
+                                            }
+
+                                            @Override
+                                            public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+                                                if (pingFuture != null) {
+                                                    pingFuture.cancel(false);
+                                                    pingFuture = null;
+                                                }
+                                                scheduleReconnect();
+                                                return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
+                                            }
+
+                                            @Override
+                                            public void onError(WebSocket webSocket, Throwable error) {
+                                                if (pingFuture != null) {
+                                                    pingFuture.cancel(false);
+                                                    pingFuture = null;
+                                                }
+                                                scheduleReconnect();
+                                                WebSocket.Listener.super.onError(webSocket, error);
+                                            }
+                                        }).whenComplete((ws, err2) -> {
+                                            if (err2 != null) {
+                                                logger.error("WebSocket connection failed asynchronously", err2);
+                                                scheduleReconnect();
+                                            } else {
+                                                currentWebSocket = ws;
+                                                currentWebSocket.sendText("{\"event\":\"send logs\",\"args\":[]}", true);
+
+                                                if (pingFuture != null) {
+                                                    pingFuture.cancel(false);
+                                                }
+                                                pingFuture = scheduler.scheduleAtFixedRate(() -> {
+                                                    if (currentWebSocket != null && !currentWebSocket.isInputClosed() && !currentWebSocket.isOutputClosed()) {
+                                                        currentWebSocket.sendPing(java.nio.ByteBuffer.allocate(0)).whenComplete((pingWs, pingErr) -> {
+                                                            if (pingErr != null) {
+                                                                logger.warn("Failed to send WebSocket keep-alive ping, reconnecting...", pingErr);
+                                                                if (pingFuture != null) {
+                                                                    pingFuture.cancel(false);
+                                                                    pingFuture = null;
+                                                                }
+                                                                scheduleReconnect();
+                                                            }
+                                                        });
+                                                    }
+                                                }, 30, 30, TimeUnit.SECONDS);
+                                            }
+                                        });
+                            } catch (Exception e) {
+                                logger.error("Failed to parse WebSocket details response", e);
                                 scheduleReconnect();
-                                WebSocket.Listener.super.onError(webSocket, error);
                             }
-                        });
-                        
-                currentWebSocket = wsFuture.join();
-                currentWebSocket.sendText("{\"event\":\"send logs\",\"args\":[]}", true);
-            } else {
-                scheduleReconnect();
-            }
+                        } else {
+                            logger.error("Failed to fetch WebSocket details, HTTP status code: {}", response.statusCode());
+                            scheduleReconnect();
+                        }
+                    });
         } catch (Exception e) {
+            logger.error("Failed to initiate async request for WebSocket details", e);
             scheduleReconnect();
         }
     }

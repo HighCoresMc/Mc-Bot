@@ -101,7 +101,7 @@ public class LeonTrotskyBot {
             
             jda.addEventListener(new ProfileCommand());
             jda.addEventListener(new StatsCommand());
-            jda.addEventListener(new PanelCommand());
+            jda.addEventListener(new PanelCommand(jda));
             jda.addEventListener(new com.highcore.bot.listeners.MinecraftLogListener());
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
