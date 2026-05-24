@@ -495,6 +495,7 @@ public class PanelCommand extends ListenerAdapter {
         if (channel != null) {
             Container container = buildMaintenanceContainer(state, durationMs, false, false);
             MessageCreateData message = new MessageCreateBuilder()
+                    .setContent("<@&1499896841150402692>")
                     .setComponents(container)
                     .useComponentsV2(true)
                     .build();
@@ -537,9 +538,17 @@ public class PanelCommand extends ListenerAdapter {
                             .build();
                     channel.editMessageById(state.messageId, edit).useComponentsV2().queue(null, err -> {});
                 }
-                String mention = "<@&1499896841150402692>";
-                String completionText = mention + "\nانتهت حالة " + formatReasonType(state) + " وعاد المخدم للعمل الآن بشكل طبيعي.";
-                channel.sendMessage(completionText).queue(null, err -> {
+                String reasonType = formatReasonType(state);
+                net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
+                eb.setColor(new java.awt.Color(0x2ECC71));
+                eb.setTitle("✅ انتهت حالة " + reasonType);
+                eb.setDescription("عاد الخادم للعمل الآن بشكل طبيعي، بإمكانكم الدخول واللعب.");
+                eb.setTimestamp(java.time.Instant.now());
+                MessageCreateData completionMsg = new MessageCreateBuilder()
+                        .setContent("<@&1499896841150402692>")
+                        .setEmbeds(eb.build())
+                        .build();
+                channel.sendMessage(completionMsg).queue(null, err -> {
                     logger.error("Failed to send maintenance completion alert message", err);
                 });
             }
@@ -747,7 +756,6 @@ public class PanelCommand extends ListenerAdapter {
             timeInfo = "**وقت العودة:** <t:" + (state.returnTimestamp / 1000) + ":F> (<t:" + (state.returnTimestamp / 1000) + ":R>)";
         }
         return Container.of(
-            TextDisplay.of("<@&1499896841150402692>"),
             Section.of(
                 Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
                 TextDisplay.of("### " + title + "\n" +

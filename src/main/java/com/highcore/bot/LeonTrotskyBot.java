@@ -85,19 +85,20 @@ public class LeonTrotskyBot {
             ServerStatsService.startScheduler(jda);
 
             // Register Global Slash Commands
-            var commands = java.util.List.of(
+            var globalCommands = java.util.List.of(
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض الملف الشخصي والإحصائيات الخاصة باللاعب")
                             .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "تحديد اللاعب المراد عرض ملفه الشخصي", false),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("stats", "عرض حالة الخادم والإحصائيات المباشرة"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("panel", "التحكم الكامل بالخادم وإدارة النظام"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec", "إنهاء حالة الصيانة أو التوقف الحالية")
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("panel", "التحكم الكامل بالخادم وإدارة النظام")
             );
 
-            jda.updateCommands().addCommands(commands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
+            jda.updateCommands().addCommands(globalCommands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
 
-            // Clear guild commands to prevent duplication
+            // Register /ec as guild command for immediate availability
             for (net.dv8tion.jda.api.entities.Guild guild : jda.getGuilds()) {
-                guild.updateCommands().queue(cmds -> logger.info("Cleared guild commands for: {}", guild.getName()));
+                guild.updateCommands().addCommands(
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec", "إنهاء حالة الصيانة أو التوقف الحالية")
+                ).queue(cmds -> logger.info("Registered guild commands for: {}", guild.getName()));
             }
             
             jda.addEventListener(new ProfileCommand());
