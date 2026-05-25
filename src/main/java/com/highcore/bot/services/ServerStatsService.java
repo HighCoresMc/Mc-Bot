@@ -284,7 +284,7 @@ public class ServerStatsService {
 
         Container container = Container.of(
             Section.of(
-                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                Thumbnail.fromUrl("https://minotar.net/avatar/steve/128"),
                 TextDisplay.of("### " + statusEmoji + " " + statusDesc)
             ),
             Separator.createDivider(Separator.Spacing.SMALL),

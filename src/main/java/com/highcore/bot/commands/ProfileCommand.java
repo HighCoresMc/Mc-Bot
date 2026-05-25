@@ -331,13 +331,13 @@ public class ProfileCommand extends ListenerAdapter {
                 } catch (Exception ignored) {}
             }
             if (skinValue.matches("^[a-zA-Z0-9_\\-]+$")) {
-                return "https://mc-heads.net/avatar/" + skinValue + "/128";
+                return "https://minotar.net/avatar/" + skinValue + "/128";
             }
         }
         if (mcName != null && !mcName.trim().isEmpty()) {
-            return "https://mc-heads.net/avatar/" + mcName.trim() + "/128";
+            return "https://minotar.net/avatar/" + mcName.trim() + "/128";
         }
-        return "https://mc-heads.net/avatar/" + uuid + "/128";
+        return "https://minotar.net/avatar/" + uuid + "/128";
     }
 
     private boolean isBase64(String str) {
