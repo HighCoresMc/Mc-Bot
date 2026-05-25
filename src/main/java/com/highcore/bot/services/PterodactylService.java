@@ -556,6 +556,8 @@ public class PterodactylService {
                 coloredRest = "\u001B[1;31m" + rest + "\u001B[0m";
             } else if (isWarn) {
                 coloredRest = "\u001B[1;33m" + rest + "\u001B[0m";
+            } else {
+                coloredRest = colorizeInfoRest(rest);
             }
             return coloredPrefix + " " + coloredRest;
         }
@@ -566,6 +568,32 @@ public class PterodactylService {
         if (clean.contains(" WARN]:") || clean.contains(" WARNING]:") || cleanLower.contains("warning") || cleanLower.contains("warn")) {
             return "\u001B[1;33m" + clean + "\u001B[0m";
         }
-        return clean;
+        return colorizeInfoRest(clean);
+    }
+
+    private String colorizeInfoRest(String rest) {
+        if (rest == null || rest.isEmpty()) {
+            return rest;
+        }
+        rest = rest.replaceAll("https?:\\/\\/[^\\s]+", "\u001B[1;36m$0\u001B[0m");
+        rest = rest.replace("Oraxen | No broken models or textures were found in the resourcepack",
+                "\u001B[1;36mOraxen |\u001B[0m \u001B[1;32mNo broken models or textures were found in the resourcepack\u001B[0m");
+        rest = rest.replace("Oraxen |", "\u001B[1;36mOraxen |\u001B[0m");
+        rest = rest.replace("Duels Optimised » Registering post listeners...",
+                "\u001B[1;36mDuels Optimised » Registering post listeners...\u001B[0m");
+        rest = rest.replace("Duels Optimised »", "\u001B[1;36mDuels Optimised »\u001B[0m");
+        rest = rest.replace("Successfully registered listeners after plugin startup in",
+                "\u001B[1;35mSuccessfully registered listeners after plugin startup in\u001B[0m");
+        rest = rest.replace("DiscordSRV found. (Loaded: true)",
+                "\u001B[1;33mDiscordSRV\u001B[0m \u001B[1;36mfound. (Loaded: true)\u001B[0m");
+        rest = rest.replaceAll("\\[([a-zA-Z]+)\\]", "\u001B[1;32m[$1]\u001B[0m");
+        rest = rest.replaceAll("\\[(\\d+ms)\\]", "\u001B[1;32m[$1]\u001B[0m");
+        rest = rest.replaceAll("\\((\\d+(?:\\.\\d+)?s)\\)", "\u001B[1;32m($1)\u001B[0m");
+        rest = rest.replaceAll("\\b(\\d+ms)\\b", "\u001B[1;32m$1\u001B[0m");
+        rest = rest.replaceAll("\\b(\\d+)\\s+(NPCs|plugin\\(s\\)|cancelled)\\b", "\u001B[1;32m$1\u001B[0m $2");
+        rest = rest.replaceAll("\\b(\\d+/\\d+)\\s+guilds\\b", "\u001B[1;32m$1\u001B[0m guilds");
+        rest = rest.replaceAll("\\b(\\d+)\\s+placeholder hook\\(s\\) registered!", "\u001B[1;32m$1 placeholder hook(s) registered!\u001B[0m");
+        rest = rest.replaceAll("\\bDone\\b", "\u001B[1;32mDone\u001B[0m");
+        return rest;
     }
 }
