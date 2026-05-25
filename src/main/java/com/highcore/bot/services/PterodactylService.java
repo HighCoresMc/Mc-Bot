@@ -35,7 +35,13 @@ public class PterodactylService {
     });
     private java.util.concurrent.ScheduledFuture<?> pingFuture = null;
     private Consumer<String> messageListener = null;
-    private boolean isReconnecting = false;
+    private enum ConnectionState {
+        DISCONNECTED,
+        SCHEDULING,
+        CONNECTING,
+        CONNECTED
+    }
+    private ConnectionState connectionState = ConnectionState.DISCONNECTED;
     private volatile long lastPongTime = 0;
 
     // INIT
@@ -90,13 +96,21 @@ public class PterodactylService {
     }
 
     // WEBSOCKET CONNECTION
-    public void connectToConsole(Consumer<String> onMessageReceived) {
+    public synchronized void connectToConsole(Consumer<String> onMessageReceived) {
         if (onMessageReceived != null) {
             this.messageListener = onMessageReceived;
         }
         if (API_KEY == null || SERVER_ID == null) {
             return;
         }
+        if (connectionState == ConnectionState.CONNECTED || connectionState == ConnectionState.CONNECTING || connectionState == ConnectionState.SCHEDULING) {
+            return;
+        }
+        connectionState = ConnectionState.CONNECTING;
+        connectToConsoleInternal();
+    }
+
+    private void connectToConsoleInternal() {
         try {
             String url = PANEL_URL + "/api/client/servers/" + SERVER_ID + "/websocket";
             HttpRequest request = HttpRequest.newBuilder()
@@ -111,7 +125,10 @@ public class PterodactylService {
                     .whenComplete((response, err) -> {
                         if (err != null) {
                             logger.error("Failed to fetch WebSocket details from Pterodactyl", err);
-                            scheduleReconnect();
+                            synchronized (PterodactylService.this) {
+                                connectionState = ConnectionState.DISCONNECTED;
+                                scheduleReconnect();
+                            }
                             return;
                         }
                         if (response.statusCode() == 200) {
@@ -120,10 +137,14 @@ public class PterodactylService {
                                 String wssUrl = data.get("socket").getAsString();
                                 String token = data.get("token").getAsString();
 
-                                if (currentWebSocket != null) {
-                                    try {
-                                        currentWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Reconnecting");
-                                    } catch (Exception ignored) {}
+                                synchronized (PterodactylService.this) {
+                                    if (currentWebSocket != null) {
+                                        WebSocket wsToClose = currentWebSocket;
+                                        currentWebSocket = null;
+                                        try {
+                                            wsToClose.sendClose(WebSocket.NORMAL_CLOSURE, "Reconnecting");
+                                        } catch (Exception ignored) {}
+                                    }
                                 }
 
                                 HTTP_CLIENT.newWebSocketBuilder()
@@ -135,7 +156,6 @@ public class PterodactylService {
                                             public void onOpen(WebSocket webSocket) {
                                                 logger.info("Connected to Pterodactyl Console WebSocket");
                                                 lastPongTime = System.currentTimeMillis();
-                                                // AUTH
                                                 String authMessage = "{\"event\":\"auth\",\"args\":[\"" + token + "\"]}";
                                                 webSocket.sendText(authMessage, true);
                                                 WebSocket.Listener.super.onOpen(webSocket);
@@ -186,7 +206,13 @@ public class PterodactylService {
                                                     pingFuture.cancel(false);
                                                     pingFuture = null;
                                                 }
-                                                scheduleReconnect();
+                                                synchronized (PterodactylService.this) {
+                                                    if (webSocket == currentWebSocket) {
+                                                        currentWebSocket = null;
+                                                        connectionState = ConnectionState.DISCONNECTED;
+                                                        scheduleReconnect();
+                                                    }
+                                                }
                                                 return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
                                             }
 
@@ -196,93 +222,143 @@ public class PterodactylService {
                                                     pingFuture.cancel(false);
                                                     pingFuture = null;
                                                 }
-                                                scheduleReconnect();
+                                                synchronized (PterodactylService.this) {
+                                                    if (webSocket == currentWebSocket) {
+                                                        currentWebSocket = null;
+                                                        connectionState = ConnectionState.DISCONNECTED;
+                                                        scheduleReconnect();
+                                                    }
+                                                }
                                                 WebSocket.Listener.super.onError(webSocket, error);
                                             }
                                         }).whenComplete((ws, err2) -> {
                                             if (err2 != null) {
                                                 logger.error("WebSocket connection failed asynchronously", err2);
-                                                scheduleReconnect();
+                                                synchronized (PterodactylService.this) {
+                                                    connectionState = ConnectionState.DISCONNECTED;
+                                                    scheduleReconnect();
+                                                }
                                             } else {
-                                                currentWebSocket = ws;
+                                                synchronized (PterodactylService.this) {
+                                                    currentWebSocket = ws;
+                                                    connectionState = ConnectionState.CONNECTED;
+                                                }
 
                                                 if (pingFuture != null) {
                                                     pingFuture.cancel(false);
                                                 }
                                                 pingFuture = scheduler.scheduleAtFixedRate(() -> {
-                                                    if (currentWebSocket != null && !currentWebSocket.isInputClosed() && !currentWebSocket.isOutputClosed()) {
-                                                        long now = System.currentTimeMillis();
-                                                        if (now - lastPongTime > 20000) {
-                                                            logger.warn("WebSocket connection is dead (no pong received), reconnecting...");
-                                                            try {
-                                                                currentWebSocket.abort();
-                                                            } catch (Exception ignored) {}
-                                                            scheduleReconnect();
-                                                            return;
-                                                        }
-                                                        currentWebSocket.sendPing(java.nio.ByteBuffer.allocate(0)).whenComplete((pingWs, pingErr) -> {
-                                                            if (pingErr != null) {
-                                                                logger.warn("Failed to send WebSocket keep-alive ping, reconnecting...", pingErr);
-                                                                if (pingFuture != null) {
-                                                                    pingFuture.cancel(false);
-                                                                    pingFuture = null;
-                                                                }
+                                                    synchronized (PterodactylService.this) {
+                                                        if (currentWebSocket != null && !currentWebSocket.isInputClosed() && !currentWebSocket.isOutputClosed()) {
+                                                            long now = System.currentTimeMillis();
+                                                            if (now - lastPongTime > 20000) {
+                                                                logger.warn("WebSocket connection is dead (no pong received), reconnecting...");
+                                                                WebSocket wsToClose = currentWebSocket;
+                                                                currentWebSocket = null;
+                                                                connectionState = ConnectionState.DISCONNECTED;
+                                                                try {
+                                                                    wsToClose.abort();
+                                                                } catch (Exception ignored) {}
                                                                 scheduleReconnect();
+                                                                return;
                                                             }
-                                                        });
+                                                            currentWebSocket.sendPing(java.nio.ByteBuffer.allocate(0)).whenComplete((pingWs, pingErr) -> {
+                                                                if (pingErr != null) {
+                                                                    logger.warn("Failed to send WebSocket keep-alive ping, reconnecting...", pingErr);
+                                                                    synchronized (PterodactylService.this) {
+                                                                        if (pingFuture != null) {
+                                                                            pingFuture.cancel(false);
+                                                                            pingFuture = null;
+                                                                        }
+                                                                        if (currentWebSocket == ws) {
+                                                                            currentWebSocket = null;
+                                                                            connectionState = ConnectionState.DISCONNECTED;
+                                                                            scheduleReconnect();
+                                                                        }
+                                                                    }
+                                                                }
+                                                            });
+                                                        }
                                                     }
                                                 }, 10, 10, TimeUnit.SECONDS);
                                             }
                                         });
                             } catch (Exception e) {
                                 logger.error("Failed to parse WebSocket details response", e);
-                                scheduleReconnect();
+                                synchronized (PterodactylService.this) {
+                                    connectionState = ConnectionState.DISCONNECTED;
+                                    scheduleReconnect();
+                                }
                             }
                         } else {
                             logger.error("Failed to fetch WebSocket details, HTTP status code: {}", response.statusCode());
-                            scheduleReconnect();
+                            synchronized (PterodactylService.this) {
+                                connectionState = ConnectionState.DISCONNECTED;
+                                scheduleReconnect();
+                            }
                         }
                     });
         } catch (Exception e) {
             logger.error("Failed to initiate async request for WebSocket details", e);
-            scheduleReconnect();
+            synchronized (PterodactylService.this) {
+                connectionState = ConnectionState.DISCONNECTED;
+                scheduleReconnect();
+            }
         }
     }
 
     private synchronized void scheduleReconnect() {
-        if (isReconnecting) return;
-        isReconnecting = true;
+        if (connectionState == ConnectionState.SCHEDULING || connectionState == ConnectionState.CONNECTING || connectionState == ConnectionState.CONNECTED) {
+            return;
+        }
+        connectionState = ConnectionState.SCHEDULING;
         scheduler.schedule(() -> {
-            synchronized (this) {
-                isReconnecting = false;
+            synchronized (PterodactylService.this) {
+                if (connectionState != ConnectionState.SCHEDULING) {
+                    return;
+                }
+                connectionState = ConnectionState.CONNECTING;
             }
-            connectToConsole(this.messageListener);
+            connectToConsoleInternal();
         }, 5, TimeUnit.SECONDS);
     }
 
     // CLOSE
     public void closeConsole() {
-        if (currentWebSocket != null) {
-            currentWebSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Closing console");
-            currentWebSocket = null;
+        synchronized (this) {
+            if (currentWebSocket != null) {
+                WebSocket wsToClose = currentWebSocket;
+                currentWebSocket = null;
+                try {
+                    wsToClose.sendClose(WebSocket.NORMAL_CLOSURE, "Closing console");
+                } catch (Exception ignored) {}
+            }
+            connectionState = ConnectionState.DISCONNECTED;
         }
     }
     
     // SEND CMD
     public void sendCommand(String command) {
-        if (currentWebSocket != null) {
-            String msg = "{\"event\":\"send command\",\"args\":[\"" + command.replace("\"", "\\\"") + "\"]}";
-            currentWebSocket.sendText(msg, true);
+        synchronized (this) {
+            if (currentWebSocket != null) {
+                String msg = "{\"event\":\"send command\",\"args\":[\"" + command.replace("\"", "\\\"") + "\"]}";
+                currentWebSocket.sendText(msg, true);
+            }
         }
     }
 
     public void reconnectConsole() {
-        if (currentWebSocket != null) {
-            try {
-                currentWebSocket.abort();
-            } catch (Exception ignored) {}
+        synchronized (this) {
+            if (currentWebSocket != null) {
+                WebSocket wsToClose = currentWebSocket;
+                currentWebSocket = null;
+                try {
+                    wsToClose.abort();
+                } catch (Exception ignored) {}
+            }
+            connectionState = ConnectionState.CONNECTING;
         }
-        connectToConsole(this.messageListener);
+        connectToConsoleInternal();
     }
 
     private String cleanAnsiForDiscord(String input) {
@@ -408,7 +484,9 @@ public class PterodactylService {
     }
 
     public boolean isConsoleDisconnected() {
-        return currentWebSocket == null || currentWebSocket.isInputClosed() || currentWebSocket.isOutputClosed();
+        synchronized (this) {
+            return currentWebSocket == null || currentWebSocket.isInputClosed() || currentWebSocket.isOutputClosed();
+        }
     }
 
     public String getFileContents(String path) {
