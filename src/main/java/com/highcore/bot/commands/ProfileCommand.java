@@ -18,8 +18,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Optional;
+import com.highcore.bot.services.PterodactylService;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class ProfileCommand extends ListenerAdapter {
+    private final PterodactylService pterodactylService = new PterodactylService();
 
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
@@ -200,12 +204,38 @@ public class ProfileCommand extends ListenerAdapter {
                                 break;
                             }
                             case "pvp": {
+                                int kills = 0;
+                                int deaths = 0;
+                                try {
+                                    String statsJsonStr = pterodactylService.getFileContents("world/stats/" + uuidDash + ".json");
+                                    if (statsJsonStr != null && !statsJsonStr.isEmpty()) {
+                                        JsonObject statsJson = JsonParser.parseString(statsJsonStr).getAsJsonObject();
+                                        if (statsJson.has("stats")) {
+                                            JsonObject statsObj = statsJson.getAsJsonObject("stats");
+                                            if (statsObj.has("minecraft:custom")) {
+                                                JsonObject customObj = statsObj.getAsJsonObject("minecraft:custom");
+                                                if (customObj.has("minecraft:player_kills")) {
+                                                    kills = customObj.get("minecraft:player_kills").getAsInt();
+                                                }
+                                                if (customObj.has("minecraft:deaths")) {
+                                                    deaths = customObj.get("minecraft:deaths").getAsInt();
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (Exception ignored) {}
+                                double kd = 0.0;
+                                if (deaths > 0) {
+                                    kd = (double) kills / deaths;
+                                } else if (kills > 0) {
+                                    kd = kills;
+                                }
                                 container = Container.of(
                                     Section.of(
                                         avatar,
                                         TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
                                         TextDisplay.of("### 🔫 إحصائيات الـ PvP"),
-                                        TextDisplay.of("**القتلات (Kills):** 0\n**الوفيات (Deaths):** 0\n**نسبة K/D:** 0.00")
+                                        TextDisplay.of("**القتلات (Kills):** " + kills + "\n**الوفيات (Deaths):** " + deaths + "\n**نسبة K/D:** " + String.format(java.util.Locale.US, "%.2f", kd))
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
@@ -218,12 +248,18 @@ public class ProfileCommand extends ListenerAdapter {
                                 break;
                             }
                             case "side": {
+                                boolean isOnline = false;
+                                if (mcName != null && !mcName.trim().isEmpty()) {
+                                    String searchName = mcName.trim();
+                                    isOnline = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.stream()
+                                        .anyMatch(name -> name.equalsIgnoreCase(searchName));
+                                }
                                 container = Container.of(
                                     Section.of(
                                         avatar,
                                         TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
                                         TextDisplay.of("### 🌀 الإحصائيات الجانبية"),
-                                        TextDisplay.of("**النقاط الجانبية:** 0\n**الحالة:** نشط (Active)")
+                                        TextDisplay.of("**النقاط الجانبية:** 0\n**الحالة:** " + (isOnline ? "متصل (Online)" : "غير متصل (Offline)"))
                                     ),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(
