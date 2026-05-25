@@ -530,6 +530,9 @@ public class PterodactylService {
 
     private String colorizeLogLine(String line) {
         if (line == null) return null;
+        if (line.contains("\u001B[")) {
+            return line;
+        }
         String clean = line.replaceAll("\u001B\\[[0-9;]*m", "");
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\[?\\d{2}:\\d{2}:\\d{2}\\]?\\s*(?:\\[[^\\]]+\\/)?(?:INFO|WARN|ERROR|DEBUG|FATAL|WARNING)\\]?:?)\\s*(.*)$").matcher(clean);
         if (m.find()) {
