@@ -113,7 +113,7 @@ public class ProfileCommand extends ListenerAdapter {
             }
             mcName = backupUsername;
 
-            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank` FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
+            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank`, Skin FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuidDash);
                 ps.setString(2, uuidNoDash);
@@ -123,7 +123,8 @@ public class ProfileCommand extends ListenerAdapter {
                     if (rs.next()) {
                         dataFound = true;
                         mcName = rs.getString("username");
-                        Thumbnail avatar = Thumbnail.fromUrl("https://mc-heads.net/avatar/" + uuid + "/128");
+                        String skinValue = rs.getString("Skin");
+                        Thumbnail avatar = Thumbnail.fromUrl(getAvatarUrl(skinValue, mcName, uuid));
                         Container container = null;
 
                         switch (type) {
@@ -247,7 +248,7 @@ public class ProfileCommand extends ListenerAdapter {
             }
             
             if (!dataFound) {
-                Thumbnail avatar = Thumbnail.fromUrl("https://mc-heads.net/avatar/" + uuid + "/128");
+                Thumbnail avatar = Thumbnail.fromUrl(getAvatarUrl(null, mcName, uuid));
                 Container errorContainer = Container.of(
                     Section.of(
                         avatar,
@@ -278,6 +279,37 @@ public class ProfileCommand extends ListenerAdapter {
                 .setEmbeds(java.util.Collections.emptyList())
                 .useComponentsV2(true)
                 .queue();
+        }
+    }
+
+    private String getAvatarUrl(String skinValue, String mcName, String uuid) {
+        if (skinValue != null && !skinValue.trim().isEmpty()) {
+            skinValue = skinValue.trim();
+            if (isBase64(skinValue)) {
+                try {
+                    String decoded = new String(java.util.Base64.getDecoder().decode(skinValue), java.nio.charset.StandardCharsets.UTF_8);
+                    java.util.regex.Matcher matcher = java.util.regex.Pattern.compile("texture/([a-fA-F0-9]+)").matcher(decoded);
+                    if (matcher.find()) {
+                        return "https://mc-heads.net/avatar/" + matcher.group(1) + "/128";
+                    }
+                } catch (Exception ignored) {}
+            }
+            if (skinValue.matches("^[a-zA-Z0-9_\\-]+$")) {
+                return "https://mc-heads.net/avatar/" + skinValue + "/128";
+            }
+        }
+        if (mcName != null && !mcName.trim().isEmpty()) {
+            return "https://mc-heads.net/avatar/" + mcName.trim() + "/128";
+        }
+        return "https://mc-heads.net/avatar/" + uuid + "/128";
+    }
+
+    private boolean isBase64(String str) {
+        try {
+            java.util.Base64.getDecoder().decode(str);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
         }
     }
 }
