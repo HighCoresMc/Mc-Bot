@@ -413,8 +413,6 @@ public class PterodactylService {
                 String p = validParts.get(k);
                 if (p.equals("34")) {
                     validParts.set(k, "36");
-                } else if (p.equals("31")) {
-                    validParts.set(k, "35");
                 }
             }
             boolean hasForeground = false;
@@ -542,49 +540,28 @@ public class PterodactylService {
             String coloredPrefix = prefix;
             boolean isError = prefix.contains("ERROR") || prefix.contains("FATAL") || rest.toLowerCase().contains("exception") || rest.toLowerCase().contains("error") || rest.toLowerCase().contains("invalid") || rest.toLowerCase().contains("not valid");
             boolean isWarn = prefix.contains("WARN") || prefix.contains("WARNING");
-            if (prefix.contains("INFO")) {
-                coloredPrefix = prefix.replace("INFO", "\u001B[1;32mINFO\u001B[0m");
-            } else if (prefix.contains("WARN")) {
+            if (prefix.contains("WARN")) {
                 coloredPrefix = prefix.replace("WARN", "\u001B[1;33mWARN\u001B[0m");
             } else if (prefix.contains("WARNING")) {
                 coloredPrefix = prefix.replace("WARNING", "\u001B[1;33mWARNING\u001B[0m");
             } else if (prefix.contains("ERROR")) {
-                coloredPrefix = prefix.replace("ERROR", "\u001B[1;35mERROR\u001B[0m");
+                coloredPrefix = prefix.replace("ERROR", "\u001B[1;31mERROR\u001B[0m");
             } else if (prefix.contains("FATAL")) {
-                coloredPrefix = prefix.replace("FATAL", "\u001B[1;35mFATAL\u001B[0m");
+                coloredPrefix = prefix.replace("FATAL", "\u001B[1;31mFATAL\u001B[0m");
             } else if (prefix.contains("DEBUG")) {
                 coloredPrefix = prefix.replace("DEBUG", "\u001B[1;36mDEBUG\u001B[0m");
             }
             String coloredRest = rest;
             if (isError) {
-                coloredRest = "\u001B[1;35m" + rest + "\u001B[0m";
+                coloredRest = "\u001B[1;31m" + rest + "\u001B[0m";
             } else if (isWarn) {
                 coloredRest = "\u001B[1;33m" + rest + "\u001B[0m";
-            } else {
-                if (rest.contains(" joined the game")) {
-                    coloredRest = rest.replace("joined the game", "\u001B[1;33mjoined the game\u001B[0m");
-                } else if (rest.contains(" left the game")) {
-                    coloredRest = rest.replace("left the game", "\u001B[1;33mleft the game\u001B[0m");
-                } else if (rest.contains(" lost connection:")) {
-                    coloredRest = rest.replace("lost connection:", "\u001B[1;33mlost connection:\u001B[0m");
-                } else if (rest.contains(" issued server command:")) {
-                    int index = rest.indexOf("issued server command:");
-                    String cmdPart = rest.substring(index + "issued server command:".length());
-                    String namePart = rest.substring(0, index);
-                    coloredRest = namePart + "issued server command: \u001B[1;37m" + cmdPart.trim() + "\u001B[0m";
-                } else {
-                    java.util.regex.Matcher bracketMatcher = java.util.regex.Pattern.compile("\\[([^\\]]+)\\]").matcher(rest);
-                    if (bracketMatcher.find()) {
-                        String pluginName = bracketMatcher.group(1);
-                        coloredRest = rest.replace("[" + pluginName + "]", "[\u001B[1;32m" + pluginName + "\u001B[0m]");
-                    }
-                }
             }
             return coloredPrefix + " " + coloredRest;
         }
         String cleanLower = clean.toLowerCase();
         if (clean.contains(" ERROR]:") || cleanLower.contains("exception") || cleanLower.contains("error") || clean.contains("<--[HERE]") || clean.startsWith("\tat ") || clean.contains("Caused by:")) {
-            return "\u001B[1;35m" + clean + "\u001B[0m";
+            return "\u001B[1;31m" + clean + "\u001B[0m";
         }
         if (clean.contains(" WARN]:") || clean.contains(" WARNING]:") || cleanLower.contains("warning") || cleanLower.contains("warn")) {
             return "\u001B[1;33m" + clean + "\u001B[0m";
