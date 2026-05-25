@@ -12,7 +12,6 @@ import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
-import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;   
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
@@ -693,8 +692,8 @@ public class ServerStatsService {
             if (oldMessage.getEmbeds() != null && !oldMessage.getEmbeds().isEmpty()) {
                 builder.setEmbeds(oldMessage.getEmbeds());
             }
-            if (oldMessage.getActionRows() != null && !oldMessage.getActionRows().isEmpty()) {
-                builder.setComponents(oldMessage.getActionRows());
+            if (oldMessage.getComponents() != null && !oldMessage.getComponents().isEmpty()) {
+                builder.setComponents(oldMessage.getComponents());
             }
             builder.useComponentsV2(true);
             logChannel.sendMessage(builder.build()).queue(
