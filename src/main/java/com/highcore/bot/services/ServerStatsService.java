@@ -12,6 +12,7 @@ import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
+import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.utils.messages.MessageCreateData;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;   
 import net.dv8tion.jda.api.utils.messages.MessageEditData;
@@ -267,13 +268,6 @@ public class ServerStatsService {
             }
         }
 
-        String logContent = "### " + (isOnline ? "🟢 Server is Online" : "🔴 Server is Offline") + "\n" +
-                         "**📊 Statistics**\n" +
-                         "- 👥 Players: `" + currentPlayers + " / " + maxPlayers + "`\n" +
-                         "- 📡 Ping: `" + (isOnline && networkPing != -1 ? networkPing + "ms" : "N/A") + "`\n" +
-                         "- ⏱️ Uptime: `" + uptimeStr + "`\n" +
-                         "- 📈 Availability: `" + String.format(java.util.Locale.US, "%.1f", availability) + "%`";
-
         String statusEmoji;
         String statusDesc;
         String serverStatusText = isOnline ? "Open 🔓" : "Closed 🔒";
@@ -332,7 +326,7 @@ public class ServerStatsService {
                         botMessage.editMessage(editData).queue(
                             success -> {
                                 logger.debug("Successfully edited persistent server stats message.");
-                                sendStatsLog(jda, logContent);
+                                sendOldStatsLog(jda, botMessage);
                             },
                             error -> {
                                 logger.error("Failed to edit persistent status message, deleting and recreating...", error);
@@ -347,7 +341,7 @@ public class ServerStatsService {
                                                 logger.debug("Successfully recreated persistent server stats message.");
                                                 statsMessageId = success2.getId();
                                                 saveStatsData();
-                                                sendStatsLog(jda, logContent);
+                                                sendOldStatsLog(jda, botMessage);
                                             },
                                             error2 -> logger.error("Failed to recreate persistent status message", error2)
                                         );
@@ -391,7 +385,6 @@ public class ServerStatsService {
                             logger.debug("Successfully sent new persistent server stats message.");
                             statsMessageId = success.getId();
                             saveStatsData();
-                            sendStatsLog(jda, logContent);
                         },
                         error -> logger.error("Failed to send persistent status message", error)
                     );
@@ -692,12 +685,21 @@ public class ServerStatsService {
         return response;
     }
 
-    private static void sendStatsLog(JDA jda, String logContent) {
+    private static void sendOldStatsLog(JDA jda, Message oldMessage) {
         TextChannel logChannel = jda.getTextChannelById(LOG_CHANNEL_ID);
-        if (logChannel != null) {
-            logChannel.sendMessage(logContent).queue(
-                success -> logger.debug("Successfully sent server stats log."),
-                error -> logger.error("Failed to send server stats log.", error)
+        if (logChannel != null && oldMessage != null) {
+            MessageCreateBuilder builder = new MessageCreateBuilder();
+            builder.setContent(oldMessage.getContentRaw());
+            if (oldMessage.getEmbeds() != null && !oldMessage.getEmbeds().isEmpty()) {
+                builder.setEmbeds(oldMessage.getEmbeds());
+            }
+            if (oldMessage.getActionRows() != null && !oldMessage.getActionRows().isEmpty()) {
+                builder.setComponents(oldMessage.getActionRows());
+            }
+            builder.useComponentsV2(true);
+            logChannel.sendMessage(builder.build()).queue(
+                success -> logger.debug("Successfully logged old server stats message."),
+                error -> logger.error("Failed to log old server stats message.", error)
             );
         }
     }
