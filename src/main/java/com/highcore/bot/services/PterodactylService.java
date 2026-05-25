@@ -530,6 +530,7 @@ public class PterodactylService {
 
     private String colorizeLogLine(String line) {
         if (line == null) return null;
+        line = line.replaceFirst("^\\[(\\d{2}:\\d{2}:\\d{2})\\]\\s*\\[[^\\]]+/([A-Z]+)\\]:", "[$1 $2]:");
         if (line.contains("\u001B[")) {
             return line;
         }
