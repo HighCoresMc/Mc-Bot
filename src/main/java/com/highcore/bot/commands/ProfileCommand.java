@@ -117,7 +117,7 @@ public class ProfileCommand extends ListenerAdapter {
             }
             mcName = backupUsername;
 
-            String query = "SELECT username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank`, Skin FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
+            String query = "SELECT player_uuid, username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank`, Skin FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuidDash);
                 ps.setString(2, uuidNoDash);
@@ -128,6 +128,14 @@ public class ProfileCommand extends ListenerAdapter {
                         dataFound = true;
                         mcName = rs.getString("username");
                         String skinValue = rs.getString("Skin");
+                        
+                        String cmiUuid = rs.getString("player_uuid");
+                        if (cmiUuid != null && cmiUuid.length() == 32 && !cmiUuid.contains("-")) {
+                            cmiUuid = cmiUuid.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
+                        } else if (cmiUuid == null) {
+                            cmiUuid = uuidDash;
+                        }
+
                         Thumbnail avatar = Thumbnail.fromUrl(getAvatarUrl(skinValue, mcName, uuid));
                         Container container = null;
 
@@ -166,7 +174,7 @@ public class ProfileCommand extends ListenerAdapter {
                                     ActionRow.of(
                                         Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
                                         Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + uuid + "_" + backupUsername, "🔫 PvP"),
+                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
                                         Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
                                     )
                                 );
@@ -207,7 +215,7 @@ public class ProfileCommand extends ListenerAdapter {
                                 int kills = 0;
                                 int deaths = 0;
                                 try {
-                                    String statsJsonStr = pterodactylService.getFileContents("world/stats/" + uuidDash + ".json");
+                                    String statsJsonStr = pterodactylService.getFileContents("world/stats/" + cmiUuid + ".json");
                                     if (statsJsonStr != null && !statsJsonStr.isEmpty()) {
                                         JsonObject statsJson = JsonParser.parseString(statsJsonStr).getAsJsonObject();
                                         if (statsJson.has("stats")) {
