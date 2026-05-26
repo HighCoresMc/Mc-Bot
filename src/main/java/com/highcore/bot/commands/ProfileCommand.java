@@ -242,8 +242,11 @@ public class ProfileCommand extends ListenerAdapter {
                                         String duelsJsonStr = pterodactylService.getFileContents(path + cmiUuid + ".json");
                                         if (duelsJsonStr != null && !duelsJsonStr.isEmpty()) {
                                             JsonObject duelsJson = JsonParser.parseString(duelsJsonStr).getAsJsonObject();
-                                            if (duelsJson.has("kills")) duelsKills = Math.max(duelsKills, duelsJson.get("kills").getAsInt());
-                                            if (duelsJson.has("deaths")) duelsDeaths = Math.max(duelsDeaths, duelsJson.get("deaths").getAsInt());
+                                            if (duelsJson.has("wins")) duelsKills = Math.max(duelsKills, duelsJson.get("wins").getAsInt());
+                                            else if (duelsJson.has("kills")) duelsKills = Math.max(duelsKills, duelsJson.get("kills").getAsInt());
+                                            
+                                            if (duelsJson.has("losses")) duelsDeaths = Math.max(duelsDeaths, duelsJson.get("losses").getAsInt());
+                                            else if (duelsJson.has("deaths")) duelsDeaths = Math.max(duelsDeaths, duelsJson.get("deaths").getAsInt());
                                             break; // Found the file, stop searching
                                         }
                                     }
