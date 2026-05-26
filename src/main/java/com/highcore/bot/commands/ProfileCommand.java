@@ -235,26 +235,33 @@ public class ProfileCommand extends ListenerAdapter {
                                         }
                                     }
                                 } catch (Exception e) {}
-                                
                                 try {
                                     // 2. Duels Stats
-                                    String duelsJsonStr = pterodactylService.getFileContents("plugins/Duels/users/" + cmiUuid + ".json");
-                                    if (duelsJsonStr != null && !duelsJsonStr.isEmpty()) {
-                                        JsonObject duelsJson = JsonParser.parseString(duelsJsonStr).getAsJsonObject();
-                                        if (duelsJson.has("kills")) duelsKills = duelsJson.get("kills").getAsInt();
-                                        if (duelsJson.has("deaths")) duelsDeaths = duelsJson.get("deaths").getAsInt();
+                                    String[] duelsPaths = {"plugins/Duels/userdata/", "plugins/Duels/UserData/", "plugins/Duels/users/", "plugins/Duels/Users/"};
+                                    for (String path : duelsPaths) {
+                                        String duelsJsonStr = pterodactylService.getFileContents(path + cmiUuid + ".json");
+                                        if (duelsJsonStr != null && !duelsJsonStr.isEmpty()) {
+                                            JsonObject duelsJson = JsonParser.parseString(duelsJsonStr).getAsJsonObject();
+                                            if (duelsJson.has("kills")) duelsKills = Math.max(duelsKills, duelsJson.get("kills").getAsInt());
+                                            if (duelsJson.has("deaths")) duelsDeaths = Math.max(duelsDeaths, duelsJson.get("deaths").getAsInt());
+                                            break; // Found the file, stop searching
+                                        }
                                     }
                                 } catch (Exception e) {}
 
                                 try {
                                     // 3. CMI Stats
-                                    String cmiYaml = pterodactylService.getFileContents("plugins/CMI/users/" + cmiUuid + ".yml");
-                                    if (cmiYaml != null && !cmiYaml.isEmpty()) {
-                                        java.util.regex.Matcher kMatcher = java.util.regex.Pattern.compile("PlayerKills:\\s*(\\d+)").matcher(cmiYaml);
-                                        if (kMatcher.find()) cmiKills = Integer.parseInt(kMatcher.group(1));
-                                        
-                                        java.util.regex.Matcher dMatcher = java.util.regex.Pattern.compile("Deaths:\\s*(\\d+)").matcher(cmiYaml);
-                                        if (dMatcher.find()) cmiDeaths = Integer.parseInt(dMatcher.group(1));
+                                    String[] cmiPaths = {"plugins/CMI/Users/", "plugins/CMI/users/", "plugins/CMI/userdata/"};
+                                    for (String path : cmiPaths) {
+                                        String cmiYaml = pterodactylService.getFileContents(path + cmiUuid + ".yml");
+                                        if (cmiYaml != null && !cmiYaml.isEmpty()) {
+                                            java.util.regex.Matcher kMatcher = java.util.regex.Pattern.compile("PlayerKills:\\s*(\\d+)").matcher(cmiYaml);
+                                            if (kMatcher.find()) cmiKills = Math.max(cmiKills, Integer.parseInt(kMatcher.group(1)));
+                                            
+                                            java.util.regex.Matcher dMatcher = java.util.regex.Pattern.compile("Deaths:\\s*(\\d+)").matcher(cmiYaml);
+                                            if (dMatcher.find()) cmiDeaths = Math.max(cmiDeaths, Integer.parseInt(dMatcher.group(1)));
+                                            break; // Found the file, stop searching
+                                        }
                                     }
                                 } catch (Exception e) {}
 
