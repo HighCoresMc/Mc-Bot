@@ -212,9 +212,12 @@ public class ProfileCommand extends ListenerAdapter {
                                 break;
                             }
                             case "pvp": {
-                                int kills = 0;
-                                int deaths = 0;
+                                int vanillaKills = 0, vanillaDeaths = 0;
+                                int duelsKills = 0, duelsDeaths = 0;
+                                int cmiKills = 0, cmiDeaths = 0;
+
                                 try {
+                                    // 1. Vanilla Stats
                                     String statsJsonStr = pterodactylService.getFileContents("world/stats/" + cmiUuid + ".json");
                                     if (statsJsonStr != null && !statsJsonStr.isEmpty()) {
                                         JsonObject statsJson = JsonParser.parseString(statsJsonStr).getAsJsonObject();
@@ -223,15 +226,40 @@ public class ProfileCommand extends ListenerAdapter {
                                             if (statsObj.has("minecraft:custom")) {
                                                 JsonObject customObj = statsObj.getAsJsonObject("minecraft:custom");
                                                 if (customObj.has("minecraft:player_kills")) {
-                                                    kills = customObj.get("minecraft:player_kills").getAsInt();
+                                                    vanillaKills = customObj.get("minecraft:player_kills").getAsInt();
                                                 }
                                                 if (customObj.has("minecraft:deaths")) {
-                                                    deaths = customObj.get("minecraft:deaths").getAsInt();
+                                                    vanillaDeaths = customObj.get("minecraft:deaths").getAsInt();
                                                 }
                                             }
                                         }
                                     }
-                                } catch (Exception ignored) {}
+                                } catch (Exception e) {}
+                                
+                                try {
+                                    // 2. Duels Stats
+                                    String duelsJsonStr = pterodactylService.getFileContents("plugins/Duels/users/" + cmiUuid + ".json");
+                                    if (duelsJsonStr != null && !duelsJsonStr.isEmpty()) {
+                                        JsonObject duelsJson = JsonParser.parseString(duelsJsonStr).getAsJsonObject();
+                                        if (duelsJson.has("kills")) duelsKills = duelsJson.get("kills").getAsInt();
+                                        if (duelsJson.has("deaths")) duelsDeaths = duelsJson.get("deaths").getAsInt();
+                                    }
+                                } catch (Exception e) {}
+
+                                try {
+                                    // 3. CMI Stats
+                                    String cmiYaml = pterodactylService.getFileContents("plugins/CMI/users/" + cmiUuid + ".yml");
+                                    if (cmiYaml != null && !cmiYaml.isEmpty()) {
+                                        java.util.regex.Matcher kMatcher = java.util.regex.Pattern.compile("PlayerKills:\\s*(\\d+)").matcher(cmiYaml);
+                                        if (kMatcher.find()) cmiKills = Integer.parseInt(kMatcher.group(1));
+                                        
+                                        java.util.regex.Matcher dMatcher = java.util.regex.Pattern.compile("Deaths:\\s*(\\d+)").matcher(cmiYaml);
+                                        if (dMatcher.find()) cmiDeaths = Integer.parseInt(dMatcher.group(1));
+                                    }
+                                } catch (Exception e) {}
+
+                                int kills = Math.max(vanillaKills, cmiKills) + duelsKills;
+                                int deaths = Math.max(vanillaDeaths, cmiDeaths) + duelsDeaths;
                                 double kd = 0.0;
                                 if (deaths > 0) {
                                     kd = (double) kills / deaths;
