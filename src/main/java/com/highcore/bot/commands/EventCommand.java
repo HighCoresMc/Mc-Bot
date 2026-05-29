@@ -971,8 +971,17 @@ public class EventCommand extends ListenerAdapter {
                 }
             }
 
-            long unixTime = TimeUtils.parseToUnixTimestamp(date);
-            ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, status));
+            final long fUnixTime = TimeUtils.parseToUnixTimestamp(date);
+            final ActionRow fActionRow = ActionRow.of(getPublicButtons(eventId, status));
+            
+            final String fName = name;
+            final String fType = type;
+            final String fRewards = rewards;
+            final int fMaxSeats = maxSeats;
+            final int fCurrentSeats = currentSeats;
+            final String fConditions = conditions;
+            final String fStatus = status;
+            final int fEventId = eventId;
 
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
@@ -983,10 +992,10 @@ public class EventCommand extends ListenerAdapter {
                         actualImageUrl = msg.getEmbeds().get(0).getImage().getUrl();
                     }
                     
-                    Container eventContainer = getPublicEventContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, eventId, actualImageUrl);
+                    Container eventContainer = getPublicEventContainer(fName, fType, fUnixTime, fRewards, fMaxSeats, fCurrentSeats, fConditions, fStatus, fEventId, actualImageUrl);
 
                     MessageEditBuilder editBuilder = new MessageEditBuilder()
-                        .setComponents(eventContainer, actionRow)
+                        .setComponents(eventContainer, fActionRow)
                         .useComponentsV2(true)
                         .setEmbeds(); // Clear existing embeds
 
