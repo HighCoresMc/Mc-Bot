@@ -168,11 +168,11 @@ public class EventCommand extends ListenerAdapter {
             default -> status;
         };
         
-        Section header;
+        net.dv8tion.jda.api.components.LayoutComponent header;
         if (imageUrl != null && !imageUrl.isEmpty()) {
             header = Section.of(Thumbnail.fromUrl(imageUrl), TextDisplay.of("## 🎉 فعالية جديدة: " + name));
         } else {
-            header = Section.of(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
+            header = TextDisplay.of("## 🎉 فعالية جديدة: " + name);
         }
 
         String warning = requiresLink ? "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n" : "";
@@ -303,22 +303,30 @@ public class EventCommand extends ListenerAdapter {
             }
 
             if (customQuestion != null && !customQuestion.trim().isEmpty()) {
-                TextInput.Builder customBuilder = TextInput.create("custom_answer", customQuestion, TextInputStyle.PARAGRAPH)
-                    .setRequired(true);
-                
-                List<ActionRow> rows = new ArrayList<>();
-                if (!requiresLink) {
-                    rows.add(ActionRow.of(TextInput.create("mc_name", "اسمك في ماينكرافت", TextInputStyle.SHORT).setRequired(true).build()));
-                }
-                rows.add(ActionRow.of(customBuilder.build()));
-
-                Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
-                    .addComponents(rows)
+                TextInput customInput = TextInput.create("custom_answer", TextInputStyle.PARAGRAPH)
+                    .setLabel(customQuestion)
+                    .setRequired(true)
                     .build();
-                event.replyModal(modal).queue();
+                
+                Modal.Builder modalBuilder = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية");
+                if (!requiresLink) {
+                    TextInput mcNameInput = TextInput.create("mc_name", TextInputStyle.SHORT)
+                        .setLabel("اسمك في ماينكرافت")
+                        .setRequired(true)
+                        .build();
+                    modalBuilder.addComponents(mcNameInput, customInput);
+                } else {
+                    modalBuilder.addComponents(customInput);
+                }
+
+                event.replyModal(modalBuilder.build()).queue();
             } else if (!requiresLink) {
+                TextInput mcNameInput = TextInput.create("mc_name", TextInputStyle.SHORT)
+                    .setLabel("اسمك في ماينكرافت")
+                    .setRequired(true)
+                    .build();
                 Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
-                    .addComponents(ActionRow.of(TextInput.create("mc_name", "اسمك في ماينكرافت", TextInputStyle.SHORT).setRequired(true).build()))
+                    .addComponents(mcNameInput)
                     .build();
                 event.replyModal(modal).queue();
             } else {
