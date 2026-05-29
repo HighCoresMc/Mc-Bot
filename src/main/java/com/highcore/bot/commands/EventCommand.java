@@ -994,13 +994,14 @@ public class EventCommand extends ListenerAdapter {
 
             net.dv8tion.jda.api.entities.channel.middleman.MessageChannel channel = guild.getTextChannelById(staffChannelId);
             if (channel != null) {
+                final String finalStatus = status;
                 channel.retrieveMessageById(staffMessageId).queue(msg -> {
                     MessageEditBuilder editBuilder = new MessageEditBuilder()
                         .setComponents(staffContainer)
                         .setEmbeds(java.util.Collections.emptyList())
                         .useComponentsV2(true);
                     
-                    if (status.equals("FINISHED")) {
+                    if (finalStatus.equals("FINISHED")) {
                         EntitySelectMenu distributeMenu = EntitySelectMenu.create("ev_staff_distribute_" + eventId, EntitySelectMenu.SelectTarget.USER)
                             .setPlaceholder("🏆 اختر فائزاً لتوزيع الجوائز...")
                             .build();
