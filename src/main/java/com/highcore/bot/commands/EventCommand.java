@@ -946,10 +946,6 @@ public class EventCommand extends ListenerAdapter {
                         editBuilder.setEmbeds(msg.getEmbeds());
                     }
                     net.dv8tion.jda.api.requests.restaction.MessageEditAction action = msg.editMessage(editBuilder.build());
-                    if (!msg.getAttachments().isEmpty()) {
-                        action = action.retainFilesById(msg.getAttachments().stream().map(net.dv8tion.jda.api.entities.Message.Attachment::getId).collect(java.util.stream.Collectors.toList()));
-                    }
-
                     action.queue();
                 }, e -> {});
             }
