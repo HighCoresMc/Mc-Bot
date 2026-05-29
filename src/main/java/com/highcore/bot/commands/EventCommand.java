@@ -172,16 +172,16 @@ public class EventCommand extends ListenerAdapter {
                 if (rs.next()) {
                     int eventId = rs.getInt(1);
                     
-                    Container publicContainer = getBasePublicContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, null, null);
+                    net.dv8tion.jda.api.entities.MessageEmbed publicEmbed = getBasePublicEmbed(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, null, null);
+                    ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, "OPEN"));
 
                     MessageCreateBuilder builder = new MessageCreateBuilder()
-                        .setComponents(publicContainer)
-                        .useComponentsV2(true);
+                        .setEmbeds(publicEmbed)
+                        .setComponents(actionRow);
                         
                     if (imageBytes != null && fileName != null) {
                         builder.addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(imageBytes, fileName));
-                        builder.addEmbeds(new net.dv8tion.jda.api.EmbedBuilder()
-                            .setColor(0x2f3136)
+                        builder.setEmbeds(new net.dv8tion.jda.api.EmbedBuilder(publicEmbed)
                             .setImage("attachment://" + fileName)
                             .build());
                     }
@@ -237,7 +237,7 @@ public class EventCommand extends ListenerAdapter {
         );
     }
 
-    private Container getBasePublicContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String winnerId, String winnerMcName) {
+    private net.dv8tion.jda.api.entities.MessageEmbed getBasePublicEmbed(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String winnerId, String winnerMcName) {
         String statusEmoji = "OPEN".equals(status) ? "🟢" : ("CLOSED".equals(status) ? "🔴" : "⚫");
         String statusText = switch (status) {
             case "OPEN" -> "التسجيل مفتوح";
@@ -249,18 +249,17 @@ public class EventCommand extends ListenerAdapter {
         
         String warning = "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n";
 
-        TextDisplay header = TextDisplay.of("## 🎉 فعالية جديدة: " + name);
-        Separator s1 = Separator.createDivider(Separator.Spacing.SMALL);
-        TextDisplay details = TextDisplay.of(warning + "### 📋 التفاصيل\n" +
-            "**نوع الفعالية:** `" + type + "`\n" +
-            "**الوقت:** <t:" + unixTime + ":F>\n" +
-            "**المكافآت:** `" + formatRewards(rewards) + "`\n" +
-            "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`");
-
-        TextDisplay conditionsDisplay = TextDisplay.of("### 📝 الشروط\n" + conditions);
-        TextDisplay statusDisplay = TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`");
-        ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, status));
-        TextDisplay footer = TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات");
+        net.dv8tion.jda.api.EmbedBuilder embed = new net.dv8tion.jda.api.EmbedBuilder()
+            .setTitle("🎉 فعالية جديدة: " + name)
+            .setColor(0x2b2d31)
+            .setDescription(warning + "### 📋 التفاصيل\n" +
+                "**نوع الفعالية:** `" + type + "`\n" +
+                "**الوقت:** <t:" + unixTime + ":F>\n" +
+                "**المكافآت:** `" + formatRewards(rewards) + "`\n" +
+                "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`\n\n" +
+                "### 📝 الشروط\n" + conditions + "\n\n" +
+                "**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`")
+            .setFooter("لو عندك اي استفسار تفضل بفتح تكت في الدعم الفني");
 
         if (winnerId != null && winnerMcName != null) {
             int innerWidth = Math.max(17, winnerMcName.length() + 4);
@@ -275,26 +274,10 @@ public class EventCommand extends ListenerAdapter {
                                 middleLine + "\n" +
                                 "╰" + horizontal + "╯\n" +
                                 "```\nالفائز: <@" + winnerId + ">";
-            Separator sWinner = Separator.createDivider(Separator.Spacing.SMALL);
-            TextDisplay winnerDisplay = TextDisplay.of("### 🏆 الفائز في الفعالية\n" + winnerText);
-            
-            return Container.of(
-                header, s1, details,
-                sWinner, winnerDisplay,
-                Separator.createDivider(Separator.Spacing.SMALL), conditionsDisplay,
-                Separator.createDivider(Separator.Spacing.SMALL), statusDisplay,
-                Separator.createDivider(Separator.Spacing.SMALL), actionRow,
-                Separator.createDivider(Separator.Spacing.SMALL), footer
-            );
+            embed.addField("🏆 الفائز في الفعالية", winnerText, false);
         }
 
-        return Container.of(
-            header, s1, details,
-            Separator.createDivider(Separator.Spacing.SMALL), conditionsDisplay,
-            Separator.createDivider(Separator.Spacing.SMALL), statusDisplay,
-            Separator.createDivider(Separator.Spacing.SMALL), actionRow,
-            Separator.createDivider(Separator.Spacing.SMALL), footer
-        );
+        return embed.build();
     }
 
     private String formatRewards(String rewardsJson) {
@@ -1019,17 +1002,25 @@ public class EventCommand extends ListenerAdapter {
             }
 
             long unixTime = TimeUtils.parseToUnixTimestamp(date);
-            Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, eventId, winnerId, winnerMcName);
+            net.dv8tion.jda.api.entities.MessageEmbed publicEmbed = getBasePublicEmbed(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, eventId, winnerId, winnerMcName);
+            ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, status));
 
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
                 thread.retrieveMessageById(messageId).queue(msg -> {
                     MessageEditBuilder editBuilder = new MessageEditBuilder()
-                        .setComponents(publicContainer)
-                        .useComponentsV2(true);
+                        .setComponents(actionRow);
                         
-                    if (!msg.getEmbeds().isEmpty()) {
-                        editBuilder.setEmbeds(msg.getEmbeds());
+                    if (imageUrl != null && imageUrl.startsWith("attachment://")) {
+                        editBuilder.setEmbeds(new net.dv8tion.jda.api.EmbedBuilder(publicEmbed)
+                            .setImage(imageUrl)
+                            .build());
+                    } else if (!msg.getEmbeds().isEmpty() && msg.getEmbeds().get(0).getImage() != null) {
+                        editBuilder.setEmbeds(new net.dv8tion.jda.api.EmbedBuilder(publicEmbed)
+                            .setImage(msg.getEmbeds().get(0).getImage().getUrl())
+                            .build());
+                    } else {
+                        editBuilder.setEmbeds(publicEmbed);
                     }
                     net.dv8tion.jda.api.requests.restaction.MessageEditAction action = msg.editMessage(editBuilder.build());
                     action.queue();
