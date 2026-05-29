@@ -240,32 +240,37 @@ public class PanelCommand extends ListenerAdapter {
         if (!event.getName().equals("panel")) return;
         event.deferReply().queue(hook -> {
             java.util.concurrent.CompletableFuture.runAsync(() -> {
-                JsonObject resources = pterodactylService.getServerResources();
-                if (resources != null) {
-                    cachedResources = resources;
-                    lastResourcesFetchTime = System.currentTimeMillis();
+                try {
+                    JsonObject resources = pterodactylService.getServerResources();
+                    if (resources != null) {
+                        cachedResources = resources;
+                        lastResourcesFetchTime = System.currentTimeMillis();
+                    }
+                    isKillState = false;
+                    refreshConsoleBufferFromFileSync();
+                    Container container = buildContainer(cachedResources, isKillState);
+
+                    MessageCreateData messageData = new MessageCreateBuilder()
+                            .setComponents(container)
+                            .setEmbeds(java.util.Collections.emptyList())
+                            .useComponentsV2(true)
+                            .build();
+
+                    hook.sendMessage(messageData).queue(message -> {
+                        activeMessageId = message.getId();
+                        activeChannelId = message.getChannel().getId();
+
+                        if (panelExecutor != null && !panelExecutor.isShutdown()) panelExecutor.shutdownNow();
+                        if (resourcesExecutor != null && !resourcesExecutor.isShutdown()) resourcesExecutor.shutdownNow();
+                        panelExecutor = null;
+                        resourcesExecutor = null;
+
+                        ensurePanelUpdaterRunning(event.getJDA());
+                    });
+                } catch (Exception e) {
+                    logger.error("Error executing panel command", e);
+                    hook.sendMessage("❌ حدث خطأ أثناء جلب حالة الخادم أو إنشاء اللوحة. المرجو المحاولة لاحقا.").queue();
                 }
-                isKillState = false;
-                refreshConsoleBufferFromFileSync();
-                Container container = buildContainer(cachedResources, isKillState);
-
-                MessageCreateData messageData = new MessageCreateBuilder()
-                        .setComponents(container)
-                        .setEmbeds(java.util.Collections.emptyList())
-                        .useComponentsV2(true)
-                        .build();
-
-                hook.sendMessage(messageData).queue(message -> {
-                    activeMessageId = message.getId();
-                    activeChannelId = message.getChannel().getId();
-
-                    if (panelExecutor != null && !panelExecutor.isShutdown()) panelExecutor.shutdownNow();
-                    if (resourcesExecutor != null && !resourcesExecutor.isShutdown()) resourcesExecutor.shutdownNow();
-                    panelExecutor = null;
-                    resourcesExecutor = null;
-
-                    ensurePanelUpdaterRunning(event.getJDA());
-                });
             });
         });
     }

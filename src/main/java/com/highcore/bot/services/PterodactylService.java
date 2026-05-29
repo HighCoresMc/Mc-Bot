@@ -347,6 +347,30 @@ public class PterodactylService {
         }
     }
 
+    public boolean sendConsoleCommand(String command) {
+        if (API_KEY == null || SERVER_ID == null) {
+            return false;
+        }
+        try {
+            String url = PANEL_URL + "/api/client/servers/" + SERVER_ID + "/command";
+            String jsonBody = "{\"command\": \"" + command.replace("\"", "\\\"") + "\"}";
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + API_KEY)
+                    .header("Accept", "application/json")
+                    .header("Content-Type", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
+                    .build();
+
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            return response.statusCode() == 204;
+        } catch (Exception e) {
+            logger.error("Failed to send console command to Pterodactyl", e);
+            return false;
+        }
+    }
+
     public void reconnectConsole() {
         synchronized (this) {
             if (currentWebSocket != null) {

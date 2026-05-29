@@ -244,7 +244,7 @@ public class EventCommand extends ListenerAdapter {
         TextDisplay details = TextDisplay.of(warning + "### 📋 التفاصيل\n" +
             "**نوع الفعالية:** `" + type + "`\n" +
             "**الوقت:** <t:" + unixTime + ":F>\n" +
-            "**المكافآت:** `" + rewards + "`\n" +
+            "**المكافآت:** `" + formatRewards(rewards) + "`\n" +
             "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`");
 
         TextDisplay conditionsDisplay = TextDisplay.of("### 📝 الشروط\n" + conditions);
@@ -285,6 +285,40 @@ public class EventCommand extends ListenerAdapter {
             Separator.createDivider(Separator.Spacing.SMALL), actionRow,
             Separator.createDivider(Separator.Spacing.SMALL), footer
         );
+    }
+
+    private String formatRewards(String rewardsJson) {
+        if (rewardsJson == null || rewardsJson.isEmpty() || rewardsJson.equals("[]")) {
+            return "لا توجد جوائز";
+        }
+        try {
+            com.google.gson.JsonArray arr = com.google.gson.JsonParser.parseString(rewardsJson).getAsJsonArray();
+            java.util.List<String> list = new java.util.ArrayList<>();
+            for (int i = 0; i < arr.size(); i++) {
+                com.google.gson.JsonObject obj = arr.get(i).getAsJsonObject();
+                String type = obj.get("type").getAsString();
+                String amount = obj.has("amount") ? obj.get("amount").getAsString() : "1";
+                switch (type) {
+                    case "cmi": list.add(amount + " فلوس"); break;
+                    case "tokens": list.add(amount + " توكن"); break;
+                    case "xp": list.add(amount + " XP"); break;
+                    case "claims": list.add(amount + " كليم"); break;
+                    case "afk": list.add(amount + " مفتاح AFK"); break;
+                    case "item": 
+                        String item = obj.has("itemName") ? obj.get("itemName").getAsString() : "عنصر";
+                        list.add(amount + " x " + item); 
+                        break;
+                    case "rank": 
+                        String rank = obj.has("roleId") ? obj.get("roleId").getAsString() : "رتبة";
+                        list.add("رتبة " + rank);
+                        break;
+                    default: list.add(amount + " " + type); break;
+                }
+            }
+            return String.join(" + ", list);
+        } catch (Exception e) {
+            return rewardsJson;
+        }
     }
 
     @Override
@@ -1153,7 +1187,7 @@ public class EventCommand extends ListenerAdapter {
                         case "afk": cmd = "crate key give " + mcName + " afk " + r.get("amount").getAsString(); break;
                     }
                     if (!cmd.isEmpty() && ptero != null) {
-                        ptero.sendCommand(cmd);
+                        ptero.sendConsoleCommand(cmd);
                     }
                 }
 
@@ -1164,7 +1198,36 @@ public class EventCommand extends ListenerAdapter {
                     ps.executeUpdate();
                 }
                 
+                String channelId = null;
+                String q3 = "SELECT channel_id FROM events WHERE id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(q3)) {
+                    ps.setInt(1, eventId);
+                    java.sql.ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        channelId = rs.getString("channel_id");
+                    }
+                }
+                
                 refreshPublicEmbed(event.getGuild(), eventId);
+
+                if (channelId != null) {
+                    net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel thread = event.getGuild().getThreadChannelById(channelId);
+                    if (thread != null) {
+                        net.dv8tion.jda.api.EmbedBuilder winEmbed = new net.dv8tion.jda.api.EmbedBuilder();
+                        winEmbed.setTitle("🎉 الفائز بالفعالية!");
+                        winEmbed.setDescription("تهانينا للاعب **" + mcName + "** (" + winner.getAsMention() + ") بمناسبة الفوز بالفعالية! 🏆\n\nتم تسليم الجوائز بنجاح.");
+                        winEmbed.setColor(0xFFD700);
+                        thread.sendMessage(winner.getAsMention()).addEmbeds(winEmbed.build()).queue();
+                    }
+                }
+
+                winner.openPrivateChannel().queue(privateChannel -> {
+                    net.dv8tion.jda.api.EmbedBuilder dmEmbed = new net.dv8tion.jda.api.EmbedBuilder();
+                    dmEmbed.setTitle("🎉 مبروك الفوز في الفعالية!");
+                    dmEmbed.setDescription("لقد فزت في فعالية الماينكرافت بحسابك **" + mcName + "**!\n\nتم تسليم جوائز الفعالية لحسابك في السيرفر بنجاح، نتمنى لك وقتاً ممتعاً! 🎁");
+                    dmEmbed.setColor(0xFFD700);
+                    privateChannel.sendMessageEmbeds(dmEmbed.build()).queue();
+                }, error -> logger.warn("Failed to send DM to winner " + winner.getId()));
 
                 event.reply("تم توزيع الجوائز على اللاعب **" + mcName + "** (" + winner.getAsMention() + ") بنجاح! 🏆").queue();
             } catch(Exception e) {
