@@ -631,17 +631,36 @@ public class PanelCommand extends ListenerAdapter {
         }
 
         // CONSOLE TEXT
-        StringBuilder consoleText = new StringBuilder("```ansi\n");
+        java.util.List<String> copyBuffer = new java.util.ArrayList<>();
         synchronized (consoleBuffer) {
-            if (consoleBuffer.isEmpty()) {
-                consoleText.append("Loading console logs...\n");
-            } else {
-                for (String line : consoleBuffer) {
-                    consoleText.append(line).append("\n");
-                }
+            if (consoleBuffer instanceof java.util.Collection) {
+                copyBuffer.addAll((java.util.Collection<String>) consoleBuffer);
             }
         }
-        consoleText.append("```");
+
+        StringBuilder consoleText = new StringBuilder();
+        if (copyBuffer.isEmpty()) {
+            consoleText.append("```ansi\nLoading console logs...\n```");
+        } else {
+            int maxLen = 3500;
+            int currentLen = 0;
+            java.util.List<String> linesToKeep = new java.util.ArrayList<>();
+            
+            for (int i = copyBuffer.size() - 1; i >= 0; i--) {
+                String line = copyBuffer.get(i);
+                if (currentLen + line.length() + 1 > maxLen) {
+                    break;
+                }
+                linesToKeep.add(0, line);
+                currentLen += line.length() + 1;
+            }
+            
+            consoleText.append("```ansi\n");
+            for (String line : linesToKeep) {
+                consoleText.append(line).append("\n");
+            }
+            consoleText.append("```");
+        }
 
         boolean isRunning = "running".equals(currentState);
         boolean isOffline = "offline".equals(currentState) || resources == null;
