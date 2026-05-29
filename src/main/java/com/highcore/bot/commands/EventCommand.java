@@ -121,10 +121,16 @@ public class EventCommand extends ListenerAdapter {
                     event.getChannel().sendMessage("الملف المرفق ليس صورة! يرجى رفع صورة صحيحة أو كتابة `skip`.").queue();
                     return;
                 }
-                attachment.getProxy().downloadAsByteArray().thenAccept(bytes -> {
-                    pendingEvents.remove(user.getId());
-                    event.getMessage().delete().queue(null, e -> {});
-                    createEventFinal(user, event.getGuild(), pe, bytes, attachment.getFileName());
+                attachment.getProxy().download().thenAccept(inputStream -> {
+                    try {
+                        byte[] bytes = inputStream.readAllBytes();
+                        pendingEvents.remove(user.getId());
+                        event.getMessage().delete().queue(null, e -> {});
+                        createEventFinal(user, event.getGuild(), pe, bytes, attachment.getFileName());
+                    } catch (Exception ex) {
+                        logger.error("Error reading image stream", ex);
+                        event.getChannel().sendMessage("حدث خطأ أثناء تحميل الصورة.").queue();
+                    }
                 }).exceptionally(e -> {
                     event.getChannel().sendMessage("حدث خطأ أثناء تحميل الصورة.").queue();
                     return null;
