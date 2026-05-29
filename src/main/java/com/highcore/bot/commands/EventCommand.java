@@ -28,6 +28,8 @@ import net.dv8tion.jda.api.components.section.Section;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
+import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
+import net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -172,7 +174,7 @@ public class EventCommand extends ListenerAdapter {
                 if (rs.next()) {
                     int eventId = rs.getInt(1);
                     
-                    Container publicContainer = getPublicEventContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, dbImageUrl);
+                    Container publicContainer = getPublicEventContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, dbImageUrl, null, null, guild);
                     ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, "OPEN"));
 
                     MessageCreateBuilder builder = new MessageCreateBuilder()
@@ -219,7 +221,7 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    private Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl) {
+    private Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl, String winnerId, String winnerMcName, Guild guild) {
         String rewardsStr = "لا توجد";
         try {
             if (rewards != null && !rewards.isEmpty() && !rewards.equals("[]")) {
@@ -240,32 +242,59 @@ public class EventCommand extends ListenerAdapter {
             }
         } catch (Exception ex) {}
 
-        String statusText = status.equals("OPEN") ? "🟢 `التسجيل مفتوح`" : (status.equals("STARTED") ? "🟡 `الفعالية بدأت`" : "🔴 `مغلقة`");
-
-        Object img = null;
-        if (imageUrl != null) {
-            try {
-                img = Class.forName("net.dv8tion.jda.api.interactions.components.media.Image").getMethod("of", String.class).invoke(null, imageUrl);
-            } catch(Exception ignored) {}
+        String statusText;
+        if (status.equals("OPEN")) {
+            statusText = "🟢 `التسجيل مفتوح`";
+        } else if (status.equals("STARTED")) {
+            statusText = "🟡 `الفعالية بدأت`";
+        } else if (status.equals("FINISHED")) {
+            statusText = "🌑 `انتهت الفعالية`";
+        } else if (status.equals("CANCELLED")) {
+            statusText = "🔴 `تم إلغاء الفعالية`";
+        } else {
+            statusText = "🔴 `مغلقة`";
         }
-        
-        TextDisplay t1 = TextDisplay.of("## 🎉 فعالية جديدة: " + name);
-        TextDisplay t2 = TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.");
-        TextDisplay t3 = TextDisplay.of("📋 **التفاصيل**");
-        TextDisplay t4 = TextDisplay.of("**نوع الفعالية:** `" + type + "`\n**الوقت:** <t:" + unixTime + ":F>\n**المكافآت:** `" + rewardsStr + "`\n**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`");
-        TextDisplay t5 = TextDisplay.of("📝 **الشروط**");
-        TextDisplay t6 = TextDisplay.of(conditions != null && !conditions.isEmpty() ? conditions : "لا توجد شروط إضافية");
-        TextDisplay t7 = TextDisplay.of("**الحالة:** " + statusText + " | **Event ID:** `" + eventId + "`");
-        Separator s1 = Separator.createDivider(Separator.Spacing.SMALL);
-        TextDisplay t8 = TextDisplay.of("*لو عندك اي استفسار تفضل بفتح تكت في الدعم الفني*");
 
-        if (img != null) {
-            try {
-                return (Container) Container.class.getMethod("of", Object[].class).invoke(null, (Object) new Object[]{t1, t2, t3, t4, t5, t6, t7, img, s1, t8});
-            } catch(Exception ignored) {}
+        java.util.List<net.dv8tion.jda.api.components.container.ContainerChildComponent> components = new java.util.ArrayList<>();
+        components.add(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل."));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("📋 **التفاصيل**"));
+        components.add(TextDisplay.of("**نوع الفعالية:** `" + type + "`\n**الوقت:** <t:" + unixTime + ":F>\n**المكافآت:** `" + rewardsStr + "`\n**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"));
+
+        if (winnerId != null && !winnerId.isEmpty()) {
+            components.add(Separator.createDivider(Separator.Spacing.SMALL));
+            components.add(TextDisplay.of("🏆 **الفائز في الفعالية**"));
+            components.add(ActionRow.of(Button.secondary("winner_name", winnerMcName != null ? winnerMcName : "غير معروف").asDisabled()));
+            components.add(TextDisplay.of("**الفائز:** <@" + winnerId + ">"));
         }
+
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("📝 **الشروط**"));
+        components.add(TextDisplay.of(conditions != null && !conditions.isEmpty() ? conditions : "لا توجد شروط إضافية"));
         
-        return Container.of(t1, t2, t3, t4, t5, t6, t7, s1, t8);
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("**الحالة:** " + statusText + " | **Event ID:** `" + eventId + "`"));
+
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            try {
+                components.add(MediaGallery.of(MediaGalleryItem.fromUrl(imageUrl)));
+            } catch (Exception ignored) {}
+        }
+
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        
+        String ticketsMention = "#tickets";
+        if (guild != null) {
+            java.util.List<net.dv8tion.jda.api.entities.channel.concrete.TextChannel> channels = guild.getTextChannelsByName("tickets", true);
+            if (!channels.isEmpty()) {
+                ticketsMention = channels.get(0).getAsMention();
+            }
+        }
+        components.add(TextDisplay.of("> لو عندك اي استفسار تفضل 🎫 " + ticketsMention + " ← الفعاليات"));
+
+        return Container.of(components);
     }
 
     private Container getStaffContainer(String name, String mention, int eventId, String status, int participantCount, List<String> participantMentions) {
@@ -983,6 +1012,8 @@ public class EventCommand extends ListenerAdapter {
             final String fStatus = status;
             final int fEventId = eventId;
 
+            final String fWinnerId = winnerId;
+            final String fWinnerMcName = winnerMcName;
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
                 final String finalImageUrl = imageUrl;
@@ -992,7 +1023,7 @@ public class EventCommand extends ListenerAdapter {
                         actualImageUrl = msg.getEmbeds().get(0).getImage().getUrl();
                     }
                     
-                    Container eventContainer = getPublicEventContainer(fName, fType, fUnixTime, fRewards, fMaxSeats, fCurrentSeats, fConditions, fStatus, fEventId, actualImageUrl);
+                    Container eventContainer = getPublicEventContainer(fName, fType, fUnixTime, fRewards, fMaxSeats, fCurrentSeats, fConditions, fStatus, fEventId, actualImageUrl, fWinnerId, fWinnerMcName, guild);
 
                     MessageEditBuilder editBuilder = new MessageEditBuilder()
                         .setComponents(eventContainer, fActionRow)
