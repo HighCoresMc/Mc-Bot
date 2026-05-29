@@ -243,7 +243,7 @@ public class EventCommand extends ListenerAdapter {
         
         String warning = "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n";
 
-        java.util.List<net.dv8tion.jda.api.components.ItemComponent> components = new java.util.ArrayList<>();
+        java.util.List<net.dv8tion.jda.api.components.LayoutComponent> components = new java.util.ArrayList<>();
         components.add(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of(warning + "### 📋 التفاصيل\n" +
@@ -278,7 +278,7 @@ public class EventCommand extends ListenerAdapter {
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات"));
 
-        return Container.of(components.toArray(new net.dv8tion.jda.api.components.ItemComponent[0]));
+        return Container.of(components.toArray(new net.dv8tion.jda.api.components.LayoutComponent[0]));
     }
 
     @Override
@@ -935,11 +935,12 @@ public class EventCommand extends ListenerAdapter {
                     if (!msg.getEmbeds().isEmpty()) {
                         editBuilder.setEmbeds(msg.getEmbeds());
                     }
+                    net.dv8tion.jda.api.requests.restaction.MessageEditAction action = msg.editMessage(editBuilder.build());
                     if (!msg.getAttachments().isEmpty()) {
-                        editBuilder.setRetainedFilesById(msg.getAttachments().stream().map(net.dv8tion.jda.api.entities.Message.Attachment::getId).collect(java.util.stream.Collectors.toList()));
+                        action = action.retainFilesById(msg.getAttachments().stream().map(net.dv8tion.jda.api.entities.Message.Attachment::getId).collect(java.util.stream.Collectors.toList()));
                     }
 
-                    msg.editMessage(editBuilder.build()).queue();
+                    action.queue();
                 }, e -> {});
             }
         } catch (Exception e) {
