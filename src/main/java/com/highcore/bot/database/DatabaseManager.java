@@ -75,17 +75,21 @@ public class DatabaseManager {
                     "name VARCHAR(255) NOT NULL, " +
                     "type VARCHAR(255), " +
                     "event_date VARCHAR(64), " +
-                    "rewards TEXT, " +
+                    "rewards_json TEXT, " +
                     "max_seats INT, " +
                     "conditions TEXT, " +
                     "status VARCHAR(32) DEFAULT 'OPEN', " +
                     "requires_link BOOLEAN DEFAULT FALSE, " +
                     "custom_question TEXT, " +
                     "image_url TEXT, " +
+                    "winner_id VARCHAR(64), " +
                     "reminder_sent BOOLEAN DEFAULT FALSE, " +
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")";
             stmt.executeUpdate(createEventsTable);
+            
+            try { stmt.executeUpdate("ALTER TABLE events ADD COLUMN rewards_json TEXT"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE events ADD COLUMN winner_id VARCHAR(64)"); } catch (Exception ignored) {}
 
             String createParticipantsTable = "CREATE TABLE IF NOT EXISTS event_participants (" +
                     "event_id INT, " +

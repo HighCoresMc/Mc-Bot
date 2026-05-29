@@ -43,6 +43,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
+import net.dv8tion.jda.api.events.interaction.component.EntitySelectInteractionEvent;
+import net.dv8tion.jda.api.components.selections.StringSelectMenu;
+import net.dv8tion.jda.api.components.selections.EntitySelectMenu;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class EventCommand extends ListenerAdapter {
     private static final Logger logger = LoggerFactory.getLogger(EventCommand.class);
@@ -51,17 +58,17 @@ public class EventCommand extends ListenerAdapter {
         String name;
         String type;
         String dateStr;
-        String rewards;
+        com.google.gson.JsonArray rewardsJson;
         int seats;
         String conditions;
         String customQuestion;
         String staffChannelId;
 
-        PendingEvent(String name, String type, String dateStr, String rewards, int seats, String conditions, String customQuestion, String staffChannelId) {
+        PendingEvent(String name, String type, String dateStr, com.google.gson.JsonArray rewardsJson, int seats, String conditions, String customQuestion, String staffChannelId) {
             this.name = name;
             this.type = type;
             this.dateStr = dateStr;
-            this.rewards = rewards;
+            this.rewardsJson = rewardsJson;
             this.seats = seats;
             this.conditions = conditions;
             this.customQuestion = customQuestion;
@@ -108,39 +115,50 @@ public class EventCommand extends ListenerAdapter {
         
         PendingEvent pe = pendingEvents.get(user.getId());
         if (pe != null && event.getChannel().getId().equals(pe.staffChannelId)) {
-            String imageUrl = null;
             if (!event.getMessage().getAttachments().isEmpty()) {
-                imageUrl = event.getMessage().getAttachments().get(0).getUrl();
-            } else if (!event.getMessage().getContentRaw().equalsIgnoreCase("skip")) {
-                event.getMessage().reply("الرجاء إرسال صورة أو كتابة `skip`.").queue();
+                net.dv8tion.jda.api.entities.Message.Attachment attachment = event.getMessage().getAttachments().get(0);
+                if (!attachment.isImage()) {
+                    event.getChannel().sendMessage("الملف المرفق ليس صورة! يرجى رفع صورة صحيحة أو كتابة `skip`.").queue();
+                    return;
+                }
+                attachment.getProxy().download().thenAccept(inputStream -> {
+                    pendingEvents.remove(user.getId());
+                    event.getMessage().delete().queue(null, e -> {});
+                    createEventFinal(user, event.getGuild(), pe, inputStream, attachment.getFileName());
+                }).exceptionally(e -> {
+                    event.getChannel().sendMessage("حدث خطأ أثناء تحميل الصورة.").queue();
+                    return null;
+                });
+            } else if (event.getMessage().getContentRaw().equalsIgnoreCase("skip")) {
+                pendingEvents.remove(user.getId());
+                event.getMessage().delete().queue(null, e -> {});
+                createEventFinal(user, event.getGuild(), pe, null, null);
+            } else {
+                event.getChannel().sendMessage("الرجاء إرسال صورة أو كتابة `skip`.").queue();
                 return;
             }
-
-            pendingEvents.remove(user.getId());
-            event.getMessage().delete().queue(null, e -> {});
-            
-            createEventFinal(user, event.getGuild(), pe, imageUrl);
         }
     }
 
-    private void createEventFinal(User creator, Guild guild, PendingEvent pe, String imageUrl) {
+    private void createEventFinal(User creator, Guild guild, PendingEvent pe, java.io.InputStream imageStream, String fileName) {
         ForumChannel forumChannel = guild.getForumChannelById(EVENTS_FORUM_ID);
         if (forumChannel == null) return;
         
         long unixTime = TimeUtils.parseToUnixTimestamp(pe.dateStr);
+        String dbImageUrl = fileName != null ? "attachment://" + fileName : null;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String insertSql = "INSERT INTO events (name, type, event_date, rewards, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String insertSql = "INSERT INTO events (name, type, event_date, rewards_json, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setString(1, pe.name);
                 ps.setString(2, pe.type);
                 ps.setString(3, pe.dateStr);
-                ps.setString(4, pe.rewards);
+                ps.setString(4, pe.rewardsJson.toString());
                 ps.setInt(5, pe.seats);
                 ps.setString(6, pe.conditions);
                 ps.setBoolean(7, true);
                 ps.setString(8, pe.customQuestion);
-                ps.setString(9, imageUrl);
+                ps.setString(9, dbImageUrl);
                 ps.setString(10, pe.staffChannelId);
                 ps.executeUpdate();
 
@@ -148,11 +166,19 @@ public class EventCommand extends ListenerAdapter {
                 if (rs.next()) {
                     int eventId = rs.getInt(1);
                     
-                    Container publicContainer = getBasePublicContainer(pe.name, pe.type, unixTime, pe.rewards, pe.seats, 0, pe.conditions, "OPEN", imageUrl, eventId);
+                    Container publicContainer = getBasePublicContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId);
 
                     MessageCreateBuilder builder = new MessageCreateBuilder()
                         .setComponents(publicContainer)
                         .useComponentsV2(true);
+                        
+                    if (imageStream != null && fileName != null) {
+                        net.dv8tion.jda.api.EmbedBuilder imageEmbed = new net.dv8tion.jda.api.EmbedBuilder()
+                            .setImage(dbImageUrl)
+                            .setColor(0x2f3136);
+                        builder.setEmbeds(imageEmbed.build());
+                        builder.addFiles(FileUpload.fromData(imageStream, fileName));
+                    }
 
                     forumChannel.createForumPost("🎉 " + pe.name, builder.build())
                         .queue(forumPost -> {
@@ -205,7 +231,7 @@ public class EventCommand extends ListenerAdapter {
         );
     }
 
-    private Container getBasePublicContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, String imageUrl, int eventId) {
+    private Container getBasePublicContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId) {
         String statusEmoji = "OPEN".equals(status) ? "🟢" : ("CLOSED".equals(status) ? "🔴" : "⚫");
         String statusText = switch (status) {
             case "OPEN" -> "التسجيل مفتوح";
@@ -217,49 +243,42 @@ public class EventCommand extends ListenerAdapter {
         
         String warning = "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n";
 
-        if (imageUrl != null && !imageUrl.isEmpty()) {
-            return Container.of(
-                Section.of(Thumbnail.fromUrl(imageUrl), TextDisplay.of("## 🎉 فعالية جديدة: " + name)),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of(warning + "### 📋 التفاصيل\n" +
-                    "**نوع الفعالية:** `" + type + "`\n" +
-                    "**الوقت:** <t:" + unixTime + ":F>\n" +
-                    "**المكافآت:** `" + rewards + "`\n" +
-                    "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("### 📝 الشروط\n" + conditions),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(getPublicButtons(eventId, status)),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات")
-            );
-        } else {
-            return Container.of(
-                TextDisplay.of("## 🎉 فعالية جديدة: " + name),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of(warning + "### 📋 التفاصيل\n" +
-                    "**نوع الفعالية:** `" + type + "`\n" +
-                    "**الوقت:** <t:" + unixTime + ":F>\n" +
-                    "**المكافآت:** `" + rewards + "`\n" +
-                    "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("### 📝 الشروط\n" + conditions),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(getPublicButtons(eventId, status)),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات")
-            );
-        }
+        return Container.of(
+            TextDisplay.of("## 🎉 فعالية جديدة: " + name),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of(warning + "### 📋 التفاصيل\n" +
+                "**نوع الفعالية:** `" + type + "`\n" +
+                "**الوقت:** <t:" + unixTime + ":F>\n" +
+                "**المكافآت:** `" + rewards + "`\n" +
+                "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of("### 📝 الشروط\n" + conditions),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            ActionRow.of(getPublicButtons(eventId, status)),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات")
+        );
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
         String id = event.getComponentId();
         if (!id.startsWith("ev_")) return;
+
+        if (id.equals("ev_reward_finish")) {
+            PendingEvent pe = pendingEvents.get(event.getUser().getId());
+            if (pe == null) {
+                event.reply("انتهت جلسة إنشاء الفعالية!").setEphemeral(true).queue();
+                return;
+            }
+
+            event.editMessage("تم حفظ بيانات الفعالية مؤقتاً والجوائز! 📸\nيرجى **إرسال صورة الفعالية** في هذا الشات الآن (أو اكتب `skip` لتخطي الصورة).")
+                 .setComponents(java.util.Collections.emptyList())
+                 .queue();
+            return;
+        }
 
         if (id.equals("ev_panel_create")) {
             TextInput nameInput = TextInput.create("ev_create_name", TextInputStyle.SHORT)
@@ -272,8 +291,8 @@ public class EventCommand extends ListenerAdapter {
                 .setPlaceholder("مثال: 2026-06-20 21:00")
                 .setRequired(true)
                 .build();
-            TextInput rewardsSeatsInput = TextInput.create("ev_create_rewards_seats", TextInputStyle.SHORT)
-                .setPlaceholder("مثال: رتبة فيب - 50")
+            TextInput seatsInput = TextInput.create("ev_create_seats", TextInputStyle.SHORT)
+                .setPlaceholder("عدد المقاعد (مثال: 50)")
                 .setRequired(true)
                 .build();
             TextInput conditionsInput = TextInput.create("ev_create_conditions", TextInputStyle.PARAGRAPH)
@@ -286,7 +305,7 @@ public class EventCommand extends ListenerAdapter {
                     Label.of("اسم الفعالية", nameInput),
                     Label.of("نوع الفعالية", typeInput),
                     Label.of("تاريخ ووقت الفعالية", dateInput),
-                    Label.of("المكافآت - المقاعد", rewardsSeatsInput),
+                    Label.of("عدد المقاعد", seatsInput),
                     Label.of("الشروط (والسؤال الإضافي)", conditionsInput)
                 )
                 .build();
@@ -452,7 +471,7 @@ public class EventCommand extends ListenerAdapter {
             String name = event.getValue("ev_create_name").getAsString();
             String type = event.getValue("ev_create_type").getAsString();
             String dateStr = event.getValue("ev_create_date").getAsString();
-            String rewardsSeats = event.getValue("ev_create_rewards_seats").getAsString();
+            String seatsStr = event.getValue("ev_create_seats").getAsString();
             String conditions = event.getValue("ev_create_conditions").getAsString();
             
             if (!TimeUtils.isValidFormat(dateStr)) {
@@ -460,15 +479,8 @@ public class EventCommand extends ListenerAdapter {
                 return;
             }
 
-            String rewards = rewardsSeats;
             int seats = 50;
-            if (rewardsSeats.contains("-")) {
-                String[] parts = rewardsSeats.split("-");
-                rewards = parts[0].trim();
-                try {
-                    seats = Integer.parseInt(parts[1].trim());
-                } catch (Exception ignored) {}
-            }
+            try { seats = Integer.parseInt(seatsStr.trim()); } catch (Exception ignored) {}
 
             String customQuestion = null;
             if (conditions.contains("(") && conditions.endsWith(")")) {
@@ -477,10 +489,58 @@ public class EventCommand extends ListenerAdapter {
                 conditions = conditions.substring(0, lastOpen).trim();
             }
 
-            PendingEvent pe = new PendingEvent(name, type, dateStr, rewards, seats, conditions, customQuestion, event.getChannel().getId());
+            PendingEvent pe = new PendingEvent(name, type, dateStr, new com.google.gson.JsonArray(), seats, conditions, customQuestion, event.getChannel().getId());
             pendingEvents.put(event.getUser().getId(), pe);
 
-            event.reply("تم حفظ بيانات الفعالية مؤقتاً! 📸\nيرجى **إرسال صورة الفعالية** في هذا الشات الآن (أو اكتب `skip` لتخطي الصورة).").setEphemeral(true).queue();
+            net.dv8tion.jda.api.components.selections.StringSelectMenu rewardMenu = net.dv8tion.jda.api.components.selections.StringSelectMenu.create("ev_reward_menu")
+                .setPlaceholder("اختر نوع الجائزة للإضافة...")
+                .addOption("فلوس CMI", "cmi")
+                .addOption("فلوس Tokens", "tokens")
+                .addOption("رتبة (LuckPerms)", "rank")
+                .addOption("أيتم", "item")
+                .addOption("خبرة (XP)", "xp")
+                .addOption("كليمات (acb)", "claims")
+                .addOption("مفتاح AFK", "afk")
+                .build();
+
+            event.reply("🎁 **الرجاء إضافة جوائز للفعالية:**\nاختر من القائمة بالأسفل:")
+                 .addActionRow(rewardMenu)
+                 .addActionRow(Button.success("ev_reward_finish", "✅ الانتهاء من إضافة الجوائز ورفع الصورة"))
+                 .setEphemeral(true)
+                 .queue();
+            return;
+        }
+
+        if (event.getModalId().startsWith("ev_reward_modal_")) {
+            String type = event.getModalId().replace("ev_reward_modal_", "");
+            PendingEvent pe = pendingEvents.get(event.getUser().getId());
+            if (pe == null) {
+                event.reply("انتهت جلسة إنشاء الفعالية!").setEphemeral(true).queue();
+                return;
+            }
+
+            JsonObject reward = new JsonObject();
+            reward.addProperty("type", type);
+            
+            if (type.equals("rank")) {
+                reward.addProperty("roleId", event.getValue("rank_id").getAsString());
+            } else if (type.equals("item")) {
+                reward.addProperty("itemName", event.getValue("item_name").getAsString());
+                reward.addProperty("amount", event.getValue("item_amount").getAsString());
+            } else {
+                reward.addProperty("amount", event.getValue("amount").getAsString());
+            }
+
+            pe.rewardsJson.add(reward);
+
+            StringBuilder currentRewards = new StringBuilder();
+            for (int i = 0; i < pe.rewardsJson.size(); i++) {
+                JsonObject r = pe.rewardsJson.get(i).getAsJsonObject();
+                currentRewards.append("- ").append(formatReward(r)).append("\n");
+            }
+
+            event.editMessage("🎁 **الرجاء إضافة جوائز للفعالية:**\nالجوائز المضافة حالياً:\n" + currentRewards.toString() + "\nاختر المزيد من القائمة بالأسفل:")
+                 .queue();
             return;
         }
 
@@ -810,7 +870,7 @@ public class EventCommand extends ListenerAdapter {
                     name = rs.getString("name");
                     type = rs.getString("type");
                     date = rs.getString("event_date");
-                    rewards = rs.getString("rewards");
+                    rewards = rs.getString("rewards_json");
                     maxSeats = rs.getInt("max_seats");
                     conditions = rs.getString("conditions");
                     status = rs.getString("status");
@@ -831,15 +891,22 @@ public class EventCommand extends ListenerAdapter {
             }
 
             long unixTime = TimeUtils.parseToUnixTimestamp(date);
-            Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, imageUrl, eventId);
+            Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, eventId);
 
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
                 thread.retrieveMessageById(messageId).queue(msg -> {
                     MessageEditBuilder editBuilder = new MessageEditBuilder()
                         .setComponents(publicContainer)
-                        .setEmbeds(java.util.Collections.emptyList())
                         .useComponentsV2(true);
+                        
+                    if (!msg.getEmbeds().isEmpty()) {
+                        editBuilder.setEmbeds(msg.getEmbeds());
+                    }
+                    if (!msg.getAttachments().isEmpty()) {
+                        editBuilder.setRetainFilesById(msg.getAttachments().stream().map(net.dv8tion.jda.api.entities.Message.Attachment::getId).collect(java.util.stream.Collectors.toList()));
+                    }
+
                     msg.editMessage(editBuilder.build()).queue();
                 }, e -> {});
             }
@@ -893,6 +960,14 @@ public class EventCommand extends ListenerAdapter {
                         .setComponents(staffContainer)
                         .setEmbeds(java.util.Collections.emptyList())
                         .useComponentsV2(true);
+                    
+                    if (status.equals("FINISHED")) {
+                        EntitySelectMenu distributeMenu = EntitySelectMenu.create("ev_staff_distribute_" + eventId, EntitySelectMenu.SelectTarget.USER)
+                            .setPlaceholder("🏆 اختر فائزاً لتوزيع الجوائز...")
+                            .build();
+                        editBuilder.setComponents(staffContainer, Container.of(ActionRow.of(distributeMenu)));
+                    }
+
                     msg.editMessage(editBuilder.build()).queue();
                 }, e -> {});
             }
@@ -945,5 +1020,137 @@ public class EventCommand extends ListenerAdapter {
             buttons.add(Button.secondary("ev_staff_export_" + eventId, "تصدير المشاركين"));
         }
         return buttons;
+    }
+
+    @Override
+    public void onStringSelectInteraction(StringSelectInteractionEvent event) {
+        if (event.getComponentId().equals("ev_reward_menu")) {
+            String type = event.getValues().get(0);
+            PendingEvent pe = pendingEvents.get(event.getUser().getId());
+            if (pe == null) {
+                event.reply("انتهت جلسة إنشاء الفعالية أو لم يتم العثور عليها!").setEphemeral(true).queue();
+                return;
+            }
+
+            Modal.Builder modalBuilder = Modal.create("ev_reward_modal_" + type, "إضافة جائزة");
+            
+            if (type.equals("rank")) {
+                TextInput rankInput = TextInput.create("rank_id", TextInputStyle.SHORT)
+                    .setLabel("الرتبة (أو الـ ID الخاص بها)")
+                    .setRequired(true)
+                    .build();
+                modalBuilder.addComponents(Label.of("Rank", rankInput));
+            } else if (type.equals("item")) {
+                TextInput itemInput = TextInput.create("item_name", TextInputStyle.SHORT)
+                    .setLabel("اسم الأيتم (مثل minecraft:diamond)")
+                    .setRequired(true)
+                    .build();
+                TextInput amountInput = TextInput.create("item_amount", TextInputStyle.SHORT)
+                    .setLabel("الكمية")
+                    .setRequired(true)
+                    .build();
+                modalBuilder.addComponents(Label.of("Item", itemInput), Label.of("Amount", amountInput));
+            } else {
+                TextInput amountInput = TextInput.create("amount", TextInputStyle.SHORT)
+                    .setLabel("الكمية / القيمة")
+                    .setRequired(true)
+                    .build();
+                modalBuilder.addComponents(Label.of("Amount", amountInput));
+            }
+
+            event.replyModal(modalBuilder.build()).queue();
+        }
+    }
+
+    @Override
+    public void onEntitySelectInteraction(EntitySelectInteractionEvent event) {
+        if (event.getComponentId().startsWith("ev_staff_distribute_")) {
+            int eventId = Integer.parseInt(event.getComponentId().replace("ev_staff_distribute_", ""));
+            User winner = event.getMentions().getUsers().get(0);
+            if (winner == null) {
+                event.reply("يرجى اختيار فائز!").setEphemeral(true).queue();
+                return;
+            }
+
+            try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+                String mcName = null;
+                String q1 = "SELECT mc_name FROM event_participants WHERE event_id = ? AND discord_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(q1)) {
+                    ps.setInt(1, eventId);
+                    ps.setString(2, winner.getId());
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        mcName = rs.getString("mc_name");
+                    }
+                }
+
+                if (mcName == null || mcName.equals("Unknown") || mcName.equals("مجهول")) {
+                    event.reply("اللاعب غير مسجل في الفعالية أو لم يتم العثور على اسمه في ماينكرافت!").setEphemeral(true).queue();
+                    return;
+                }
+
+                String rewardsJson = null;
+                String q2 = "SELECT rewards_json FROM events WHERE id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(q2)) {
+                    ps.setInt(1, eventId);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        rewardsJson = rs.getString("rewards_json");
+                    }
+                }
+
+                if (rewardsJson == null || rewardsJson.isEmpty() || rewardsJson.equals("[]")) {
+                    event.reply("لا توجد جوائز مسجلة لهذه الفعالية!").setEphemeral(true).queue();
+                    return;
+                }
+
+                JsonArray rewards = JsonParser.parseString(rewardsJson).getAsJsonArray();
+                com.highcore.bot.services.PterodactylService ptero = LeonTrotskyBot.getPterodactylService();
+                
+                for (int i = 0; i < rewards.size(); i++) {
+                    JsonObject r = rewards.get(i).getAsJsonObject();
+                    String type = r.get("type").getAsString();
+                    String cmd = "";
+                    switch(type) {
+                        case "cmi": cmd = "cmi money add " + mcName + " " + r.get("amount").getAsString(); break;
+                        case "tokens": cmd = "m playpoint give " + mcName + " " + r.get("amount").getAsString(); break;
+                        case "rank": cmd = "lp user " + mcName + " parent add " + r.get("roleId").getAsString(); break;
+                        case "item": cmd = "cmi give " + mcName + " " + r.get("itemName").getAsString() + " " + r.get("amount").getAsString(); break;
+                        case "xp": cmd = "cmi exp " + mcName + " add " + r.get("amount").getAsString() + "L"; break;
+                        case "claims": cmd = "acb " + mcName + " " + r.get("amount").getAsString(); break;
+                        case "afk": cmd = "crate key give " + mcName + " afk " + r.get("amount").getAsString(); break;
+                    }
+                    if (!cmd.isEmpty() && ptero != null) {
+                        ptero.sendCommand(cmd);
+                    }
+                }
+
+                String updateWinner = "UPDATE events SET winner_id = ? WHERE id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(updateWinner)) {
+                    ps.setString(1, winner.getId());
+                    ps.setInt(2, eventId);
+                    ps.executeUpdate();
+                }
+
+                event.reply("تم توزيع الجوائز على اللاعب **" + mcName + "** (" + winner.getAsMention() + ") بنجاح! 🏆").queue();
+            } catch(Exception e) {
+                logger.error("Error distributing rewards", e);
+                event.reply("حدث خطأ أثناء توزيع الجوائز.").setEphemeral(true).queue();
+            }
+        }
+    }
+
+    private String formatReward(JsonObject r) {
+        String type = r.get("type").getAsString();
+        switch (type) {
+            case "cmi": return r.get("amount").getAsString() + " فلوس CMI";
+            case "tokens": return r.get("amount").getAsString() + " Tokens";
+            case "rank": return "رتبة: " + r.get("roleId").getAsString();
+            case "item": return "أيتم: " + r.get("itemName").getAsString() + " x" + r.get("amount").getAsString();
+            case "xp": return r.get("amount").getAsString() + " مستوى خبرة (XP)";
+            case "claims": return r.get("amount").getAsString() + " كليمات";
+            case "afk": return r.get("amount").getAsString() + " مفتاح AFK";
+            default: return "جائزة غير معروفة";
+        }
     }
 }
