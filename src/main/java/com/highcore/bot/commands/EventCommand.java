@@ -1022,8 +1022,7 @@ public class EventCommand extends ListenerAdapter {
                     } else {
                         editBuilder.setEmbeds(publicEmbed);
                     }
-                    net.dv8tion.jda.api.requests.restaction.MessageEditAction action = msg.editMessage(editBuilder.build());
-                    action.queue();
+                    msg.editMessage(editBuilder.build()).queue();
                 }, e -> {});
             }
         } catch (Exception e) {
