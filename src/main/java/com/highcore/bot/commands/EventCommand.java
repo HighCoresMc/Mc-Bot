@@ -1113,7 +1113,7 @@ public class EventCommand extends ListenerAdapter {
                     String cmd = "";
                     switch(type) {
                         case "cmi": cmd = "cmi money add " + mcName + " " + r.get("amount").getAsString(); break;
-                        case "tokens": cmd = "m playpoint give " + mcName + " " + r.get("amount").getAsString(); break;
+                        case "tokens": cmd = "points give " + mcName + " " + r.get("amount").getAsString(); break;
                         case "rank": cmd = "lp user " + mcName + " parent add " + r.get("roleId").getAsString(); break;
                         case "item": cmd = "cmi give " + mcName + " " + r.get("itemName").getAsString() + " " + r.get("amount").getAsString(); break;
                         case "xp": cmd = "cmi exp " + mcName + " add " + r.get("amount").getAsString() + "L"; break;
