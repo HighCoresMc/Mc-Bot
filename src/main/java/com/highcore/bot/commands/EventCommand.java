@@ -220,11 +220,6 @@ public class EventCommand extends ListenerAdapter {
     }
 
     private Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl) {
-        java.util.List<net.dv8tion.jda.api.interactions.components.Component> components = new java.util.ArrayList<>();
-        components.add(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
-        components.add(TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل."));
-        components.add(TextDisplay.of("📋 **التفاصيل**"));
-        
         String rewardsStr = "لا توجد";
         try {
             if (rewards != null && !rewards.isEmpty() && !rewards.equals("[]")) {
@@ -247,25 +242,30 @@ public class EventCommand extends ListenerAdapter {
 
         String statusText = status.equals("OPEN") ? "🟢 `التسجيل مفتوح`" : (status.equals("STARTED") ? "🟡 `الفعالية بدأت`" : "🔴 `مغلقة`");
 
-        components.add(TextDisplay.of("**نوع الفعالية:** `" + type + "`\n" +
-                                       "**الوقت:** <t:" + unixTime + ":F>\n" +
-                                       "**المكافآت:** `" + rewardsStr + "`\n" +
-                                       "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"));
-        
-        components.add(TextDisplay.of("📝 **الشروط**"));
-        components.add(TextDisplay.of(conditions != null && !conditions.isEmpty() ? conditions : "لا توجد شروط إضافية"));
-        components.add(TextDisplay.of("**الحالة:** " + statusText + " | **Event ID:** `" + eventId + "`"));
-        
+        Object img = null;
         if (imageUrl != null) {
             try {
-                components.add((net.dv8tion.jda.api.interactions.components.Component) Class.forName("net.dv8tion.jda.api.interactions.components.media.Image").getMethod("of", String.class).invoke(null, imageUrl));
+                img = Class.forName("net.dv8tion.jda.api.interactions.components.media.Image").getMethod("of", String.class).invoke(null, imageUrl);
             } catch(Exception ignored) {}
         }
         
-        components.add(Separator.createDivider(Separator.Spacing.SMALL));
-        components.add(TextDisplay.of("*لو عندك اي استفسار تفضل بفتح تكت في الدعم الفني*"));
+        TextDisplay t1 = TextDisplay.of("## 🎉 فعالية جديدة: " + name);
+        TextDisplay t2 = TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.");
+        TextDisplay t3 = TextDisplay.of("📋 **التفاصيل**");
+        TextDisplay t4 = TextDisplay.of("**نوع الفعالية:** `" + type + "`\n**الوقت:** <t:" + unixTime + ":F>\n**المكافآت:** `" + rewardsStr + "`\n**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`");
+        TextDisplay t5 = TextDisplay.of("📝 **الشروط**");
+        TextDisplay t6 = TextDisplay.of(conditions != null && !conditions.isEmpty() ? conditions : "لا توجد شروط إضافية");
+        TextDisplay t7 = TextDisplay.of("**الحالة:** " + statusText + " | **Event ID:** `" + eventId + "`");
+        Separator s1 = Separator.createDivider(Separator.Spacing.SMALL);
+        TextDisplay t8 = TextDisplay.of("*لو عندك اي استفسار تفضل بفتح تكت في الدعم الفني*");
 
-        return Container.of(components);
+        if (img != null) {
+            try {
+                return (Container) Container.class.getMethod("of", Object[].class).invoke(null, (Object) new Object[]{t1, t2, t3, t4, t5, t6, t7, img, s1, t8});
+            } catch(Exception ignored) {}
+        }
+        
+        return Container.of(t1, t2, t3, t4, t5, t6, t7, s1, t8);
     }
 
     private Container getStaffContainer(String name, String mention, int eventId, String status, int participantCount, List<String> participantMentions) {
