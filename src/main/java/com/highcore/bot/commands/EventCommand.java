@@ -243,14 +243,18 @@ public class EventCommand extends ListenerAdapter {
         
         String warning = "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n";
 
-        java.util.List<net.dv8tion.jda.api.components.LayoutComponent> components = new java.util.ArrayList<>();
-        components.add(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
-        components.add(Separator.createDivider(Separator.Spacing.SMALL));
-        components.add(TextDisplay.of(warning + "### 📋 التفاصيل\n" +
+        TextDisplay header = TextDisplay.of("## 🎉 فعالية جديدة: " + name);
+        Separator s1 = Separator.createDivider(Separator.Spacing.SMALL);
+        TextDisplay details = TextDisplay.of(warning + "### 📋 التفاصيل\n" +
             "**نوع الفعالية:** `" + type + "`\n" +
             "**الوقت:** <t:" + unixTime + ":F>\n" +
             "**المكافآت:** `" + rewards + "`\n" +
-            "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"));
+            "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`");
+
+        TextDisplay conditionsDisplay = TextDisplay.of("### 📝 الشروط\n" + conditions);
+        TextDisplay statusDisplay = TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`");
+        ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, status));
+        TextDisplay footer = TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات");
 
         if (winnerId != null && winnerMcName != null) {
             int innerWidth = Math.max(17, winnerMcName.length() + 4);
@@ -265,20 +269,26 @@ public class EventCommand extends ListenerAdapter {
                                 middleLine + "\n" +
                                 "╰" + horizontal + "╯\n" +
                                 "```\nالفائز: <@" + winnerId + ">";
-            components.add(Separator.createDivider(Separator.Spacing.SMALL));
-            components.add(TextDisplay.of("### 🏆 الفائز في الفعالية\n" + winnerText));
+            Separator sWinner = Separator.createDivider(Separator.Spacing.SMALL);
+            TextDisplay winnerDisplay = TextDisplay.of("### 🏆 الفائز في الفعالية\n" + winnerText);
+            
+            return Container.of(
+                header, s1, details,
+                sWinner, winnerDisplay,
+                Separator.createDivider(Separator.Spacing.SMALL), conditionsDisplay,
+                Separator.createDivider(Separator.Spacing.SMALL), statusDisplay,
+                Separator.createDivider(Separator.Spacing.SMALL), actionRow,
+                Separator.createDivider(Separator.Spacing.SMALL), footer
+            );
         }
 
-        components.add(Separator.createDivider(Separator.Spacing.SMALL));
-        components.add(TextDisplay.of("### 📝 الشروط\n" + conditions));
-        components.add(Separator.createDivider(Separator.Spacing.SMALL));
-        components.add(TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"));
-        components.add(Separator.createDivider(Separator.Spacing.SMALL));
-        components.add(ActionRow.of(getPublicButtons(eventId, status)));
-        components.add(Separator.createDivider(Separator.Spacing.SMALL));
-        components.add(TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات"));
-
-        return Container.of(components.toArray(new net.dv8tion.jda.api.components.LayoutComponent[0]));
+        return Container.of(
+            header, s1, details,
+            Separator.createDivider(Separator.Spacing.SMALL), conditionsDisplay,
+            Separator.createDivider(Separator.Spacing.SMALL), statusDisplay,
+            Separator.createDivider(Separator.Spacing.SMALL), actionRow,
+            Separator.createDivider(Separator.Spacing.SMALL), footer
+        );
     }
 
     @Override
