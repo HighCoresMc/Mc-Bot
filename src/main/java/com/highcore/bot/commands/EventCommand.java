@@ -22,6 +22,7 @@ import net.dv8tion.jda.api.modals.Modal;
 import net.dv8tion.jda.api.utils.FileUpload;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
+import net.dv8tion.jda.api.components.label.Label;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.section.Section;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
@@ -168,30 +169,41 @@ public class EventCommand extends ListenerAdapter {
             default -> status;
         };
         
-        net.dv8tion.jda.api.components.LayoutComponent header;
-        if (imageUrl != null && !imageUrl.isEmpty()) {
-            header = Section.of(Thumbnail.fromUrl(imageUrl), TextDisplay.of("## 🎉 فعالية جديدة: " + name));
-        } else {
-            header = TextDisplay.of("## 🎉 فعالية جديدة: " + name);
-        }
-
         String warning = requiresLink ? "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n" : "";
 
-        return Container.of(
-            header,
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of(warning + "### 📋 التفاصيل\n" +
-                "**نوع الفعالية:** `" + type + "`\n" +
-                "**الوقت:** <t:" + unixTime + ":F>\n" +
-                "**المكافآت:** `" + rewards + "`\n" +
-                "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 📝 الشروط\n" + conditions),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(getPublicButtons(eventId, status))
-        );
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            return Container.of(
+                Section.of(Thumbnail.fromUrl(imageUrl), TextDisplay.of("## 🎉 فعالية جديدة: " + name)),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of(warning + "### 📋 التفاصيل\n" +
+                    "**نوع الفعالية:** `" + type + "`\n" +
+                    "**الوقت:** <t:" + unixTime + ":F>\n" +
+                    "**المكافآت:** `" + rewards + "`\n" +
+                    "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("### 📝 الشروط\n" + conditions),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(getPublicButtons(eventId, status))
+            );
+        } else {
+            return Container.of(
+                TextDisplay.of("## 🎉 فعالية جديدة: " + name),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of(warning + "### 📋 التفاصيل\n" +
+                    "**نوع الفعالية:** `" + type + "`\n" +
+                    "**الوقت:** <t:" + unixTime + ":F>\n" +
+                    "**المكافآت:** `" + rewards + "`\n" +
+                    "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("### 📝 الشروط\n" + conditions),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(getPublicButtons(eventId, status))
+            );
+        }
     }
 
     @Override
@@ -304,29 +316,26 @@ public class EventCommand extends ListenerAdapter {
 
             if (customQuestion != null && !customQuestion.trim().isEmpty()) {
                 TextInput customInput = TextInput.create("custom_answer", TextInputStyle.PARAGRAPH)
-                    .setLabel(customQuestion)
                     .setRequired(true)
                     .build();
                 
                 Modal.Builder modalBuilder = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية");
                 if (!requiresLink) {
                     TextInput mcNameInput = TextInput.create("mc_name", TextInputStyle.SHORT)
-                        .setLabel("اسمك في ماينكرافت")
                         .setRequired(true)
                         .build();
-                    modalBuilder.addComponents(mcNameInput, customInput);
+                    modalBuilder.addComponents(Label.of("اسمك في ماينكرافت", mcNameInput), Label.of(customQuestion, customInput));
                 } else {
-                    modalBuilder.addComponents(customInput);
+                    modalBuilder.addComponents(Label.of(customQuestion, customInput));
                 }
 
                 event.replyModal(modalBuilder.build()).queue();
             } else if (!requiresLink) {
                 TextInput mcNameInput = TextInput.create("mc_name", TextInputStyle.SHORT)
-                    .setLabel("اسمك في ماينكرافت")
                     .setRequired(true)
                     .build();
                 Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
-                    .addComponents(mcNameInput)
+                    .addComponents(Label.of("اسمك في ماينكرافت", mcNameInput))
                     .build();
                 event.replyModal(modal).queue();
             } else {
