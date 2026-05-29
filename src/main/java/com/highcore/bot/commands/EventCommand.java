@@ -219,6 +219,55 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
+    private Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl) {
+        java.util.List<net.dv8tion.jda.api.interactions.components.Component> components = new java.util.ArrayList<>();
+        components.add(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
+        components.add(TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل."));
+        components.add(TextDisplay.of("📋 **التفاصيل**"));
+        
+        String rewardsStr = "لا توجد";
+        try {
+            if (rewards != null && !rewards.isEmpty() && !rewards.equals("[]")) {
+                com.google.gson.JsonArray rArr = com.google.gson.JsonParser.parseString(rewards).getAsJsonArray();
+                java.util.List<String> rList = new java.util.ArrayList<>();
+                for (int i = 0; i < rArr.size(); i++) {
+                    com.google.gson.JsonObject rObj = rArr.get(i).getAsJsonObject();
+                    String rType = rObj.has("type") ? rObj.get("type").getAsString() : "unknown";
+                    if (rType.equals("cmi")) rList.add(rObj.get("amount").getAsString() + " فلوس");
+                    else if (rType.equals("tokens")) rList.add(rObj.get("amount").getAsString() + " توكنز");
+                    else if (rType.equals("rank")) rList.add("رتبة " + rObj.get("roleId").getAsString());
+                    else if (rType.equals("item")) rList.add(rObj.get("amount").getAsString() + "x " + rObj.get("itemName").getAsString());
+                    else if (rType.equals("xp")) rList.add(rObj.get("amount").getAsString() + " مستوى خبرة");
+                    else if (rType.equals("claims")) rList.add(rObj.get("amount").getAsString() + " كليم بلوك");
+                    else if (rType.equals("afk")) rList.add(rObj.get("amount").getAsString() + " مفتاح AFK");
+                }
+                if (!rList.isEmpty()) rewardsStr = String.join(" + ", rList);
+            }
+        } catch (Exception ex) {}
+
+        String statusText = status.equals("OPEN") ? "🟢 `التسجيل مفتوح`" : (status.equals("STARTED") ? "🟡 `الفعالية بدأت`" : "🔴 `مغلقة`");
+
+        components.add(TextDisplay.of("**نوع الفعالية:** `" + type + "`\n" +
+                                       "**الوقت:** <t:" + unixTime + ":F>\n" +
+                                       "**المكافآت:** `" + rewardsStr + "`\n" +
+                                       "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"));
+        
+        components.add(TextDisplay.of("📝 **الشروط**"));
+        components.add(TextDisplay.of(conditions != null && !conditions.isEmpty() ? conditions : "لا توجد شروط إضافية"));
+        components.add(TextDisplay.of("**الحالة:** " + statusText + " | **Event ID:** `" + eventId + "`"));
+        
+        if (imageUrl != null) {
+            try {
+                components.add((net.dv8tion.jda.api.interactions.components.Component) Class.forName("net.dv8tion.jda.api.interactions.components.media.Image").getMethod("of", String.class).invoke(null, imageUrl));
+            } catch(Exception ignored) {}
+        }
+        
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("*لو عندك اي استفسار تفضل بفتح تكت في الدعم الفني*"));
+
+        return Container.of(components);
+    }
+
     private Container getStaffContainer(String name, String mention, int eventId, String status, int participantCount, List<String> participantMentions) {
         String participantsStr = participantMentions.isEmpty() ? "لا يوجد مشاركين" : String.join(", ", participantMentions);
         if (participantsStr.length() > 2000) {
@@ -923,7 +972,6 @@ public class EventCommand extends ListenerAdapter {
             }
 
             long unixTime = TimeUtils.parseToUnixTimestamp(date);
-            net.dv8tion.jda.api.entities.MessageEmbed publicEmbed = getBasePublicEmbed(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, eventId, winnerId, winnerMcName);
             ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, status));
 
             ThreadChannel thread = guild.getThreadChannelById(channelId);
