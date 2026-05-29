@@ -173,10 +173,6 @@ public class EventCommand extends ListenerAdapter {
                         .useComponentsV2(true);
                         
                     if (imageStream != null && fileName != null) {
-                        net.dv8tion.jda.api.EmbedBuilder imageEmbed = new net.dv8tion.jda.api.EmbedBuilder()
-                            .setImage(dbImageUrl)
-                            .setColor(0x2f3136);
-                        builder.setEmbeds(imageEmbed.build());
                         builder.addFiles(FileUpload.fromData(imageStream, fileName));
                     }
 
