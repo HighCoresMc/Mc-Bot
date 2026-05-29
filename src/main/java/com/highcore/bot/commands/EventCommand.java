@@ -179,7 +179,11 @@ public class EventCommand extends ListenerAdapter {
                         .useComponentsV2(true);
                         
                     if (imageBytes != null && fileName != null) {
-                        builder.addFiles(FileUpload.fromData(imageBytes, fileName));
+                        builder.addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(imageBytes, fileName));
+                        builder.addEmbeds(new net.dv8tion.jda.api.EmbedBuilder()
+                            .setColor(0x2f3136)
+                            .setImage("attachment://" + fileName)
+                            .build());
                     }
 
                     forumChannel.createForumPost("🎉 " + pe.name, builder.build())
@@ -1183,10 +1187,11 @@ public class EventCommand extends ListenerAdapter {
     @Override
     public void onEntitySelectInteraction(EntitySelectInteractionEvent event) {
         if (event.getComponentId().startsWith("ev_staff_distribute_")) {
+            event.deferReply(true).queue();
             int eventId = Integer.parseInt(event.getComponentId().replace("ev_staff_distribute_", ""));
             User winner = event.getMentions().getUsers().get(0);
             if (winner == null) {
-                event.reply("يرجى اختيار فائز!").setEphemeral(true).queue();
+                event.getHook().sendMessage("يرجى اختيار فائز!").queue();
                 return;
             }
 
@@ -1203,7 +1208,7 @@ public class EventCommand extends ListenerAdapter {
                 }
 
                 if (mcName == null || mcName.equals("Unknown") || mcName.equals("مجهول")) {
-                    event.reply("اللاعب غير مسجل في الفعالية أو لم يتم العثور على اسمه في ماينكرافت!").setEphemeral(true).queue();
+                    event.getHook().sendMessage("اللاعب غير مسجل في الفعالية أو لم يتم العثور على اسمه في ماينكرافت!").queue();
                     return;
                 }
 
@@ -1218,7 +1223,7 @@ public class EventCommand extends ListenerAdapter {
                 }
 
                 if (rewardsJson == null || rewardsJson.isEmpty() || rewardsJson.equals("[]")) {
-                    event.reply("لا توجد جوائز مسجلة لهذه الفعالية!").setEphemeral(true).queue();
+                    event.getHook().sendMessage("لا توجد جوائز مسجلة لهذه الفعالية!").queue();
                     return;
                 }
 
@@ -1243,11 +1248,15 @@ public class EventCommand extends ListenerAdapter {
                     }
                 }
 
-                String updateWinner = "UPDATE events SET winner_id = ? WHERE id = ?";
-                try (PreparedStatement ps = conn.prepareStatement(updateWinner)) {
-                    ps.setString(1, winner.getId());
-                    ps.setInt(2, eventId);
-                    ps.executeUpdate();
+                try {
+                    String updateWinner = "UPDATE events SET winner_id = ? WHERE id = ?";
+                    try (PreparedStatement ps = conn.prepareStatement(updateWinner)) {
+                        ps.setString(1, winner.getId());
+                        ps.setInt(2, eventId);
+                        ps.executeUpdate();
+                    }
+                } catch (Exception e) {
+                    logger.warn("Could not update winner_id in events table", e);
                 }
                 
                 String channelId = null;
@@ -1291,10 +1300,10 @@ public class EventCommand extends ListenerAdapter {
                     privateChannel.sendMessage(dmBuilder.build()).queue();
                 }, error -> logger.warn("Failed to send DM to winner " + winner.getId()));
 
-                event.reply("تم توزيع الجوائز على اللاعب **" + mcName + "** (" + winner.getAsMention() + ") بنجاح! 🏆").queue();
+                event.getHook().sendMessage("تم توزيع الجوائز على اللاعب **" + mcName + "** (" + winner.getAsMention() + ") بنجاح! 🏆").queue();
             } catch(Exception e) {
                 logger.error("Error distributing rewards", e);
-                event.reply("حدث خطأ أثناء توزيع الجوائز.").setEphemeral(true).queue();
+                event.getHook().sendMessage("حدث خطأ أثناء توزيع الجوائز.").queue();
             }
         }
     }
