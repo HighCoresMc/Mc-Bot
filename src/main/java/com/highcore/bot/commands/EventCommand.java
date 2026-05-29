@@ -1007,13 +1007,14 @@ public class EventCommand extends ListenerAdapter {
 
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
+                final String finalImageUrl = imageUrl;
                 thread.retrieveMessageById(messageId).queue(msg -> {
                     MessageEditBuilder editBuilder = new MessageEditBuilder()
                         .setComponents(actionRow);
                         
-                    if (imageUrl != null && imageUrl.startsWith("attachment://")) {
+                    if (finalImageUrl != null && finalImageUrl.startsWith("attachment://")) {
                         editBuilder.setEmbeds(new net.dv8tion.jda.api.EmbedBuilder(publicEmbed)
-                            .setImage(imageUrl)
+                            .setImage(finalImageUrl)
                             .build());
                     } else if (!msg.getEmbeds().isEmpty() && msg.getEmbeds().get(0).getImage() != null) {
                         editBuilder.setEmbeds(new net.dv8tion.jda.api.EmbedBuilder(publicEmbed)
