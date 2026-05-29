@@ -183,13 +183,23 @@ public class ProfileCommand extends ListenerAdapter {
                             case "surv": {
                                 double balance = rs.getDouble("Balance");
                                 int tokens = 0;
-                                String ppQuery = "SELECT points FROM playerpoints WHERE uuid = ? OR uuid = ?";
+                                String ppQuery = "SELECT points FROM playerpoints_points WHERE uuid = ? OR uuid = ?";
                                 try (PreparedStatement psPP = conn.prepareStatement(ppQuery)) {
                                     psPP.setString(1, uuidDash);
                                     psPP.setString(2, uuidNoDash);
                                     try (ResultSet rsPP = psPP.executeQuery()) {
                                         if (rsPP.next()) {
                                             tokens = rsPP.getInt("points");
+                                        } else {
+                                            String ppUserQuery = "SELECT p.points FROM playerpoints_points p JOIN playerpoints_username u ON p.uuid = u.uuid WHERE u.username = ?";
+                                            try (PreparedStatement psUser = conn.prepareStatement(ppUserQuery)) {
+                                                psUser.setString(1, mcName);
+                                                try (ResultSet rsUser = psUser.executeQuery()) {
+                                                    if (rsUser.next()) {
+                                                        tokens = rsUser.getInt("points");
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 } catch (Exception ignored) {}

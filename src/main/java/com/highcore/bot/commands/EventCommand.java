@@ -99,9 +99,9 @@ public class EventCommand extends ListenerAdapter {
             Separator.createDivider(Separator.Spacing.SMALL),
             ActionRow.of(
                 Button.success("ev_panel_create", "🎉 فعالية جديدة"),
-                Button.primary("ev_panel_history", "📜 سجل الفعاليات").asDisabled(),
-                Button.secondary("ev_panel_wins", "🏆 تاريخ الفوز").asDisabled(),
-                Button.secondary("ev_panel_pending", "⏳ فعاليات معلقة").asDisabled()
+                Button.primary("ev_panel_history", "📜 سجل الفعاليات"),
+                Button.secondary("ev_panel_wins", "🏆 تاريخ الفوز"),
+                Button.secondary("ev_panel_pending", "⏳ فعاليات معلقة")
             )
         );
 
@@ -121,10 +121,10 @@ public class EventCommand extends ListenerAdapter {
                     event.getChannel().sendMessage("الملف المرفق ليس صورة! يرجى رفع صورة صحيحة أو كتابة `skip`.").queue();
                     return;
                 }
-                attachment.getProxy().download().thenAccept(inputStream -> {
+                attachment.getProxy().downloadAsByteArray().thenAccept(bytes -> {
                     pendingEvents.remove(user.getId());
                     event.getMessage().delete().queue(null, e -> {});
-                    createEventFinal(user, event.getGuild(), pe, inputStream, attachment.getFileName());
+                    createEventFinal(user, event.getGuild(), pe, bytes, attachment.getFileName());
                 }).exceptionally(e -> {
                     event.getChannel().sendMessage("حدث خطأ أثناء تحميل الصورة.").queue();
                     return null;
@@ -140,7 +140,7 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    private void createEventFinal(User creator, Guild guild, PendingEvent pe, java.io.InputStream imageStream, String fileName) {
+    private void createEventFinal(User creator, Guild guild, PendingEvent pe, byte[] imageBytes, String fileName) {
         ForumChannel forumChannel = guild.getForumChannelById(EVENTS_FORUM_ID);
         if (forumChannel == null) return;
         
@@ -172,8 +172,8 @@ public class EventCommand extends ListenerAdapter {
                         .setComponents(publicContainer)
                         .useComponentsV2(true);
                         
-                    if (imageStream != null && fileName != null) {
-                        builder.addFiles(FileUpload.fromData(imageStream, fileName));
+                    if (imageBytes != null && fileName != null) {
+                        builder.addFiles(FileUpload.fromData(imageBytes, fileName));
                     }
 
                     forumChannel.createForumPost("🎉 " + pe.name, builder.build())
@@ -373,6 +373,21 @@ public class EventCommand extends ListenerAdapter {
             return;
         }
 
+        if (id.equals("ev_panel_history")) {
+            sendEventsList(event, "سجل الفعاليات", "SELECT id, name, status, event_date FROM events ORDER BY id DESC LIMIT 10");
+            return;
+        }
+
+        if (id.equals("ev_panel_wins")) {
+            sendEventsList(event, "تاريخ الفوز", "SELECT id, name, status, event_date FROM events WHERE winner_id IS NOT NULL ORDER BY id DESC LIMIT 10");
+            return;
+        }
+
+        if (id.equals("ev_panel_pending")) {
+            sendEventsList(event, "فعاليات معلقة", "SELECT id, name, status, event_date FROM events WHERE status IN ('OPEN', 'CLOSED') ORDER BY id DESC LIMIT 10");
+            return;
+        }
+
         if (id.startsWith("ev_reg_")) {
             int eventId = Integer.parseInt(id.replace("ev_reg_", ""));
             handleRegisterClick(event, eventId);
@@ -406,6 +421,36 @@ public class EventCommand extends ListenerAdapter {
                 handleNotify(event, Integer.parseInt(id.replace("ev_staff_notify_", "")));
             }
         }
+    }
+
+    private void sendEventsList(ButtonInteractionEvent event, String title, String sql) {
+        StringBuilder sb = new StringBuilder();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                int id = rs.getInt("id");
+                String name = rs.getString("name");
+                String status = rs.getString("status");
+                String date = rs.getString("event_date");
+                String statusEmoji = "OPEN".equals(status) ? "🟢" : ("CLOSED".equals(status) ? "🔴" : "⚫");
+                sb.append(String.format("`#%d` | %s **%s** | 🕒 %s\n", id, statusEmoji, name, date));
+            }
+        } catch (Exception e) {
+            logger.error("Error fetching events list", e);
+        }
+
+        if (sb.length() == 0) {
+            sb.append("لا توجد فعاليات لعرضها حالياً.");
+        }
+
+        Container container = Container.of(
+            TextDisplay.of("## 📋 " + title),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of(sb.toString())
+        );
+
+        event.replyComponents(container).useComponentsV2(true).setEphemeral(true).queue();
     }
 
     private void handleRegisterClick(ButtonInteractionEvent event, int eventId) {
@@ -534,9 +579,10 @@ public class EventCommand extends ListenerAdapter {
             String conditions = event.getValue("ev_create_conditions").getAsString();
             
             if (!TimeUtils.isValidFormat(dateStr)) {
-                event.reply("صيغة الوقت غير صحيحة! يجب أن تكون YYYY-MM-DD HH:MM (مثال: 2026-06-20 21:00)").setEphemeral(true).queue();
+                event.reply("صيغة الوقت غير صحيحة! جرب صيغة مثل: 2026-06-20 21:00").setEphemeral(true).queue();
                 return;
             }
+            dateStr = TimeUtils.getStandardFormat(dateStr);
 
             int seats = 50;
             try { seats = Integer.parseInt(seatsStr.trim()); } catch (Exception ignored) {}
@@ -1213,21 +1259,30 @@ public class EventCommand extends ListenerAdapter {
                 if (channelId != null) {
                     net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel thread = event.getGuild().getThreadChannelById(channelId);
                     if (thread != null) {
-                        net.dv8tion.jda.api.EmbedBuilder winEmbed = new net.dv8tion.jda.api.EmbedBuilder();
-                        winEmbed.setTitle("🎉 الفائز بالفعالية!");
-                        winEmbed.setDescription("تهانينا للاعب **" + mcName + "** (" + winner.getAsMention() + ") بمناسبة الفوز بالفعالية! 🏆\n\nتم تسليم الجوائز بنجاح.");
-                        winEmbed.setColor(0xFFD700);
-                        thread.sendMessage(winner.getAsMention()).addEmbeds(winEmbed.build()).queue();
+                        Container winContainer = Container.of(
+                            TextDisplay.of("## 🎉 الفائز بالفعالية!"),
+                            Separator.createDivider(Separator.Spacing.SMALL),
+                            TextDisplay.of("تهانينا للاعب **" + mcName + "** (" + winner.getAsMention() + ") بمناسبة الفوز بالفعالية! 🏆\n\nتم تسليم الجوائز بنجاح.")
+                        );
+                        net.dv8tion.jda.api.utils.messages.MessageCreateBuilder winBuilder = new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder()
+                            .setContent(winner.getAsMention())
+                            .setComponents(winContainer)
+                            .useComponentsV2(true);
+                        thread.sendMessage(winBuilder.build()).queue();
                     }
                 }
 
                 final String finalMcName = mcName;
                 winner.openPrivateChannel().queue(privateChannel -> {
-                    net.dv8tion.jda.api.EmbedBuilder dmEmbed = new net.dv8tion.jda.api.EmbedBuilder();
-                    dmEmbed.setTitle("🎉 مبروك الفوز في الفعالية!");
-                    dmEmbed.setDescription("لقد فزت في فعالية الماينكرافت بحسابك **" + finalMcName + "**!\n\nتم تسليم جوائز الفعالية لحسابك في السيرفر بنجاح، نتمنى لك وقتاً ممتعاً! 🎁");
-                    dmEmbed.setColor(0xFFD700);
-                    privateChannel.sendMessageEmbeds(dmEmbed.build()).queue();
+                    Container dmContainer = Container.of(
+                        TextDisplay.of("## 🎉 مبروك الفوز في الفعالية!"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("لقد فزت في فعالية الماينكرافت بحسابك **" + finalMcName + "**!\n\nتم تسليم جوائز الفعالية لحسابك في السيرفر بنجاح، نتمنى لك وقتاً ممتعاً! 🎁")
+                    );
+                    net.dv8tion.jda.api.utils.messages.MessageCreateBuilder dmBuilder = new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder()
+                        .setComponents(dmContainer)
+                        .useComponentsV2(true);
+                    privateChannel.sendMessage(dmBuilder.build()).queue();
                 }, error -> logger.warn("Failed to send DM to winner " + winner.getId()));
 
                 event.reply("تم توزيع الجوائز على اللاعب **" + mcName + "** (" + winner.getAsMention() + ") بنجاح! 🏆").queue();
