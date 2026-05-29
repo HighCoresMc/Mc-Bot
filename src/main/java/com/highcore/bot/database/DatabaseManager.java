@@ -62,6 +62,52 @@ public class DatabaseManager {
         return dataSource.getConnection();
     }
 
+    public void initializeEventTables() {
+        try (Connection conn = getConnection();
+             java.sql.Statement stmt = conn.createStatement()) {
+            
+            String createEventsTable = "CREATE TABLE IF NOT EXISTS events (" +
+                    "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "message_id VARCHAR(64), " +
+                    "channel_id VARCHAR(64), " +
+                    "staff_message_id VARCHAR(64), " +
+                    "staff_channel_id VARCHAR(64), " +
+                    "name VARCHAR(255) NOT NULL, " +
+                    "type VARCHAR(255), " +
+                    "event_date VARCHAR(64), " +
+                    "rewards TEXT, " +
+                    "max_seats INT, " +
+                    "conditions TEXT, " +
+                    "status VARCHAR(32) DEFAULT 'OPEN', " +
+                    "requires_link BOOLEAN DEFAULT FALSE, " +
+                    "custom_question TEXT, " +
+                    "image_url TEXT, " +
+                    "reminder_sent BOOLEAN DEFAULT FALSE, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")";
+            stmt.executeUpdate(createEventsTable);
+
+            String createParticipantsTable = "CREATE TABLE IF NOT EXISTS event_participants (" +
+                    "event_id INT, " +
+                    "user_id VARCHAR(64), " +
+                    "discord_id VARCHAR(64), " +
+                    "mc_name VARCHAR(255), " +
+                    "mc_uuid VARCHAR(64), " +
+                    "custom_answer TEXT, " +
+                    "wants_reminder BOOLEAN DEFAULT FALSE, " +
+                    "reward_given BOOLEAN DEFAULT FALSE, " +
+                    "joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, " +
+                    "PRIMARY KEY (event_id, user_id), " +
+                    "FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE" +
+                    ")";
+            stmt.executeUpdate(createParticipantsTable);
+
+            logger.info("Event tables initialized successfully.");
+        } catch (SQLException e) {
+            logger.error("Failed to initialize event tables!", e);
+        }
+    }
+
     public Connection getCmiConnection() throws SQLException {
         if (cmiDataSource == null) throw new SQLException("CMI database pool not initialized!");
         return cmiDataSource.getConnection();
