@@ -388,13 +388,23 @@ public class EventCommand extends ListenerAdapter {
                     return;
                 }
                 mcUuid = uuidOpt.get();
-                String q4 = "SELECT username FROM discordsrv__accounts WHERE discord = ?";
-                try (PreparedStatement ps4 = conn.prepareStatement(q4)) {
-                    ps4.setString(1, event.getUser().getId());
-                    ResultSet rs4 = ps4.executeQuery();
-                    if (rs4.next()) {
-                        mcName = rs4.getString("username");
+                String uuidDash = mcUuid.contains("-") ? mcUuid : mcUuid.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
+                String uuidNoDash = mcUuid.replace("-", "");
+                String q4 = "SELECT username FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?";
+                try (Connection cmiConn = LeonTrotskyBot.getDbManager().getCmiConnection();
+                     PreparedStatement ps4 = cmiConn.prepareStatement(q4)) {
+                    ps4.setString(1, uuidDash);
+                    ps4.setString(2, uuidNoDash);
+                    try (ResultSet rs4 = ps4.executeQuery()) {
+                        if (rs4.next()) {
+                            mcName = rs4.getString("username");
+                        } else {
+                            mcName = "مجهول";
+                        }
                     }
+                } catch (Exception ex) {
+                    logger.error("Error fetching username from CMI", ex);
+                    mcName = "مجهول";
                 }
             }
 
@@ -493,13 +503,27 @@ public class EventCommand extends ListenerAdapter {
             if (requiresLink) {
                 Optional<String> uuidOpt = LeonTrotskyBot.getDiscordSRVManager().getUuidByDiscordId(event.getUser().getId());
                 mcUuid = uuidOpt.orElse(null);
-                String q4 = "SELECT username FROM discordsrv__accounts WHERE discord = ?";
-                try (PreparedStatement ps4 = conn.prepareStatement(q4)) {
-                    ps4.setString(1, event.getUser().getId());
-                    ResultSet rs4 = ps4.executeQuery();
-                    if (rs4.next()) {
-                        mcName = rs4.getString("username");
+                if (mcUuid != null) {
+                    String uuidDash = mcUuid.contains("-") ? mcUuid : mcUuid.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
+                    String uuidNoDash = mcUuid.replace("-", "");
+                    String q4 = "SELECT username FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?";
+                    try (Connection cmiConn = LeonTrotskyBot.getDbManager().getCmiConnection();
+                         PreparedStatement ps4 = cmiConn.prepareStatement(q4)) {
+                        ps4.setString(1, uuidDash);
+                        ps4.setString(2, uuidNoDash);
+                        try (ResultSet rs4 = ps4.executeQuery()) {
+                            if (rs4.next()) {
+                                mcName = rs4.getString("username");
+                            } else {
+                                mcName = "مجهول";
+                            }
+                        }
+                    } catch (Exception ex) {
+                        logger.error("Error fetching username from CMI", ex);
+                        mcName = "مجهول";
                     }
+                } else {
+                    mcName = "مجهول";
                 }
             } else {
                 mcName = event.getValue("mc_name") != null ? event.getValue("mc_name").getAsString() : "Unknown";
