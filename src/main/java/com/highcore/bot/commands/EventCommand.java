@@ -167,7 +167,7 @@ public class EventCommand extends ListenerAdapter {
                                 p2.executeUpdate();
                             } catch (Exception e) {}
 
-                            Container staffContainer = getStaffContainer(pe.name, forumPost.getThreadChannel().getAsMention(), eventId, "OPEN");
+                            Container staffContainer = getStaffContainer(pe.name, forumPost.getThreadChannel().getAsMention(), eventId, "OPEN", 0, new ArrayList<>());
 
                             MessageCreateBuilder staffBuilder = new MessageCreateBuilder()
                                 .setComponents(staffContainer)
@@ -190,11 +190,16 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    private Container getStaffContainer(String name, String mention, int eventId, String status) {
+    private Container getStaffContainer(String name, String mention, int eventId, String status, int participantCount, List<String> participantMentions) {
+        String participantsStr = participantMentions.isEmpty() ? "لا يوجد مشاركين" : String.join(", ", participantMentions);
+        if (participantsStr.length() > 2000) {
+            participantsStr = participantsStr.substring(0, 1996) + "...";
+        }
         return Container.of(
             TextDisplay.of("## 🛠️ إدارة الفعالية: " + name),
             Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("**بوست الفعالية:** " + mention + "\n**Event ID:** `" + eventId + "`"),
+            TextDisplay.of("**بوست الفعالية:** " + mention + "\n**Event ID:** `" + eventId + "` | **المشاركين:** `" + participantCount + "`"),
+            TextDisplay.of("**أسماء المشاركين:**\n" + participantsStr),
             Separator.createDivider(Separator.Spacing.SMALL),
             ActionRow.of(getStaffButtons(eventId, status))
         );
@@ -226,7 +231,9 @@ public class EventCommand extends ListenerAdapter {
                 Separator.createDivider(Separator.Spacing.SMALL),
                 TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
                 Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(getPublicButtons(eventId, status))
+                ActionRow.of(getPublicButtons(eventId, status)),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات")
             );
         } else {
             return Container.of(
@@ -242,7 +249,9 @@ public class EventCommand extends ListenerAdapter {
                 Separator.createDivider(Separator.Spacing.SMALL),
                 TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
                 Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(getPublicButtons(eventId, status))
+                ActionRow.of(getPublicButtons(eventId, status)),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات")
             );
         }
     }
@@ -418,6 +427,7 @@ public class EventCommand extends ListenerAdapter {
                 event.reply("تم تسجيلك بنجاح في الفعالية باسم: " + mcName + "!\nتم التعرف على حسابك المربوط تلقائياً.").setEphemeral(true).queue();
                 giveEventRole(event.getGuild(), event.getUser().getId());
                 updatePublicEmbedSeats(event.getGuild(), eventId);
+                updateStaffEmbed(event.getGuild(), eventId);
             }
 
         } catch (Exception e) {
@@ -501,6 +511,7 @@ public class EventCommand extends ListenerAdapter {
             event.reply("تم تسجيلك بنجاح في الفعالية!").setEphemeral(true).queue();
             giveEventRole(event.getGuild(), event.getUser().getId());
             updatePublicEmbedSeats(event.getGuild(), eventId);
+            updateStaffEmbed(event.getGuild(), eventId);
 
         } catch (Exception e) {
             logger.error("Error handling modal submit", e);
@@ -531,6 +542,7 @@ public class EventCommand extends ListenerAdapter {
                     event.reply("تم إلغاء تسجيلك من الفعالية.").setEphemeral(true).queue();
                     removeEventRole(event.getGuild(), event.getUser().getId());
                     updatePublicEmbedSeats(event.getGuild(), eventId);
+                    updateStaffEmbed(event.getGuild(), eventId);
                 } else {
                     event.reply("أنت غير مسجل في الأساس!").setEphemeral(true).queue();
                 }
@@ -595,7 +607,7 @@ public class EventCommand extends ListenerAdapter {
             }
             event.reply("تم تغيير حالة الفعالية إلى: " + newStatus).setEphemeral(true).queue();
             refreshPublicEmbed(event.getGuild(), eventId);
-            refreshStaffEmbed(event.getMessage(), eventId, newStatus);
+            updateStaffEmbed(event.getGuild(), eventId);
         } catch (Exception e) {
             logger.error("Error updating status", e);
             event.reply("حدث خطأ.").setEphemeral(true).queue();
@@ -812,27 +824,54 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    private void refreshStaffEmbed(net.dv8tion.jda.api.entities.Message staffMsg, int eventId, String status) {
+    private void updateStaffEmbed(Guild guild, int eventId) {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String name = "مجهول";
             String channelId = "";
-            String q = "SELECT name, channel_id FROM events WHERE id = ?";
+            String staffChannelId = "";
+            String staffMessageId = "";
+            String status = "OPEN";
+
+            String q = "SELECT name, channel_id, staff_channel_id, staff_message_id, status FROM events WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(q)) {
                 ps.setInt(1, eventId);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
                     name = rs.getString("name");
                     channelId = rs.getString("channel_id");
+                    staffChannelId = rs.getString("staff_channel_id");
+                    staffMessageId = rs.getString("staff_message_id");
+                    status = rs.getString("status");
                 }
             }
+
+            if (staffChannelId == null || staffMessageId == null || staffChannelId.isEmpty() || staffMessageId.isEmpty()) {
+                return;
+            }
+
+            List<String> participantMentions = new ArrayList<>();
+            String q2 = "SELECT discord_id FROM event_participants WHERE event_id = ?";
+            try (PreparedStatement ps2 = conn.prepareStatement(q2)) {
+                ps2.setInt(1, eventId);
+                ResultSet rs2 = ps2.executeQuery();
+                while (rs2.next()) {
+                    participantMentions.add("<@" + rs2.getString("discord_id") + ">");
+                }
+            }
+
             String mention = channelId.isEmpty() ? "مجهول" : "<#" + channelId + ">";
-            Container staffContainer = getStaffContainer(name, mention, eventId, status);
-            
-            MessageEditBuilder editBuilder = new MessageEditBuilder()
-                .setComponents(staffContainer)
-                .setEmbeds(java.util.Collections.emptyList())
-                .useComponentsV2(true);
-            staffMsg.editMessage(editBuilder.build()).queue();
+            Container staffContainer = getStaffContainer(name, mention, eventId, status, participantMentions.size(), participantMentions);
+
+            net.dv8tion.jda.api.entities.channel.middleman.MessageChannel channel = guild.getTextChannelById(staffChannelId);
+            if (channel != null) {
+                channel.retrieveMessageById(staffMessageId).queue(msg -> {
+                    MessageEditBuilder editBuilder = new MessageEditBuilder()
+                        .setComponents(staffContainer)
+                        .setEmbeds(java.util.Collections.emptyList())
+                        .useComponentsV2(true);
+                    msg.editMessage(editBuilder.build()).queue();
+                }, e -> {});
+            }
         } catch(Exception e) {
             logger.error("Error refreshing staff embed", e);
         }
