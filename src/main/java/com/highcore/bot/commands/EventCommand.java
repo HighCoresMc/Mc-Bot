@@ -410,7 +410,7 @@ public class EventCommand extends ListenerAdapter {
                     .setRequired(true)
                     .build();
                 Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
-                    .addCotmponens(Label.of("اسمك في ماينكرافت", mcNameInput))
+                    .addComponents(Label.of("اسمك في ماينكرافت", mcNameInput))
                     .build();
                 event.replyModal(modal).queue();
             } else {
