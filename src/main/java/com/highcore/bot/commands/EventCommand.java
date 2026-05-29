@@ -504,8 +504,8 @@ public class EventCommand extends ListenerAdapter {
                 .build();
 
             event.reply("🎁 **الرجاء إضافة جوائز للفعالية:**\nاختر من القائمة بالأسفل:")
-                 .addActionRow(rewardMenu)
-                 .addActionRow(Button.success("ev_reward_finish", "✅ الانتهاء من إضافة الجوائز ورفع الصورة"))
+                 .setComponents(net.dv8tion.jda.api.components.ActionRow.of(rewardMenu),
+                                net.dv8tion.jda.api.components.ActionRow.of(Button.success("ev_reward_finish", "✅ الانتهاء من إضافة الجوائز ورفع الصورة")))
                  .setEphemeral(true)
                  .queue();
             return;
@@ -904,7 +904,7 @@ public class EventCommand extends ListenerAdapter {
                         editBuilder.setEmbeds(msg.getEmbeds());
                     }
                     if (!msg.getAttachments().isEmpty()) {
-                        editBuilder.setRetainFilesById(msg.getAttachments().stream().map(net.dv8tion.jda.api.entities.Message.Attachment::getId).collect(java.util.stream.Collectors.toList()));
+                        editBuilder.setRetainedFilesById(msg.getAttachments().stream().map(net.dv8tion.jda.api.entities.Message.Attachment::getId).collect(java.util.stream.Collectors.toList()));
                     }
 
                     msg.editMessage(editBuilder.build()).queue();
@@ -1035,27 +1035,23 @@ public class EventCommand extends ListenerAdapter {
             Modal.Builder modalBuilder = Modal.create("ev_reward_modal_" + type, "إضافة جائزة");
             
             if (type.equals("rank")) {
-                TextInput rankInput = TextInput.create("rank_id", TextInputStyle.SHORT)
-                    .setLabel("الرتبة (أو الـ ID الخاص بها)")
+                TextInput rankInput = TextInput.create("rank_id", "الرتبة (أو الـ ID الخاص بها)", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                modalBuilder.addComponents(Label.of("Rank", rankInput));
+                modalBuilder.addComponents(net.dv8tion.jda.api.components.ActionRow.of(rankInput));
             } else if (type.equals("item")) {
-                TextInput itemInput = TextInput.create("item_name", TextInputStyle.SHORT)
-                    .setLabel("اسم الأيتم (مثل minecraft:diamond)")
+                TextInput itemInput = TextInput.create("item_name", "اسم الأيتم (مثل minecraft:diamond)", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                TextInput amountInput = TextInput.create("item_amount", TextInputStyle.SHORT)
-                    .setLabel("الكمية")
+                TextInput amountInput = TextInput.create("item_amount", "الكمية", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                modalBuilder.addComponents(Label.of("Item", itemInput), Label.of("Amount", amountInput));
+                modalBuilder.addComponents(net.dv8tion.jda.api.components.ActionRow.of(itemInput), net.dv8tion.jda.api.components.ActionRow.of(amountInput));
             } else {
-                TextInput amountInput = TextInput.create("amount", TextInputStyle.SHORT)
-                    .setLabel("الكمية / القيمة")
+                TextInput amountInput = TextInput.create("amount", "الكمية / القيمة", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                modalBuilder.addComponents(Label.of("Amount", amountInput));
+                modalBuilder.addComponents(net.dv8tion.jda.api.components.ActionRow.of(amountInput));
             }
 
             event.replyModal(modalBuilder.build()).queue();
@@ -1105,7 +1101,7 @@ public class EventCommand extends ListenerAdapter {
                 }
 
                 JsonArray rewards = JsonParser.parseString(rewardsJson).getAsJsonArray();
-                com.highcore.bot.services.PterodactylService ptero = LeonTrotskyBot.getPterodactylService();
+                com.highcore.bot.services.PterodactylService ptero = new com.highcore.bot.services.PterodactylService();
                 
                 for (int i = 0; i < rewards.size(); i++) {
                     JsonObject r = rewards.get(i).getAsJsonObject();
