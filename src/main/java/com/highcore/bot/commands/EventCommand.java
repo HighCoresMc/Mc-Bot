@@ -166,7 +166,7 @@ public class EventCommand extends ListenerAdapter {
                 if (rs.next()) {
                     int eventId = rs.getInt(1);
                     
-                    Container publicContainer = getBasePublicContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId);
+                    Container publicContainer = getBasePublicContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, null, null);
 
                     MessageCreateBuilder builder = new MessageCreateBuilder()
                         .setComponents(publicContainer)
@@ -231,7 +231,7 @@ public class EventCommand extends ListenerAdapter {
         );
     }
 
-    private Container getBasePublicContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId) {
+    private Container getBasePublicContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String winnerId, String winnerMcName) {
         String statusEmoji = "OPEN".equals(status) ? "🟢" : ("CLOSED".equals(status) ? "🔴" : "⚫");
         String statusText = switch (status) {
             case "OPEN" -> "التسجيل مفتوح";
@@ -243,23 +243,42 @@ public class EventCommand extends ListenerAdapter {
         
         String warning = "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n";
 
-        return Container.of(
-            TextDisplay.of("## 🎉 فعالية جديدة: " + name),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of(warning + "### 📋 التفاصيل\n" +
-                "**نوع الفعالية:** `" + type + "`\n" +
-                "**الوقت:** <t:" + unixTime + ":F>\n" +
-                "**المكافآت:** `" + rewards + "`\n" +
-                "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("### 📝 الشروط\n" + conditions),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(getPublicButtons(eventId, status)),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات")
-        );
+        java.util.List<net.dv8tion.jda.api.components.ItemComponent> components = new java.util.ArrayList<>();
+        components.add(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of(warning + "### 📋 التفاصيل\n" +
+            "**نوع الفعالية:** `" + type + "`\n" +
+            "**الوقت:** <t:" + unixTime + ":F>\n" +
+            "**المكافآت:** `" + rewards + "`\n" +
+            "**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"));
+
+        if (winnerId != null && winnerMcName != null) {
+            int innerWidth = Math.max(17, winnerMcName.length() + 4);
+            String horizontal = "─".repeat(innerWidth);
+            
+            int leftPad = (innerWidth - winnerMcName.length()) / 2;
+            int rightPad = innerWidth - winnerMcName.length() - leftPad;
+            String middleLine = "│" + " ".repeat(leftPad) + winnerMcName + " ".repeat(rightPad) + "│";
+
+            String winnerText = "```\n" +
+                                "╭" + horizontal + "╮\n" +
+                                middleLine + "\n" +
+                                "╰" + horizontal + "╯\n" +
+                                "```\nالفائز: <@" + winnerId + ">";
+            components.add(Separator.createDivider(Separator.Spacing.SMALL));
+            components.add(TextDisplay.of("### 🏆 الفائز في الفعالية\n" + winnerText));
+        }
+
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("### 📝 الشروط\n" + conditions));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("**Event ID:** `" + eventId + "` | " + statusEmoji + " **الحالة:** `" + statusText + "`"));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(ActionRow.of(getPublicButtons(eventId, status)));
+        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        components.add(TextDisplay.of("> لو عندك اي استفسار تفضل <#1487143271586074624> ← الفعاليات"));
+
+        return Container.of(components.toArray(new net.dv8tion.jda.api.components.ItemComponent[0]));
     }
 
     @Override
@@ -504,8 +523,8 @@ public class EventCommand extends ListenerAdapter {
                 .build();
 
             event.reply("🎁 **الرجاء إضافة جوائز للفعالية:**\nاختر من القائمة بالأسفل:")
-                 .setComponents(net.dv8tion.jda.api.components.ActionRow.of(rewardMenu),
-                                net.dv8tion.jda.api.components.ActionRow.of(Button.success("ev_reward_finish", "✅ الانتهاء من إضافة الجوائز ورفع الصورة")))
+                 .setComponents(ActionRow.of(rewardMenu),
+                                ActionRow.of(Button.success("ev_reward_finish", "✅ الانتهاء من إضافة الجوائز ورفع الصورة")))
                  .setEphemeral(true)
                  .queue();
             return;
@@ -860,6 +879,7 @@ public class EventCommand extends ListenerAdapter {
             int maxSeats = 0;
             boolean requiresLink = false;
             
+            String winnerId = null;
             String q1 = "SELECT * FROM events WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(q1)) {
                 ps.setInt(1, eventId);
@@ -876,6 +896,7 @@ public class EventCommand extends ListenerAdapter {
                     status = rs.getString("status");
                     requiresLink = rs.getBoolean("requires_link");
                     imageUrl = rs.getString("image_url");
+                    winnerId = rs.getString("winner_id");
                 }
             }
             if (channelId == null || messageId == null) return;
@@ -889,9 +910,20 @@ public class EventCommand extends ListenerAdapter {
                     currentSeats = rs2.getInt(1);
                 }
             }
+            
+            String winnerMcName = null;
+            if (winnerId != null) {
+                String qw = "SELECT mc_name FROM event_participants WHERE event_id = ? AND discord_id = ?";
+                try (PreparedStatement psw = conn.prepareStatement(qw)) {
+                    psw.setInt(1, eventId);
+                    psw.setString(2, winnerId);
+                    ResultSet rsw = psw.executeQuery();
+                    if (rsw.next()) winnerMcName = rsw.getString("mc_name");
+                }
+            }
 
             long unixTime = TimeUtils.parseToUnixTimestamp(date);
-            Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, eventId);
+            Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, eventId, winnerId, winnerMcName);
 
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
@@ -1035,23 +1067,23 @@ public class EventCommand extends ListenerAdapter {
             Modal.Builder modalBuilder = Modal.create("ev_reward_modal_" + type, "إضافة جائزة");
             
             if (type.equals("rank")) {
-                TextInput rankInput = TextInput.create("rank_id", "الرتبة (أو الـ ID الخاص بها)", TextInputStyle.SHORT)
+                TextInput rankInput = TextInput.create("rank_id", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                modalBuilder.addComponents(net.dv8tion.jda.api.components.ActionRow.of(rankInput));
+                modalBuilder.addComponents(net.dv8tion.jda.api.components.label.Label.of("الرتبة (أو الـ ID الخاص بها)", rankInput));
             } else if (type.equals("item")) {
-                TextInput itemInput = TextInput.create("item_name", "اسم الأيتم (مثل minecraft:diamond)", TextInputStyle.SHORT)
+                TextInput itemInput = TextInput.create("item_name", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                TextInput amountInput = TextInput.create("item_amount", "الكمية", TextInputStyle.SHORT)
+                TextInput amountInput = TextInput.create("item_amount", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                modalBuilder.addComponents(net.dv8tion.jda.api.components.ActionRow.of(itemInput), net.dv8tion.jda.api.components.ActionRow.of(amountInput));
+                modalBuilder.addComponents(net.dv8tion.jda.api.components.label.Label.of("اسم الأيتم (مثل minecraft:diamond)", itemInput), net.dv8tion.jda.api.components.label.Label.of("الكمية", amountInput));
             } else {
-                TextInput amountInput = TextInput.create("amount", "الكمية / القيمة", TextInputStyle.SHORT)
+                TextInput amountInput = TextInput.create("amount", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
-                modalBuilder.addComponents(net.dv8tion.jda.api.components.ActionRow.of(amountInput));
+                modalBuilder.addComponents(net.dv8tion.jda.api.components.label.Label.of("الكمية / القيمة", amountInput));
             }
 
             event.replyModal(modalBuilder.build()).queue();
@@ -1127,6 +1159,8 @@ public class EventCommand extends ListenerAdapter {
                     ps.setInt(2, eventId);
                     ps.executeUpdate();
                 }
+                
+                refreshPublicEmbed(event.getGuild(), eventId);
 
                 event.reply("تم توزيع الجوائز على اللاعب **" + mcName + "** (" + winner.getAsMention() + ") بنجاح! 🏆").queue();
             } catch(Exception e) {
