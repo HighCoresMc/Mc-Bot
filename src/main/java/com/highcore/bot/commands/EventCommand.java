@@ -1221,10 +1221,11 @@ public class EventCommand extends ListenerAdapter {
                     }
                 }
 
+                final String finalMcName = mcName;
                 winner.openPrivateChannel().queue(privateChannel -> {
                     net.dv8tion.jda.api.EmbedBuilder dmEmbed = new net.dv8tion.jda.api.EmbedBuilder();
                     dmEmbed.setTitle("🎉 مبروك الفوز في الفعالية!");
-                    dmEmbed.setDescription("لقد فزت في فعالية الماينكرافت بحسابك **" + mcName + "**!\n\nتم تسليم جوائز الفعالية لحسابك في السيرفر بنجاح، نتمنى لك وقتاً ممتعاً! 🎁");
+                    dmEmbed.setDescription("لقد فزت في فعالية الماينكرافت بحسابك **" + finalMcName + "**!\n\nتم تسليم جوائز الفعالية لحسابك في السيرفر بنجاح، نتمنى لك وقتاً ممتعاً! 🎁");
                     dmEmbed.setColor(0xFFD700);
                     privateChannel.sendMessageEmbeds(dmEmbed.build()).queue();
                 }, error -> logger.warn("Failed to send DM to winner " + winner.getId()));
