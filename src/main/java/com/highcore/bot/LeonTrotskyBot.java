@@ -95,19 +95,7 @@ public class LeonTrotskyBot {
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("stats", "عرض حالة الخادم والإحصائيات المباشرة"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("panel", "التحكم الكامل بالخادم وإدارة النظام"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec", "إنهاء حالة الصيانة أو التوقف الحالية"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("event", "إدارة الفعاليات")
-                        .addSubcommands(
-                            new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("create", "إنشاء فعالية جديدة")
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "name", "اسم الفعالية", true)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "type", "نوع الفعالية", true)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "date", "اليوم والوقت (مثال: 2026-06-20 21:00)", true)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "rewards", "المكافآت", true)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.INTEGER, "seats", "عدد المقاعد", true)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "conditions", "الشروط", true)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.BOOLEAN, "requires_link", "هل تتطلب الفعالية ربط حساب ماينكرافت؟", true)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.ATTACHMENT, "image", "صورة كفر الفعالية", false)
-                                .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "custom_question", "سؤال إضافي يطرح عند التسجيل", false)
-                        )
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("event", "لوحة تحكم الفعاليات")
             );
 
             jda.updateCommands().addCommands(globalCommands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));

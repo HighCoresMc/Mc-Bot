@@ -39,10 +39,37 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
 public class EventCommand extends ListenerAdapter {
     private static final Logger logger = LoggerFactory.getLogger(EventCommand.class);
+
+    private static class PendingEvent {
+        String name;
+        String type;
+        String dateStr;
+        String rewards;
+        int seats;
+        String conditions;
+        String customQuestion;
+        String staffChannelId;
+
+        PendingEvent(String name, String type, String dateStr, String rewards, int seats, String conditions, String customQuestion, String staffChannelId) {
+            this.name = name;
+            this.type = type;
+            this.dateStr = dateStr;
+            this.rewards = rewards;
+            this.seats = seats;
+            this.conditions = conditions;
+            this.customQuestion = customQuestion;
+            this.staffChannelId = staffChannelId;
+        }
+    }
+
+    private static final Map<String, PendingEvent> pendingEvents = new ConcurrentHashMap<>();
     private static final String EVENT_ROLE_ID = "1509885693818699776";
     private static final String HYPE_MANAGER_ID = "1487195247430602852";
     private static final String HYPE_EVENTS_ID = "1487195248059879555";
@@ -51,66 +78,83 @@ public class EventCommand extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         if (!event.getName().equals("event")) return;
-        if (event.getSubcommandName() == null || !event.getSubcommandName().equals("create")) return;
 
         Member member = event.getMember();
         if (member == null || (!member.hasPermission(Permission.ADMINISTRATOR) && !hasRole(member, HYPE_MANAGER_ID))) {
-            event.reply("ليس لديك صلاحية لصنع فعالية! (فقط Hype Manager)").setEphemeral(true).queue();
+            event.reply("ليس لديك صلاحية لإدارة الفعاليات! (فقط Hype Manager)").setEphemeral(true).queue();
             return;
         }
 
-        ForumChannel forumChannel = event.getGuild().getForumChannelById(EVENTS_FORUM_ID);
-        if (forumChannel == null) {
-            event.reply("لم يتم العثور على روم الفعاليات (Forum) في السيرفر! يرجى التأكد من الـ ID.").setEphemeral(true).queue();
-            return;
-        }
+        Container panelContainer = Container.of(
+            TextDisplay.of("## 🛠️ لوحة تحكم الفعاليات"),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            TextDisplay.of("مرحباً بك في لوحة تحكم إدارة الفعاليات. يرجى اختيار الإجراء المطلوب من الأزرار بالأسفل:"),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            ActionRow.of(
+                Button.success("ev_panel_create", "🎉 فعالية جديدة"),
+                Button.primary("ev_panel_history", "📜 سجل الفعاليات").asDisabled(),
+                Button.secondary("ev_panel_wins", "🏆 تاريخ الفوز").asDisabled(),
+                Button.secondary("ev_panel_pending", "⏳ فعاليات معلقة").asDisabled()
+            )
+        );
 
-        String name = event.getOption("name").getAsString();
-        String type = event.getOption("type").getAsString();
-        String dateStr = event.getOption("date").getAsString();
-        String rewards = event.getOption("rewards").getAsString();
-        int seats = event.getOption("seats").getAsInt();
-        String conditions = event.getOption("conditions").getAsString();
-        boolean requiresLink = event.getOption("requires_link").getAsBoolean();
-        String customQuestion = event.getOption("custom_question") != null ? event.getOption("custom_question").getAsString() : null;
+        event.replyComponents(panelContainer).useComponentsV2(true).queue();
+    }
+
+    @Override
+    public void onMessageReceived(MessageReceivedEvent event) {
+        User user = event.getAuthor();
+        if (user.isBot()) return;
         
-        Attachment imageAttachment = event.getOption("image") != null ? event.getOption("image").getAsAttachment() : null;
-        String imageUrl = imageAttachment != null ? imageAttachment.getUrl() : null;
+        PendingEvent pe = pendingEvents.get(user.getId());
+        if (pe != null && event.getChannel().getId().equals(pe.staffChannelId)) {
+            String imageUrl = null;
+            if (!event.getMessage().getAttachments().isEmpty()) {
+                imageUrl = event.getMessage().getAttachments().get(0).getUrl();
+            } else if (!event.getMessage().getContentRaw().equalsIgnoreCase("skip")) {
+                event.getMessage().reply("الرجاء إرسال صورة أو كتابة `skip`.").queue();
+                return;
+            }
 
-        if (!TimeUtils.isValidFormat(dateStr)) {
-            event.reply("صيغة الوقت غير صحيحة! يجب أن تكون YYYY-MM-DD HH:MM (مثال: 2026-06-20 21:00)").setEphemeral(true).queue();
-            return;
+            pendingEvents.remove(user.getId());
+            event.getMessage().delete().queue(null, e -> {});
+            
+            createEventFinal(user, event.getGuild(), pe, imageUrl);
         }
-        long unixTime = TimeUtils.parseToUnixTimestamp(dateStr);
+    }
 
-        event.deferReply().queue();
+    private void createEventFinal(User creator, Guild guild, PendingEvent pe, String imageUrl) {
+        ForumChannel forumChannel = guild.getForumChannelById(EVENTS_FORUM_ID);
+        if (forumChannel == null) return;
+        
+        long unixTime = TimeUtils.parseToUnixTimestamp(pe.dateStr);
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String insertSql = "INSERT INTO events (name, type, event_date, rewards, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setString(1, name);
-                ps.setString(2, type);
-                ps.setString(3, dateStr);
-                ps.setString(4, rewards);
-                ps.setInt(5, seats);
-                ps.setString(6, conditions);
-                ps.setBoolean(7, requiresLink);
-                ps.setString(8, customQuestion);
+                ps.setString(1, pe.name);
+                ps.setString(2, pe.type);
+                ps.setString(3, pe.dateStr);
+                ps.setString(4, pe.rewards);
+                ps.setInt(5, pe.seats);
+                ps.setString(6, pe.conditions);
+                ps.setBoolean(7, true);
+                ps.setString(8, pe.customQuestion);
                 ps.setString(9, imageUrl);
-                ps.setString(10, event.getChannel().getId());
+                ps.setString(10, pe.staffChannelId);
                 ps.executeUpdate();
 
                 ResultSet rs = ps.getGeneratedKeys();
                 if (rs.next()) {
                     int eventId = rs.getInt(1);
                     
-                    Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, seats, 0, conditions, requiresLink, "OPEN", imageUrl, eventId);
+                    Container publicContainer = getBasePublicContainer(pe.name, pe.type, unixTime, pe.rewards, pe.seats, 0, pe.conditions, "OPEN", imageUrl, eventId);
 
                     MessageCreateBuilder builder = new MessageCreateBuilder()
                         .setComponents(publicContainer)
                         .useComponentsV2(true);
 
-                    forumChannel.createForumPost("🎉 " + name, builder.build())
+                    forumChannel.createForumPost("🎉 " + pe.name, builder.build())
                         .queue(forumPost -> {
                             String threadId = forumPost.getThreadChannel().getId();
                             String messageId = forumPost.getMessage().getId();
@@ -121,31 +165,28 @@ public class EventCommand extends ListenerAdapter {
                                 p2.setString(2, threadId); 
                                 p2.setInt(3, eventId);
                                 p2.executeUpdate();
-                            } catch (Exception e) {
-                                logger.error("Failed to update event with public message id", e);
-                            }
+                            } catch (Exception e) {}
 
-                            Container staffContainer = getStaffContainer(name, forumPost.getThreadChannel().getAsMention(), eventId, "OPEN");
+                            Container staffContainer = getStaffContainer(pe.name, forumPost.getThreadChannel().getAsMention(), eventId, "OPEN");
 
-                            event.getHook().editOriginalComponents(staffContainer)
-                                .setEmbeds(java.util.Collections.emptyList())
-                                .useComponentsV2(true)
+                            MessageCreateBuilder staffBuilder = new MessageCreateBuilder()
+                                .setComponents(staffContainer)
+                                .useComponentsV2(true);
+                                
+                            guild.getTextChannelById(pe.staffChannelId).sendMessage(staffBuilder.build())
                                 .queue(staffMsg -> {
                                     try (Connection c3 = LeonTrotskyBot.getDbManager().getConnection();
                                          PreparedStatement p3 = c3.prepareStatement("UPDATE events SET staff_message_id = ? WHERE id = ?")) {
                                         p3.setString(1, staffMsg.getId());
                                         p3.setInt(2, eventId);
                                         p3.executeUpdate();
-                                    } catch (Exception e) {
-                                        logger.error("Failed to update event with staff message id", e);
-                                    }
+                                    } catch (Exception e) {}
                                 });
                         });
                 }
             }
         } catch (Exception e) {
             logger.error("Error creating event", e);
-            event.getHook().editOriginal("حدث خطأ أثناء إنشاء الفعالية.").queue();
         }
     }
 
@@ -159,7 +200,7 @@ public class EventCommand extends ListenerAdapter {
         );
     }
 
-    private Container getBasePublicContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, boolean requiresLink, String status, String imageUrl, int eventId) {
+    private Container getBasePublicContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, String imageUrl, int eventId) {
         String statusEmoji = "OPEN".equals(status) ? "🟢" : ("CLOSED".equals(status) ? "🔴" : "⚫");
         String statusText = switch (status) {
             case "OPEN" -> "التسجيل مفتوح";
@@ -169,7 +210,7 @@ public class EventCommand extends ListenerAdapter {
             default -> status;
         };
         
-        String warning = requiresLink ? "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n" : "";
+        String warning = "⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل.\n\n";
 
         if (imageUrl != null && !imageUrl.isEmpty()) {
             return Container.of(
@@ -210,6 +251,40 @@ public class EventCommand extends ListenerAdapter {
     public void onButtonInteraction(ButtonInteractionEvent event) {
         String id = event.getComponentId();
         if (!id.startsWith("ev_")) return;
+
+        if (id.equals("ev_panel_create")) {
+            TextInput nameInput = TextInput.create("ev_create_name", TextInputStyle.SHORT)
+                .setRequired(true)
+                .build();
+            TextInput typeInput = TextInput.create("ev_create_type", TextInputStyle.SHORT)
+                .setRequired(true)
+                .build();
+            TextInput dateInput = TextInput.create("ev_create_date", TextInputStyle.SHORT)
+                .setPlaceholder("مثال: 2026-06-20 21:00")
+                .setRequired(true)
+                .build();
+            TextInput rewardsSeatsInput = TextInput.create("ev_create_rewards_seats", TextInputStyle.SHORT)
+                .setPlaceholder("مثال: رتبة فيب - 50")
+                .setRequired(true)
+                .build();
+            TextInput conditionsInput = TextInput.create("ev_create_conditions", TextInputStyle.PARAGRAPH)
+                .setPlaceholder("الشروط، (أضف سؤالاً إضافياً بين قوسين في النهاية إذا أردت)")
+                .setRequired(true)
+                .build();
+
+            Modal modal = Modal.create("ev_modal_create", "إنشاء فعالية جديدة")
+                .addComponents(
+                    Label.of("اسم الفعالية", nameInput),
+                    Label.of("نوع الفعالية", typeInput),
+                    Label.of("تاريخ ووقت الفعالية", dateInput),
+                    Label.of("المكافآت - المقاعد", rewardsSeatsInput),
+                    Label.of("الشروط (والسؤال الإضافي)", conditionsInput)
+                )
+                .build();
+            
+            event.replyModal(modal).queue();
+            return;
+        }
 
         if (id.startsWith("ev_reg_")) {
             int eventId = Integer.parseInt(id.replace("ev_reg_", ""));
@@ -335,7 +410,7 @@ public class EventCommand extends ListenerAdapter {
                     .setRequired(true)
                     .build();
                 Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
-                    .addComponents(Label.of("اسمك في ماينكرافت", mcNameInput))
+                    .addCotmponens(Label.of("اسمك في ماينكرافت", mcNameInput))
                     .build();
                 event.replyModal(modal).queue();
             } else {
@@ -353,6 +428,42 @@ public class EventCommand extends ListenerAdapter {
 
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
+        if (event.getModalId().equals("ev_modal_create")) {
+            String name = event.getValue("ev_create_name").getAsString();
+            String type = event.getValue("ev_create_type").getAsString();
+            String dateStr = event.getValue("ev_create_date").getAsString();
+            String rewardsSeats = event.getValue("ev_create_rewards_seats").getAsString();
+            String conditions = event.getValue("ev_create_conditions").getAsString();
+            
+            if (!TimeUtils.isValidFormat(dateStr)) {
+                event.reply("صيغة الوقت غير صحيحة! يجب أن تكون YYYY-MM-DD HH:MM (مثال: 2026-06-20 21:00)").setEphemeral(true).queue();
+                return;
+            }
+
+            String rewards = rewardsSeats;
+            int seats = 50;
+            if (rewardsSeats.contains("-")) {
+                String[] parts = rewardsSeats.split("-");
+                rewards = parts[0].trim();
+                try {
+                    seats = Integer.parseInt(parts[1].trim());
+                } catch (Exception ignored) {}
+            }
+
+            String customQuestion = null;
+            if (conditions.contains("(") && conditions.endsWith(")")) {
+                int lastOpen = conditions.lastIndexOf("(");
+                customQuestion = conditions.substring(lastOpen + 1, conditions.length() - 1);
+                conditions = conditions.substring(0, lastOpen).trim();
+            }
+
+            PendingEvent pe = new PendingEvent(name, type, dateStr, rewards, seats, conditions, customQuestion, event.getChannel().getId());
+            pendingEvents.put(event.getUser().getId(), pe);
+
+            event.reply("تم حفظ بيانات الفعالية مؤقتاً! 📸\nيرجى **إرسال صورة الفعالية** في هذا الشات الآن (أو اكتب `skip` لتخطي الصورة).").setEphemeral(true).queue();
+            return;
+        }
+
         if (!event.getModalId().startsWith("ev_modal_")) return;
         int eventId = Integer.parseInt(event.getModalId().replace("ev_modal_", ""));
 
@@ -684,7 +795,7 @@ public class EventCommand extends ListenerAdapter {
             }
 
             long unixTime = TimeUtils.parseToUnixTimestamp(date);
-            Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, requiresLink, status, imageUrl, eventId);
+            Container publicContainer = getBasePublicContainer(name, type, unixTime, rewards, maxSeats, currentSeats, conditions, status, imageUrl, eventId);
 
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
