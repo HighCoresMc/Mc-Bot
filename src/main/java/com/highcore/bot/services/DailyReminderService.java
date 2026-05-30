@@ -69,11 +69,9 @@ public class DailyReminderService {
     private static void sendWarningDM(JDA jda, String discordId, int streak) {
         jda.retrieveUserById(discordId).queue(user -> {
             Container warningContainer = Container.of(
-                Section.of(
-                    TextDisplay.of("## ⚠️ تنبيه الـ Streak الخاص بك!"),
-                    TextDisplay.of("لقد مرّت أكثر من 36 ساعة على آخر مكافأة يومية استلمتها.\n\n" +
-                                   "يرجى استخدام أمر `/daily` في الخادم لتجنب خسارة سلسلة أيامك المتتالية (**" + streak + "** يوم 🔥).")
-                )
+                TextDisplay.of("## ⚠️ تنبيه الـ Streak الخاص بك!"),
+                TextDisplay.of("لقد مرّت أكثر من 36 ساعة على آخر مكافأة يومية استلمتها.\n\n" +
+                               "يرجى استخدام أمر `/daily` في الخادم لتجنب خسارة سلسلة أيامك المتتالية (**" + streak + "** يوم 🔥).")
             );
 
             user.openPrivateChannel().queue(pc -> {
