@@ -769,12 +769,12 @@ public class CrateDropCommand extends ListenerAdapter {
                         String levelText = getLevelText(level);
 
                         Container claimContainer = Container.of(
-                            TextDisplay.of("## 📦 ظهر صندوق مشفر!"),
-                            Separator.createDivider(Separator.Spacing.SMALL),
-                            TextDisplay.of("**الجائزة:** `" + loot.prizeDisplay + "`\n" +
-                                           "**المستوى:** `" + levelText + "`\n" +
-                                           "**الحالة:** `بانتظار المتحدي الأول`"),
-                            Separator.createDivider(Separator.Spacing.SMALL),
+                            TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
+                            Separator.createDivider(Separator.Spacing.MEDIUM),
+                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + loot.prizeDisplay + "`\n\n" +
+                                           "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
+                                           "> 🟢 **الـحَـالَـة:** `بانتظار المتحدي الأول`"),
+                            Separator.createDivider(Separator.Spacing.MEDIUM),
                             ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                         );
 
@@ -831,6 +831,11 @@ public class CrateDropCommand extends ListenerAdapter {
 
         if (challenge.lockedByUserId != null && challenge.lockedUntil > System.currentTimeMillis()) {
             event.reply("❌ يوجد لاعب يحاول فك الكريت الآن. انتظر فشل المحاولة أو انتهاء الوقت.").setEphemeral(true).queue();
+            return;
+        }
+
+        if (challenge.firstAttemptUserId != null && !challenge.firstAttemptUserId.equals(userId)) {
+            event.reply("❌ هذا الصندوق محجوز للاعب الذي بدأ محاولة فكه أولاً ولا يمكن للاعبين الآخرين المشاركة فيه.").setEphemeral(true).queue();
             return;
         }
 
@@ -894,6 +899,9 @@ public class CrateDropCommand extends ListenerAdapter {
             }
 
             challenge.lockedByUserId = userId;
+            if (challenge.firstAttemptUserId == null) {
+                challenge.firstAttemptUserId = userId;
+            }
             challenge.challengeStartTime = System.currentTimeMillis();
             challenge.grid = generateRandomGrid(challenge.level);
             challenge.questionSlots = selectQuestionSlots(challenge.level);
@@ -916,17 +924,21 @@ public class CrateDropCommand extends ListenerAdapter {
             updateHistoryOnLock(historyId, userId, uuid);
 
             String levelText = getLevelText(challenge.level);
+            long memEnd = (System.currentTimeMillis() + 5000) / 1000;
             Container memContainer = Container.of(
-                TextDisplay.of("## 📦 محاولة فك الصندوق المشفر"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("**المتحدي:** <@" + userId + ">\n**الجائزة:** `" + challenge.prize + "`\n**المستوى:** `" + levelText + "`"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("### ⏱️ تذكّر الرموز التالية (5 ثوانٍ):\n" +
+                TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
+                Separator.createDivider(Separator.Spacing.MEDIUM),
+                TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
+                               "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                               "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
+                Separator.createDivider(Separator.Spacing.MEDIUM),
+                TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
                                "```\n" +
-                               challenge.grid[0] + "   " + challenge.grid[1] + "   " + challenge.grid[2] + "\n" +
-                               challenge.grid[3] + "   " + challenge.grid[4] + "   " + challenge.grid[5] + "\n" +
-                               challenge.grid[6] + "   " + challenge.grid[7] + "   " + challenge.grid[8] + "\n" +
-                               "```")
+                               "  " + challenge.grid[0] + "   " + challenge.grid[1] + "   " + challenge.grid[2] + "\n" +
+                               "  " + challenge.grid[3] + "   " + challenge.grid[4] + "   " + challenge.grid[5] + "\n" +
+                               "  " + challenge.grid[6] + "   " + challenge.grid[7] + "   " + challenge.grid[8] + "\n" +
+                               "```\n" +
+                               "⏱️ **تختفي الرموز:** <t:" + memEnd + ":R>")
             );
 
             event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
@@ -940,19 +952,22 @@ public class CrateDropCommand extends ListenerAdapter {
                 try {
                     if (challenge.solved || challenge.failedReason != null) return;
 
+                    long solveEnd = (System.currentTimeMillis() + (finalSolveTime * 1000L)) / 1000;
                     Container solveContainer = Container.of(
-                        TextDisplay.of("## 📦 محاولة فك الصندوق المشفر"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("**المتحدي:** <@" + userId + ">\n**الجائزة:** `" + challenge.prize + "`\n**المستوى:** `" + levelText + "`"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("### 🔢 اختر الرموز القديمة للخانات المطلوبة:\n" +
+                        TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
+                        Separator.createDivider(Separator.Spacing.MEDIUM),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
+                                       "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                       "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
+                        Separator.createDivider(Separator.Spacing.MEDIUM),
+                        TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
                                        "```\n" +
-                                       "[1]  [2]  [3]\n" +
-                                       "[4]  [5]  [6]\n" +
-                                       "[7]  [8]  [9]\n" +
+                                       "  [1]  [2]  [3]\n" +
+                                       "  [4]  [5]  [6]\n" +
+                                       "  [7]  [8]  [9]\n" +
                                        "```\n" +
-                                       "⏳ **الوقت المتبقي:** " + finalSolveTime + " ثانية"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
+                                       "⏳ **ينتهي الوقت المتاح للحل:** <t:" + solveEnd + ":R>"),
+                        Separator.createDivider(Separator.Spacing.MEDIUM),
                         ActionRow.of(Button.success("drop_hack_" + historyId, "💻 بدء التهكير"))
                     );
 
@@ -1163,12 +1178,14 @@ public class CrateDropCommand extends ListenerAdapter {
                     String commandToRun = challenge.command.replace("%player%", mcName);
                     RewardService.queueReward(historyId, commandToRun, challenge.lockedByUserId, mcName, challenge.prize);
 
+                    String levelText = getLevelText(challenge.level);
                     Container successContainer = Container.of(
-                        TextDisplay.of("## 🎉 تم فك الكريت بنجاح!"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("**الفائز:** <@" + challenge.lockedByUserId + ">\n" +
-                                       "**الجائزة:** `" + challenge.prize + "`\n" +
-                                       "**الوقت المستغرق:** `" + String.format(Locale.US, "%.1f", elapsed) + "s` ⚡")
+                        TextDisplay.of("## 🎉 ───────── 🔓 تَمَّ فَتْحُ الصُّنْدُوقِ بِنَجَاح ───────── 🎉"),
+                        Separator.createDivider(Separator.Spacing.MEDIUM),
+                        TextDisplay.of("> 👤 **الـفَـائِـز:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                       "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                       "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
+                                       "> ⏱️ **الـوَقْـتُ الـمُـسْتَغْرَق:** `" + String.format(Locale.US, "%.1f", elapsed) + "s` ⚡")
                     );
 
                     channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
@@ -1188,10 +1205,11 @@ public class CrateDropCommand extends ListenerAdapter {
                 else if (p == 60) bar = "████████░░ 80%";
 
                 Container decodingContainer = Container.of(
-                    TextDisplay.of("## ⏳ يجري فك تشفير الصندوق..."),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("**المتحدي:** <@" + challenge.lockedByUserId + ">\n**الجائزة:** `" + challenge.prize + "`"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
+                    TextDisplay.of("## ⏳ ───────── 🛠️ جَارِي فَكُّ التَّشْفِير ───────── ⏳"),
+                    Separator.createDivider(Separator.Spacing.MEDIUM),
+                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                   "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`"),
+                    Separator.createDivider(Separator.Spacing.MEDIUM),
                     TextDisplay.of("### " + bar)
                 );
 
@@ -1216,11 +1234,12 @@ public class CrateDropCommand extends ListenerAdapter {
         updateHistoryStatus(historyId, details, reason);
 
         Container failureContainer = Container.of(
-            TextDisplay.of("## ❌ فشل فك الكريت!"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("**المتحدي:** <@" + challenge.lockedByUserId + ">\n" +
-                           "**السبب:** `" + reason + "`\n\n" +
-                           "🔄 تم تحرير الصندوق، ويمكن للاعب آخر المحاولة الآن.")
+            TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
+            Separator.createDivider(Separator.Spacing.MEDIUM),
+            TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
+                           "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                           "> ⚠️ **الـسَّـبَـب:** `" + reason + "`\n\n" +
+                           "🔄 تم الاحتفاظ بالصندوق للمتحدي الأول فقط لإعادة المحاولة.")
         );
 
         channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
@@ -1244,11 +1263,17 @@ public class CrateDropCommand extends ListenerAdapter {
                 challenge.wrongAnswersCount = 0;
 
                 String levelText = getLevelText(challenge.level);
+                String statusText = challenge.firstAttemptUserId == null 
+                        ? "بانتظار المتحدي الأول" 
+                        : "محجوز لـ <@" + challenge.firstAttemptUserId + ">";
+
                 Container claimContainer = Container.of(
-                    TextDisplay.of("## 📦 ظهر صندوق مشفر!"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("**الجائزة:** `" + challenge.prize + "`\n**المستوى:** `" + levelText + "`\n**الحالة:** `بانتظار المتحدي الأول`"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
+                    TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
+                    Separator.createDivider(Separator.Spacing.MEDIUM),
+                    TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                   "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
+                                   "> 🔒 **الـحَـالَـة:** " + statusText),
+                    Separator.createDivider(Separator.Spacing.MEDIUM),
                     ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                 );
 
@@ -1366,5 +1391,6 @@ public class CrateDropCommand extends ListenerAdapter {
         public String failedReason;
         public int wrongAnswersCount;
         public ScheduledFuture<?> timeoutTask;
+        public String firstAttemptUserId;
     }
 }
