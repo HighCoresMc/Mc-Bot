@@ -835,31 +835,39 @@ public class CrateDropCommand extends ListenerAdapter {
         }
 
         event.deferReply(true).queue(hook -> {
-            if (isBlacklisted(userId)) {
-                hook.sendMessage("❌ حسابك محظور من المشاركة في نظام الدروبات.").queue();
-                return;
+            boolean isImmune = false;
+            Member member = event.getMember();
+            if (member != null) {
+                isImmune = member.getRoles().stream().anyMatch(r -> r.getId().equals("1487152572207861870"));
             }
 
-            int dailyWinsLimit = 1;
-            try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-                try (PreparedStatement ps = conn.prepareStatement("SELECT max_daily_wins FROM drop_config WHERE id = 1")) {
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (rs.next()) dailyWinsLimit = rs.getInt("max_daily_wins");
-                    }
-                }
-            } catch (Exception ignored) {}
-
-            int dailyWins = getDailyWins(userId);
-            if (dailyWins >= dailyWinsLimit) {
-                hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالدروبات اليوم وهو " + dailyWinsLimit + ".").queue();
-                return;
-            }
-
-            if ("RARE".equalsIgnoreCase(challenge.level) || "EPIC".equalsIgnoreCase(challenge.level) || "NETHERITE".equalsIgnoreCase(challenge.level)) {
-                int weeklyRareWins = getWeeklyRareWins(userId);
-                if (weeklyRareWins >= 2) {
-                    hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالجوائز النادرة هذا الأسبوع (حد الفوز: 2).").queue();
+            if (!isImmune) {
+                if (isBlacklisted(userId)) {
+                    hook.sendMessage("❌ حسابك محظور من المشاركة في نظام الدروبات.").queue();
                     return;
+                }
+
+                int dailyWinsLimit = 1;
+                try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+                    try (PreparedStatement ps = conn.prepareStatement("SELECT max_daily_wins FROM drop_config WHERE id = 1")) {
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (rs.next()) dailyWinsLimit = rs.getInt("max_daily_wins");
+                        }
+                    }
+                } catch (Exception ignored) {}
+
+                int dailyWins = getDailyWins(userId);
+                if (dailyWins >= dailyWinsLimit) {
+                    hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالدروبات اليوم وهو " + dailyWinsLimit + ".").queue();
+                    return;
+                }
+
+                if ("RARE".equalsIgnoreCase(challenge.level) || "EPIC".equalsIgnoreCase(challenge.level) || "NETHERITE".equalsIgnoreCase(challenge.level)) {
+                    int weeklyRareWins = getWeeklyRareWins(userId);
+                    if (weeklyRareWins >= 2) {
+                        hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالجوائز النادرة هذا الأسبوع (حد الفوز: 2).").queue();
+                        return;
+                    }
                 }
             }
 
@@ -870,17 +878,18 @@ public class CrateDropCommand extends ListenerAdapter {
             }
 
             String uuid = uuidOpt.get();
-            if (!isPlayerActive(uuid)) {
-                hook.sendMessage("❌ يجب أن تكون قد قمت بتسجيل الدخول إلى خادم ماينكرافت خلال آخر 7 أيام للمشاركة.").queue();
-                return;
-            }
-
-            Member member = event.getMember();
-            if (member != null) {
-                long daysJoined = Duration.between(member.getTimeJoined(), OffsetDateTime.now()).toDays();
-                if (daysJoined < 3) {
-                    hook.sendMessage("❌ يجب أن يكون عمر انضمامك للسيرفر أكثر من 3 أيام للمشاركة!").queue();
+            if (!isImmune) {
+                if (!isPlayerActive(uuid)) {
+                    hook.sendMessage("❌ يجب أن تكون قد قمت بتسجيل الدخول إلى خادم ماينكرافت خلال آخر 7 أيام للمشاركة.").queue();
                     return;
+                }
+
+                if (member != null) {
+                    long daysJoined = Duration.between(member.getTimeJoined(), OffsetDateTime.now()).toDays();
+                    if (daysJoined < 3) {
+                        hook.sendMessage("❌ يجب أن يكون عمر انضمامك للسيرفر أكثر من 3 أيام للمشاركة!").queue();
+                        return;
+                    }
                 }
             }
 
