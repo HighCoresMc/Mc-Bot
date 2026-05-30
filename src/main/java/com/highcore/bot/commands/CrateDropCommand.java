@@ -726,29 +726,95 @@ public class CrateDropCommand extends ListenerAdapter {
     private static Loot selectRandomLootStatic(String level) {
         java.util.Random rand = new java.util.Random();
         if ("SIMPLE".equalsIgnoreCase(level)) {
-            int pick = rand.nextInt(3);
-            if (pick == 0) return new Loot("500 CMI 💵", "cmi money add %player% 500");
-            else if (pick == 1) return new Loot("15 Tokens 🌀", "points give %player% 15");
-            else return new Loot("100 Claim Blocks 🧱", "adjustbonusclaimblocks %player% 100");
+            int pick = rand.nextInt(5);
+            if (pick == 0) {
+                int amount = 100 + rand.nextInt(901);
+                return new Loot(amount + " CMI 💵", "cmi money add %player% " + amount);
+            } else if (pick == 1) {
+                int tokens = 5 + rand.nextInt(21);
+                return new Loot(tokens + " Tokens 🌀", "points give %player% " + tokens);
+            } else if (pick == 2) {
+                int blocks = 50 + rand.nextInt(201);
+                return new Loot(blocks + " Claim Blocks 🧱", "adjustbonusclaimblocks %player% " + blocks);
+            } else if (pick == 3) {
+                int keys = 1 + rand.nextInt(3);
+                return new Loot(keys + "x Vote Keys 🔑", "crate key give %player% vote " + keys);
+            } else {
+                int iron = 5 + rand.nextInt(12);
+                return new Loot(iron + "x Iron Ingots 🪙", "cmi give %player% iron_ingot " + iron);
+            }
         } else if ("RARE".equalsIgnoreCase(level)) {
-            int pick = rand.nextInt(3);
-            if (pick == 0) return new Loot("1,500 CMI 💵", "cmi money add %player% 1500");
-            else if (pick == 1) return new Loot("30 Tokens 🌀", "points give %player% 30");
-            else return new Loot("Vote Key 🔑", "crate key give %player% vote 1");
+            int pick = rand.nextInt(6);
+            if (pick == 0) {
+                int amount = 1000 + rand.nextInt(4001);
+                return new Loot(amount + " CMI 💵", "cmi money add %player% " + amount);
+            } else if (pick == 1) {
+                int tokens = 20 + rand.nextInt(41);
+                return new Loot(tokens + " Tokens 🌀", "points give %player% " + tokens);
+            } else if (pick == 2) {
+                int blocks = 200 + rand.nextInt(551);
+                return new Loot(blocks + " Claim Blocks 🧱", "adjustbonusclaimblocks %player% " + blocks);
+            } else if (pick == 3) {
+                int keys = 1 + rand.nextInt(2);
+                return new Loot(keys + "x Rare Keys 🔑", "crate key give %player% rare " + keys);
+            } else if (pick == 4) {
+                int diamonds = 3 + rand.nextInt(6);
+                return new Loot(diamonds + "x Diamonds 💎", "cmi give %player% diamond " + diamonds);
+            } else {
+                int gold = 8 + rand.nextInt(17);
+                return new Loot(gold + "x Gold Ingots 👑", "cmi give %player% gold_ingot " + gold);
+            }
         } else if ("EPIC".equalsIgnoreCase(level)) {
-            int pick = rand.nextInt(3);
-            if (pick == 0) return new Loot("Rare Key 🔑", "crate key give %player% rare 1");
-            else if (pick == 1) return new Loot("500 Claim Blocks 🧱", "adjustbonusclaimblocks %player% 500");
-            else return new Loot("Temporary Epic Rank 7 Days 🏆", "lp user %player% parent addtemp epic 7d");
-        } else {
             int pick = rand.nextInt(7);
-            if (pick == 0) return new Loot("Netherite Upgrade Template 🌋", "cmi give %player% netherite_upgrade_template 1");
-            else if (pick == 1) return new Loot("Netherite Ingot 👑", "cmi give %player% netherite_ingot 1");
-            else if (pick == 2) return new Loot("Netherite Helmet 🪖", "cmi give %player% netherite_helmet 1");
-            else if (pick == 3) return new Loot("Netherite Chestplate 👕", "cmi give %player% netherite_chestplate 1");
-            else if (pick == 4) return new Loot("Netherite Leggings 👖", "cmi give %player% netherite_leggings 1");
-            else if (pick == 5) return new Loot("Netherite Boots 🥾", "cmi give %player% netherite_boots 1");
-            else return new Loot("Legendary Key 🔑", "crate key give %player% legendary 1");
+            if (pick == 0) {
+                int amount = 5000 + rand.nextInt(10001);
+                return new Loot(amount + " CMI 💵", "cmi money add %player% " + amount);
+            } else if (pick == 1) {
+                int tokens = 50 + rand.nextInt(101);
+                return new Loot(tokens + " Tokens 🌀", "points give %player% " + tokens);
+            } else if (pick == 2) {
+                int blocks = 500 + rand.nextInt(1501);
+                return new Loot(blocks + " Claim Blocks 🧱", "adjustbonusclaimblocks %player% " + blocks);
+            } else if (pick == 3) {
+                int keys = 1 + rand.nextInt(3);
+                return new Loot(keys + "x Epic Keys 🔑", "crate key give %player% epic " + keys);
+            } else if (pick == 4) {
+                int netherite = 1 + rand.nextInt(3);
+                return new Loot(netherite + "x Netherite Scraps 🔥", "cmi give %player% netherite_scrap " + netherite);
+            } else if (pick == 5) {
+                int dblocks = 1 + rand.nextInt(4);
+                return new Loot(dblocks + "x Diamond Blocks 💎", "cmi give %player% diamond_block " + dblocks);
+            } else {
+                int days = 3 + rand.nextInt(8);
+                return new Loot("Temporary Epic Rank " + days + " Days 🏆", "lp user %player% parent addtemp epic " + days + "d");
+            }
+        } else {
+            int pick = rand.nextInt(8);
+            if (pick == 0) {
+                int amount = 15000 + rand.nextInt(35001);
+                return new Loot(amount + " CMI 💵", "cmi money add %player% " + amount);
+            } else if (pick == 1) {
+                int tokens = 100 + rand.nextInt(401);
+                return new Loot(tokens + " Tokens 🌀", "points give %player% " + tokens);
+            } else if (pick == 2) {
+                int blocks = 1000 + rand.nextInt(4001);
+                return new Loot(blocks + " Claim Blocks 🧱", "adjustbonusclaimblocks %player% " + blocks);
+            } else if (pick == 3) {
+                int keys = 1 + rand.nextInt(4);
+                return new Loot(keys + "x Legendary Keys 🔑", "crate key give %player% legendary " + keys);
+            } else if (pick == 4) {
+                return new Loot("Netherite Upgrade Template 🌋", "cmi give %player% netherite_upgrade_template 1");
+            } else if (pick == 5) {
+                int ingots = 1 + rand.nextInt(3);
+                return new Loot(ingots + "x Netherite Ingots 👑", "cmi give %player% netherite_ingot " + ingots);
+            } else if (pick == 6) {
+                String[] pieces = {"helmet", "chestplate", "leggings", "boots"};
+                String chosenPiece = pieces[rand.nextInt(pieces.length)];
+                return new Loot("Netherite " + chosenPiece.substring(0, 1).toUpperCase() + chosenPiece.substring(1) + " 🪖", "cmi give %player% netherite_" + chosenPiece + " 1");
+            } else {
+                int days = 5 + rand.nextInt(11);
+                return new Loot("Temporary Netherite Rank " + days + " Days 🏆", "lp user %player% parent addtemp netherite " + days + "d");
+            }
         }
     }
 
@@ -771,7 +837,7 @@ public class CrateDropCommand extends ListenerAdapter {
                         Container claimContainer = Container.of(
                             TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
                             Separator.createDivider(Separator.Spacing.SMALL),
-                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + loot.prizeDisplay + "`\n\n" +
+                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
                                            "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
                                            "> 🟢 **الـحَـالَـة:** `بانتظار المتحدي الأول`"),
                             Separator.createDivider(Separator.Spacing.SMALL),
@@ -935,7 +1001,7 @@ public class CrateDropCommand extends ListenerAdapter {
                 TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
                 Separator.createDivider(Separator.Spacing.SMALL),
                 TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
-                               "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                               "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
                                "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
                 Separator.createDivider(Separator.Spacing.SMALL),
                 TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
@@ -963,7 +1029,7 @@ public class CrateDropCommand extends ListenerAdapter {
                         TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
                         Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
-                                       "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                       "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
                                        "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
                         Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
@@ -1248,7 +1314,7 @@ public class CrateDropCommand extends ListenerAdapter {
                     TextDisplay.of("## ⏳ ───────── ⚙️ جَارِي فَكُّ التَّشْفِيرِ وَالْخَرْق ───────── ⏳"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`"),
+                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of(statusLogs),
                     Separator.createDivider(Separator.Spacing.SMALL),
@@ -1287,7 +1353,7 @@ public class CrateDropCommand extends ListenerAdapter {
                     TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
                                    "> ⚠️ **الـسَّـبَـب:** `فشل في 3 محاولات متتالية`\n\n" +
                                    "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>"),
                     Separator.createDivider(Separator.Spacing.SMALL)
@@ -1321,7 +1387,7 @@ public class CrateDropCommand extends ListenerAdapter {
                         Container claimContainer = Container.of(
                             TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
                             Separator.createDivider(Separator.Spacing.SMALL),
-                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
                                            "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
                                            "> 🔒 **الـحَـالَـة:** " + statusText),
                             Separator.createDivider(Separator.Spacing.SMALL),
@@ -1344,7 +1410,7 @@ public class CrateDropCommand extends ListenerAdapter {
                     TextDisplay.of("## ❌ ───────── 🔒 تَلَفَ الصُّنْدُوقِ بِالْكَامِل ───────── ❌"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
                                    "> ⚠️ **الـحَـالَـة:** `تالف بالكامل (Expired)`\n\n" +
                                    "🚫 تم استنفاد جميع محاولات فك التشفير المتاحة للصندوق. تم إتلاف الصندوق وتصفير الجائزة.")
                 );
@@ -1362,7 +1428,7 @@ public class CrateDropCommand extends ListenerAdapter {
                 TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
                 Separator.createDivider(Separator.Spacing.SMALL),
                 TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
-                               "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                               "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
                                "> ⚠️ **الـسَّـبَـب:** `" + reason + "`\n\n" +
                                "> 🔢 **الـمُـحَـاوَلَاتُ الـفَـاشِـلَة:** `" + challenge.wrongAnswersCount + "/3`\n\n" +
                                "🔄 تم الاحتفاظ بالصندوق للمتحدي الأول فقط لإعادة المحاولة.")
@@ -1395,7 +1461,7 @@ public class CrateDropCommand extends ListenerAdapter {
                     Container claimContainer = Container.of(
                         TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
                         Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                        TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
                                        "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
                                        "> 🔒 **الـحَـالَـة:** " + statusText),
                         Separator.createDivider(Separator.Spacing.SMALL),
