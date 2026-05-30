@@ -770,11 +770,11 @@ public class CrateDropCommand extends ListenerAdapter {
 
                         Container claimContainer = Container.of(
                             TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                            Separator.createDivider(Separator.Spacing.MEDIUM),
+                            Separator.createDivider(Separator.Spacing.SMALL),
                             TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + loot.prizeDisplay + "`\n\n" +
                                            "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
                                            "> 🟢 **الـحَـالَـة:** `بانتظار المتحدي الأول`"),
-                            Separator.createDivider(Separator.Spacing.MEDIUM),
+                            Separator.createDivider(Separator.Spacing.SMALL),
                             ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                         );
 
@@ -927,11 +927,11 @@ public class CrateDropCommand extends ListenerAdapter {
             long memEnd = (System.currentTimeMillis() + 5000) / 1000;
             Container memContainer = Container.of(
                 TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
-                Separator.createDivider(Separator.Spacing.MEDIUM),
+                Separator.createDivider(Separator.Spacing.SMALL),
                 TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
                                "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
                                "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
-                Separator.createDivider(Separator.Spacing.MEDIUM),
+                Separator.createDivider(Separator.Spacing.SMALL),
                 TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
                                "```\n" +
                                "  " + challenge.grid[0] + "   " + challenge.grid[1] + "   " + challenge.grid[2] + "\n" +
@@ -955,11 +955,11 @@ public class CrateDropCommand extends ListenerAdapter {
                     long solveEnd = (System.currentTimeMillis() + (finalSolveTime * 1000L)) / 1000;
                     Container solveContainer = Container.of(
                         TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
-                        Separator.createDivider(Separator.Spacing.MEDIUM),
+                        Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
                                        "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
                                        "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
-                        Separator.createDivider(Separator.Spacing.MEDIUM),
+                        Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
                                        "```\n" +
                                        "  [1]  [2]  [3]\n" +
@@ -1181,7 +1181,7 @@ public class CrateDropCommand extends ListenerAdapter {
                     String levelText = getLevelText(challenge.level);
                     Container successContainer = Container.of(
                         TextDisplay.of("## 🎉 ───────── 🔓 تَمَّ فَتْحُ الصُّنْدُوقِ بِنَجَاح ───────── 🎉"),
-                        Separator.createDivider(Separator.Spacing.MEDIUM),
+                        Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("> 👤 **الـفَـائِـز:** <@" + challenge.lockedByUserId + ">\n\n" +
                                        "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
                                        "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
@@ -1206,10 +1206,10 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 Container decodingContainer = Container.of(
                     TextDisplay.of("## ⏳ ───────── 🛠️ جَارِي فَكُّ التَّشْفِير ───────── ⏳"),
-                    Separator.createDivider(Separator.Spacing.MEDIUM),
+                    Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
                                    "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`"),
-                    Separator.createDivider(Separator.Spacing.MEDIUM),
+                    Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("### " + bar)
                 );
 
@@ -1235,7 +1235,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
         Container failureContainer = Container.of(
             TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
-            Separator.createDivider(Separator.Spacing.MEDIUM),
+            Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
                            "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
                            "> ⚠️ **الـسَّـبَـب:** `" + reason + "`\n\n" +
@@ -1269,11 +1269,11 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 Container claimContainer = Container.of(
                     TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                    Separator.createDivider(Separator.Spacing.MEDIUM),
+                    Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
                                    "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
                                    "> 🔒 **الـحَـالَـة:** " + statusText),
-                    Separator.createDivider(Separator.Spacing.MEDIUM),
+                    Separator.createDivider(Separator.Spacing.SMALL),
                     ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                 );
 
