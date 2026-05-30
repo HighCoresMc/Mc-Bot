@@ -44,7 +44,19 @@ public class DailyCommand extends ListenerAdapter {
         }
 
         String uuid = uuidOpt.get();
-        String mcName = getMcNameFromDatabase(uuid, discordId);
+        String mcName = getMcNameFromDatabase(uuid, discordId, event.getUser().getName());
+
+        if (mcName.equals("Unknown")) {
+            Container errorContainer = Container.of(
+                TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب في اللعبة"),
+                TextDisplay.of("حسابك مربوط بالديسكورد، ولكن لم يتم تسجيل اسم اللاعب الخاص بك في السيرفر بعد.\nيرجى دخول السيرفر أولاً ثم المحاولة مجدداً.")
+            );
+            event.getHook().editOriginalComponents(errorContainer)
+                .setEmbeds(java.util.Collections.emptyList())
+                .useComponentsV2(true)
+                .queue();
+            return;
+        }
 
         long now = System.currentTimeMillis();
         int currentStreak = 0;
@@ -207,12 +219,14 @@ public class DailyCommand extends ListenerAdapter {
     }
 
     // DATABASE OPERATIONS
-    private String getMcNameFromDatabase(String uuid, String discordId) {
+    private String getMcNameFromDatabase(String uuid, String discordId, String discordName) {
         String uuidDash = uuid.trim().toLowerCase();
         if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
             uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
         }
         String uuidNoDash = uuidDash.replace("-", "");
+
+        String mcName = null;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE discord = ?";
@@ -220,21 +234,31 @@ public class DailyCommand extends ListenerAdapter {
                 psName.setString(1, discordId);
                 try (ResultSet rsName = psName.executeQuery()) {
                     if (rsName.next()) {
-                        String username = rsName.getString("username");
-                        if (username != null && !username.isEmpty()) {
-                            return username;
-                        }
+                        mcName = rsName.getString("username");
                     }
                 }
             }
+        } catch (Exception ignored) {}
 
-            String query = "SELECT username FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?";
-            try (PreparedStatement ps = conn.prepareStatement(query)) {
-                ps.setString(1, uuidDash);
-                ps.setString(2, uuidNoDash);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        return rs.getString("username");
+        if (mcName != null && !mcName.isEmpty() && !mcName.equalsIgnoreCase("Unknown")) {
+            return mcName;
+        }
+
+        try {
+            Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady()
+                ? LeonTrotskyBot.getDbManager().getCmiConnection()
+                : LeonTrotskyBot.getDbManager().getConnection();
+            try (conn) {
+                String query = "SELECT username FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
+                try (PreparedStatement ps = conn.prepareStatement(query)) {
+                    ps.setString(1, uuidDash);
+                    ps.setString(2, uuidNoDash);
+                    ps.setString(3, discordName);
+                    ps.setString(4, discordName);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            return rs.getString("username");
+                        }
                     }
                 }
             }
