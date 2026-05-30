@@ -106,6 +106,19 @@ public class DatabaseManager {
                     ")";
             stmt.executeUpdate(createParticipantsTable);
 
+            // DATABASE TABLES INITIALIZATION
+            String createDailyTable = "CREATE TABLE IF NOT EXISTS daily_streaks (" +
+                    "discord_id VARCHAR(64) PRIMARY KEY, " +
+                    "mc_uuid VARCHAR(64), " +
+                    "mc_name VARCHAR(255), " +
+                    "streak INT DEFAULT 0, " +
+                    "last_claim_time TIMESTAMP NULL, " +
+                    "warning_sent BOOLEAN DEFAULT FALSE, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")";
+            stmt.executeUpdate(createDailyTable);
+            try { stmt.executeUpdate("ALTER TABLE daily_streaks ADD COLUMN warning_sent BOOLEAN DEFAULT FALSE"); } catch (Exception ignored) {}
+
             logger.info("Event tables initialized successfully.");
         } catch (SQLException e) {
             logger.error("Failed to initialize event tables!", e);
