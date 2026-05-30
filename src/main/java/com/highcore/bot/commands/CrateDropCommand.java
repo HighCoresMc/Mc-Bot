@@ -450,32 +450,44 @@ public class CrateDropCommand extends ListenerAdapter {
             return;
         }
 
-        if (!event.getUser().getId().equals(challenge.lockedByUserId)) {
-            event.reply("لست أنت من يحاول فك الكريت حالياً.").setEphemeral(true).queue();
-            return;
-        }
-
-        event.deferEdit().queue();
-
-        boolean allCorrect = true;
-        for (int slot : challenge.questionSlots) {
-            String value = event.getValue("slot_" + slot) != null ? event.getValue("slot_" + slot).getAsString().trim() : "";
-            String correct = challenge.correctAnswers.get(slot);
-            if (!value.equalsIgnoreCase(correct)) {
-                allCorrect = false;
-                break;
+        synchronized (challenge) {
+            if (!event.getUser().getId().equals(challenge.lockedByUserId)) {
+                event.reply("لست أنت من يحاول فك الكريت حالياً.").setEphemeral(true).queue();
+                return;
             }
-        }
 
-        if (allCorrect) {
-            challenge.solved = true;
-            if (challenge.timeoutTask != null) {
-                challenge.timeoutTask.cancel(false);
+            if (!challenge.isSolving || challenge.isDecoding || challenge.solved) {
+                event.reply("❌ لقد انتهى الوقت المخصص للحل أو تم إلغاء المحاولة.").setEphemeral(true).queue();
+                return;
             }
-            startDecodingAnimation((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge);
-        } else {
-            challenge.wrongAnswersCount++;
-            resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge, "إدخال رموز خاطئة", "WRONG_ANSWERS");
+
+            event.deferEdit().queue();
+
+            boolean allCorrect = true;
+            for (int slot : challenge.questionSlots) {
+                String value = event.getValue("slot_" + slot) != null ? event.getValue("slot_" + slot).getAsString().trim() : "";
+                String correct = challenge.correctAnswers != null ? challenge.correctAnswers.get(slot) : "";
+                if (!value.equalsIgnoreCase(correct)) {
+                    allCorrect = false;
+                    break;
+                }
+            }
+
+            if (allCorrect) {
+                challenge.solved = true;
+                if (challenge.timeoutTask != null) {
+                    challenge.timeoutTask.cancel(false);
+                    challenge.timeoutTask = null;
+                }
+                startDecodingAnimation((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge);
+            } else {
+                challenge.wrongAnswersCount++;
+                if (challenge.timeoutTask != null) {
+                    challenge.timeoutTask.cancel(false);
+                    challenge.timeoutTask = null;
+                }
+                resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge, "إدخال رموز خاطئة", "WRONG_ANSWERS");
+            }
         }
     }
 
@@ -895,20 +907,34 @@ public class CrateDropCommand extends ListenerAdapter {
             return;
         }
 
-        if (System.currentTimeMillis() < challenge.cooldownUntil) {
-            long remaining = (challenge.cooldownUntil - System.currentTimeMillis()) / 1000;
-            event.reply("❌ الصندوق في فترة تهدئة (Cooldown). يرجى الانتظار " + remaining + " ثانية.").setEphemeral(true).queue();
-            return;
-        }
+        synchronized (challenge) {
+            if (System.currentTimeMillis() < challenge.cooldownUntil) {
+                long remaining = (challenge.cooldownUntil - System.currentTimeMillis()) / 1000;
+                event.reply("❌ الصندوق في فترة تهدئة (Cooldown). يرجى الانتظار " + remaining + " ثانية.").setEphemeral(true).queue();
+                return;
+            }
 
-        if (challenge.lockedByUserId != null && challenge.lockedUntil > System.currentTimeMillis()) {
-            event.reply("❌ يوجد لاعب يحاول فك الكريت الآن. انتظر فشل المحاولة أو انتهاء الوقت.").setEphemeral(true).queue();
-            return;
-        }
+            if (challenge.lockedByUserId != null && challenge.lockedUntil > System.currentTimeMillis()) {
+                event.reply("❌ يوجد لاعب يحاول فك الكريت الآن. انتظر فشل المحاولة أو انتهاء الوقت.").setEphemeral(true).queue();
+                return;
+            }
 
-        if (challenge.firstAttemptUserId != null && !challenge.firstAttemptUserId.equals(userId)) {
-            event.reply("❌ هذا الصندوق محجوز للاعب الذي بدأ محاولة فكه أولاً ولا يمكن للاعبين الآخرين المشاركة فيه.").setEphemeral(true).queue();
-            return;
+            if (challenge.firstAttemptUserId != null && !challenge.firstAttemptUserId.equals(userId)) {
+                event.reply("❌ هذا الصندوق محجوز للاعب الذي بدأ محاولة فكه أولاً ولا يمكن للاعبين الآخرين المشاركة فيه.").setEphemeral(true).queue();
+                return;
+            }
+
+            if (challenge.transitionTask != null) {
+                challenge.transitionTask.cancel(false);
+                challenge.transitionTask = null;
+            }
+            if (challenge.timeoutTask != null) {
+                challenge.timeoutTask.cancel(false);
+                challenge.timeoutTask = null;
+            }
+
+            challenge.lockedByUserId = userId;
+            challenge.lockedUntil = System.currentTimeMillis() + 60000;
         }
 
         event.deferReply(true).queue(hook -> {
@@ -921,6 +947,12 @@ public class CrateDropCommand extends ListenerAdapter {
             if (!isImmune) {
                 if (isBlacklisted(userId)) {
                     hook.sendMessage("❌ حسابك محظور من المشاركة في نظام الدروبات.").queue();
+                    synchronized (challenge) {
+                        if (userId.equals(challenge.lockedByUserId)) {
+                            challenge.lockedByUserId = null;
+                            challenge.lockedUntil = 0;
+                        }
+                    }
                     return;
                 }
 
@@ -936,6 +968,12 @@ public class CrateDropCommand extends ListenerAdapter {
                 int dailyWins = getDailyWins(userId);
                 if (dailyWins >= dailyWinsLimit) {
                     hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالدروبات اليوم وهو " + dailyWinsLimit + ".").queue();
+                    synchronized (challenge) {
+                        if (userId.equals(challenge.lockedByUserId)) {
+                            challenge.lockedByUserId = null;
+                            challenge.lockedUntil = 0;
+                        }
+                    }
                     return;
                 }
 
@@ -943,6 +981,12 @@ public class CrateDropCommand extends ListenerAdapter {
                     int weeklyRareWins = getWeeklyRareWins(userId);
                     if (weeklyRareWins >= 2) {
                         hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالجوائز النادرة هذا الأسبوع (حد الفوز: 2).").queue();
+                        synchronized (challenge) {
+                            if (userId.equals(challenge.lockedByUserId)) {
+                                challenge.lockedByUserId = null;
+                                challenge.lockedUntil = 0;
+                            }
+                        }
                         return;
                     }
                 }
@@ -951,6 +995,12 @@ public class CrateDropCommand extends ListenerAdapter {
             Optional<String> uuidOpt = LeonTrotskyBot.getDiscordSRVManager().getUuidByDiscordId(userId);
             if (uuidOpt.isEmpty()) {
                 hook.sendMessage("❌ يجب أن يكون حسابك مربوطاً بالسيرفر للمشاركة!").queue();
+                synchronized (challenge) {
+                    if (userId.equals(challenge.lockedByUserId)) {
+                        challenge.lockedByUserId = null;
+                        challenge.lockedUntil = 0;
+                    }
+                }
                 return;
             }
 
@@ -958,6 +1008,12 @@ public class CrateDropCommand extends ListenerAdapter {
             if (!isImmune) {
                 if (!isPlayerActive(uuid)) {
                     hook.sendMessage("❌ يجب أن تكون قد قمت بتسجيل الدخول إلى خادم ماينكرافت خلال آخر 7 أيام للمشاركة.").queue();
+                    synchronized (challenge) {
+                        if (userId.equals(challenge.lockedByUserId)) {
+                            challenge.lockedByUserId = null;
+                            challenge.lockedUntil = 0;
+                        }
+                    }
                     return;
                 }
 
@@ -965,105 +1021,123 @@ public class CrateDropCommand extends ListenerAdapter {
                     long daysJoined = Duration.between(member.getTimeJoined(), OffsetDateTime.now()).toDays();
                     if (daysJoined < 3) {
                         hook.sendMessage("❌ يجب أن يكون عمر انضمامك للسيرفر أكثر من 3 أيام للمشاركة!").queue();
+                        synchronized (challenge) {
+                            if (userId.equals(challenge.lockedByUserId)) {
+                                challenge.lockedByUserId = null;
+                                challenge.lockedUntil = 0;
+                            }
+                        }
                         return;
                     }
                 }
             }
 
-            challenge.lockedByUserId = userId;
-            if (challenge.firstAttemptUserId == null) {
-                challenge.firstAttemptUserId = userId;
-            }
-            challenge.challengeStartTime = System.currentTimeMillis();
-            challenge.grid = generateRandomGrid(challenge.level);
-            challenge.questionSlots = selectQuestionSlots(challenge.level);
-            
-            challenge.correctAnswers = new HashMap<>();
-            for (int slot : challenge.questionSlots) {
-                challenge.correctAnswers.put(slot, challenge.grid[slot - 1]);
-            }
-
-            int solveTime = 15;
-            if ("SIMPLE".equalsIgnoreCase(challenge.level)) solveTime = 22;
-            else if ("RARE".equalsIgnoreCase(challenge.level)) solveTime = 20;
-            else if ("EPIC".equalsIgnoreCase(challenge.level)) solveTime = 18;
-
-            challenge.lockedUntil = System.currentTimeMillis() + 5000 + (solveTime * 1000L) + 2000;
-            challenge.isSolving = true;
-
-            hook.sendMessage("بدأت محاولة فك الكريت! تذكر الأرقام المعروضة في الشات العام الآن.").queue();
-
-            updateHistoryOnLock(historyId, userId, uuid);
-
-            String levelText = getLevelText(challenge.level);
-            long memEnd = (System.currentTimeMillis() + 5000) / 1000;
-            Container memContainer = Container.of(
-                TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
-                               "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                               "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
-                               "```\n" +
-                               "  " + challenge.grid[0] + "   " + challenge.grid[1] + "   " + challenge.grid[2] + "\n" +
-                               "  " + challenge.grid[3] + "   " + challenge.grid[4] + "   " + challenge.grid[5] + "\n" +
-                               "  " + challenge.grid[6] + "   " + challenge.grid[7] + "   " + challenge.grid[8] + "\n" +
-                               "```\n" +
-                               "⏱️ **تختفي الرموز:** <t:" + memEnd + ":R>")
-            );
-
-            event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                    .setComponents(memContainer)
-                    .useComponentsV2(true)
-                    .build())
-                    .queue(null, e -> {});
-
-            final int finalSolveTime = solveTime;
-            scheduler.schedule(() -> {
-                try {
-                    if (challenge.solved || challenge.failedReason != null) return;
-
-                    long solveEnd = (System.currentTimeMillis() + (finalSolveTime * 1000L)) / 1000;
-                    Container solveContainer = Container.of(
-                        TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
-                                       "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                       "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
-                                       "```\n" +
-                                       "  [1]  [2]  [3]\n" +
-                                       "  [4]  [5]  [6]\n" +
-                                       "  [7]  [8]  [9]\n" +
-                                       "```\n" +
-                                       "⏳ **ينتهي الوقت المتاح للحل:** <t:" + solveEnd + ":R>"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        ActionRow.of(Button.success("drop_hack_" + historyId, "💻 بدء التهكير"))
-                    );
-
-                    event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                            .setComponents(solveContainer)
-                            .useComponentsV2(true)
-                            .build())
-                            .queue(null, e -> {});
-
-                    challenge.timeoutTask = scheduler.schedule(() -> {
-                        try {
-                            if (!challenge.solved && challenge.isSolving) {
-                                challenge.wrongAnswersCount++;
-                                resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge, "نفاد الوقت المخصص للحل", "TIMEOUT");
-                            }
-                        } catch (Exception ex) {
-                            logger.error("Error in timeout execution", ex);
-                        }
-                    }, finalSolveTime, TimeUnit.SECONDS);
-
-                } catch (Exception ex) {
-                    logger.error("Error transitioning to solve stage", ex);
+            synchronized (challenge) {
+                if (!userId.equals(challenge.lockedByUserId)) {
+                    hook.sendMessage("❌ انتهت صلاحية المحاولة أو تم إلغاؤها.").queue();
+                    return;
                 }
-            }, 5, TimeUnit.SECONDS);
+
+                if (challenge.firstAttemptUserId == null) {
+                    challenge.firstAttemptUserId = userId;
+                }
+                challenge.challengeStartTime = System.currentTimeMillis();
+                challenge.grid = generateRandomGrid(challenge.level);
+                challenge.questionSlots = selectQuestionSlots(challenge.level);
+                
+                challenge.correctAnswers = new HashMap<>();
+                for (int slot : challenge.questionSlots) {
+                    challenge.correctAnswers.put(slot, challenge.grid[slot - 1]);
+                }
+
+                int solveTime = 15;
+                if ("SIMPLE".equalsIgnoreCase(challenge.level)) solveTime = 22;
+                else if ("RARE".equalsIgnoreCase(challenge.level)) solveTime = 20;
+                else if ("EPIC".equalsIgnoreCase(challenge.level)) solveTime = 18;
+
+                challenge.lockedUntil = System.currentTimeMillis() + 5000 + (solveTime * 1000L) + 2000;
+                challenge.isSolving = true;
+                challenge.isDecoding = false;
+                challenge.solved = false;
+                challenge.failedReason = null;
+
+                hook.sendMessage("بدأت محاولة فك الكريت! تذكر الأرقام المعروضة في الشات العام الآن.").queue();
+
+                updateHistoryOnLock(historyId, userId, uuid);
+
+                String levelText = getLevelText(challenge.level);
+                long memEnd = (System.currentTimeMillis() + 5000) / 1000;
+                Container memContainer = Container.of(
+                    TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
+                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
+                                   "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
+                                   "```\n" +
+                                   "  " + challenge.grid[0] + "   " + challenge.grid[1] + "   " + challenge.grid[2] + "\n" +
+                                   "  " + challenge.grid[3] + "   " + challenge.grid[4] + "   " + challenge.grid[5] + "\n" +
+                                   "  " + challenge.grid[6] + "   " + challenge.grid[7] + "   " + challenge.grid[8] + "\n" +
+                                   "```\n" +
+                                   "⏱️ **تختفي الرموز:** <t:" + memEnd + ":R>")
+                );
+
+                event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                        .setComponents(memContainer)
+                        .useComponentsV2(true)
+                        .build())
+                        .queue(null, e -> {});
+
+                final int finalSolveTime = solveTime;
+                challenge.transitionTask = scheduler.schedule(() -> {
+                    try {
+                        synchronized (challenge) {
+                            if (challenge.solved || challenge.failedReason != null || !challenge.isSolving || !userId.equals(challenge.lockedByUserId)) return;
+
+                            long solveEnd = (System.currentTimeMillis() + (finalSolveTime * 1000L)) / 1000;
+                            Container solveContainer = Container.of(
+                                TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
+                                Separator.createDivider(Separator.Spacing.SMALL),
+                                TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
+                                               "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
+                                               "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
+                                Separator.createDivider(Separator.Spacing.SMALL),
+                                TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
+                                               "```\n" +
+                                               "  [1]  [2]  [3]\n" +
+                                               "  [4]  [5]  [6]\n" +
+                                               "  [7]  [8]  [9]\n" +
+                                               "```\n" +
+                                               "⏳ **ينتهي الوقت المتاح للحل:** <t:" + solveEnd + ":R>"),
+                                Separator.createDivider(Separator.Spacing.SMALL),
+                                ActionRow.of(Button.success("drop_hack_" + historyId, "💻 بدء التهكير"))
+                            );
+
+                            event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                                    .setComponents(solveContainer)
+                                    .useComponentsV2(true)
+                                    .build())
+                                    .queue(null, e -> {});
+
+                            challenge.timeoutTask = scheduler.schedule(() -> {
+                                try {
+                                    synchronized (challenge) {
+                                        if (!challenge.solved && challenge.isSolving && userId.equals(challenge.lockedByUserId)) {
+                                            challenge.wrongAnswersCount++;
+                                            resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge, "نفاد الوقت المخصص للحل", "TIMEOUT");
+                                        }
+                                    }
+                                } catch (Exception ex) {
+                                    logger.error("Error in timeout execution", ex);
+                                }
+                            }, finalSolveTime, TimeUnit.SECONDS);
+                        }
+                    } catch (Exception ex) {
+                        logger.error("Error transitioning to solve stage", ex);
+                    }
+                }, 5, TimeUnit.SECONDS);
+            }
         });
     }
 
@@ -1238,25 +1312,46 @@ public class CrateDropCommand extends ListenerAdapter {
         java.util.concurrent.ScheduledFuture<?>[] animTask = new java.util.concurrent.ScheduledFuture<?>[1];
         animTask[0] = scheduler.scheduleAtFixedRate(() -> {
             try {
-                int p = progress.getAndAdd(20);
+                String lockedUser;
+                String prize;
+                String command;
+                String level;
+                int p;
+
+                synchronized (challenge) {
+                    if (challenge.lockedByUserId == null || !challenge.isDecoding || !activeChallenges.containsKey(messageId)) {
+                        if (animTask[0] != null) {
+                            animTask[0].cancel(false);
+                        }
+                        return;
+                    }
+                    lockedUser = challenge.lockedByUserId;
+                    prize = challenge.prize;
+                    command = challenge.command;
+                    level = challenge.level;
+                    p = progress.getAndAdd(20);
+                }
+
                 if (p >= 100) {
-                    animTask[0].cancel(false);
+                    if (animTask[0] != null) {
+                        animTask[0].cancel(false);
+                    }
                     
                     double elapsed = (System.currentTimeMillis() - challenge.challengeStartTime) / 1000.0;
-                    String mcName = getMcName(challenge.lockedByUserId, "Player");
-                    String uuid = getUuid(challenge.lockedByUserId);
+                    String mcName = getMcName(lockedUser, "Player");
+                    String uuid = getUuid(lockedUser);
 
-                    updateHistoryOnSuccess(historyId, challenge.lockedByUserId, uuid, mcName, elapsed);
+                    updateHistoryOnSuccess(historyId, lockedUser, uuid, mcName, elapsed);
 
-                    String commandToRun = challenge.command.replace("%player%", mcName);
-                    RewardService.queueReward(historyId, commandToRun, challenge.lockedByUserId, mcName, challenge.prize);
+                    String commandToRun = command.replace("%player%", mcName);
+                    RewardService.queueReward(historyId, commandToRun, lockedUser, mcName, prize);
 
-                    String levelText = getLevelText(challenge.level);
+                    String levelText = getLevelText(level);
                     Container successContainer = Container.of(
                         TextDisplay.of("## 🎉 ───────── 🔓 تَمَّ فَتْحُ الصُّنْدُوقِ بِنَجَاح ───────── 🎉"),
                         Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("> 👤 **الـفَـائِـز:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                       "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                        TextDisplay.of("> 👤 **الـفَـائِـز:** <@" + lockedUser + ">\n\n" +
+                                       "> 🏆 **الـجَـائِـزَة:** `" + prize + "`\n\n" +
                                        "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
                                        "> ⏱️ **الـوَقْـتُ الـمُـسْتَغْرَق:** `" + String.format(Locale.US, "%.1f", elapsed) + "s` ⚡")
                     );
@@ -1267,7 +1362,9 @@ public class CrateDropCommand extends ListenerAdapter {
                             .build())
                             .queue(null, e -> {});
 
-                    activeChallenges.remove(messageId);
+                    synchronized (challenge) {
+                        activeChallenges.remove(messageId);
+                    }
                     return;
                 }
 
@@ -1313,7 +1410,7 @@ public class CrateDropCommand extends ListenerAdapter {
                 Container decodingContainer = Container.of(
                     TextDisplay.of("## ⏳ ───────── ⚙️ جَارِي فَكُّ التَّشْفِيرِ وَالْخَرْق ───────── ⏳"),
                     Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
+                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + lockedUser + ">\n\n" +
                                    "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of(statusLogs),
@@ -1334,95 +1431,108 @@ public class CrateDropCommand extends ListenerAdapter {
     }
 
     private void resetCrate(TextChannel channel, String messageId, int historyId, CrateChallenge challenge, String reason, String details) {
-        challenge.isSolving = false;
-        challenge.failedReason = reason;
+        synchronized (challenge) {
+            challenge.isSolving = false;
+            challenge.failedReason = reason;
 
-        String uuid = getUuid(challenge.lockedByUserId);
-        recordAttempt(historyId, challenge.lockedByUserId, uuid, details, System.currentTimeMillis() - challenge.challengeStartTime);
-        updateHistoryStatus(historyId, details, reason);
-
-        boolean triggerCooldown = challenge.wrongAnswersCount >= 3;
-
-        if (triggerCooldown) {
-            if (challenge.cooldownsCount == 0) {
-                challenge.cooldownsCount = 1;
-                challenge.cooldownUntil = System.currentTimeMillis() + 10000;
-                long cooldownEndSec = challenge.cooldownUntil / 1000;
-
-                Container cooldownContainer = Container.of(
-                    TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                   "> ⚠️ **الـسَّـبَـب:** `فشل في 3 محاولات متتالية`\n\n" +
-                                   "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>"),
-                    Separator.createDivider(Separator.Spacing.SMALL)
-                );
-
-                channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                        .setComponents(cooldownContainer)
-                        .useComponentsV2(true)
-                        .build())
-                        .queue(null, e -> {});
-
-                scheduler.schedule(() -> {
-                    try {
-                        updateHistoryStatus(historyId, "SPAWNED", null);
-
-                        challenge.lockedByUserId = null;
-                        challenge.lockedUntil = 0;
-                        challenge.grid = null;
-                        challenge.questionSlots = null;
-                        challenge.correctAnswers = null;
-                        challenge.isSolving = false;
-                        challenge.isDecoding = false;
-                        challenge.failedReason = null;
-                        challenge.wrongAnswersCount = 0;
-
-                        String levelText = getLevelText(challenge.level);
-                        String statusText = challenge.firstAttemptUserId == null 
-                                ? "بانتظار المتحدي الأول" 
-                                : "محجوز لـ <@" + challenge.firstAttemptUserId + ">";
-
-                        Container claimContainer = Container.of(
-                            TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                            Separator.createDivider(Separator.Spacing.SMALL),
-                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
-                                           "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                           "> 🔒 **الـحَـالَـة:** " + statusText),
-                            Separator.createDivider(Separator.Spacing.SMALL),
-                            ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
-                        );
-
-                        channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                                .setComponents(claimContainer)
-                                .useComponentsV2(true)
-                                .build())
-                                .queue(null, e -> {});
-                    } catch (Exception e) {
-                        logger.error("Error resetting crate after cooldown", e);
-                    }
-                }, 10, TimeUnit.SECONDS);
-            } else {
-                updateHistoryStatus(historyId, "FAILED", "استنفاد جميع المحاولات الإضافية بعد فترة التهدئة");
-
-                Container expiredContainer = Container.of(
-                    TextDisplay.of("## ❌ ───────── 🔒 تَلَفَ الصُّنْدُوقِ بِالْكَامِل ───────── ❌"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                   "> ⚠️ **الـحَـالَـة:** `تالف بالكامل (Expired)`\n\n" +
-                                   "🚫 تم استنفاد جميع محاولات فك التشفير المتاحة للصندوق. تم إتلاف الصندوق وتصفير الجائزة.")
-                );
-
-                channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                        .setComponents(expiredContainer)
-                        .useComponentsV2(true)
-                        .build())
-                        .queue(null, e -> {});
-
-                activeChallenges.remove(messageId);
+            if (challenge.timeoutTask != null) {
+                challenge.timeoutTask.cancel(false);
+                challenge.timeoutTask = null;
             }
+            if (challenge.transitionTask != null) {
+                challenge.transitionTask.cancel(false);
+                challenge.transitionTask = null;
+            }
+
+            String uuid = getUuid(challenge.lockedByUserId);
+            recordAttempt(historyId, challenge.lockedByUserId, uuid, details, System.currentTimeMillis() - challenge.challengeStartTime);
+            updateHistoryStatus(historyId, details, reason);
+
+            boolean triggerCooldown = challenge.wrongAnswersCount >= 3;
+
+            if (triggerCooldown) {
+                if (challenge.cooldownsCount == 0) {
+                    challenge.cooldownsCount = 1;
+                    challenge.cooldownUntil = System.currentTimeMillis() + 10000;
+                    long cooldownEndSec = challenge.cooldownUntil / 1000;
+
+                    Container cooldownContainer = Container.of(
+                        TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                       "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
+                                       "> ⚠️ **الـسَّـبَـب:** `فشل في 3 محاولات متتالية`\n\n" +
+                                       "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>"),
+                        Separator.createDivider(Separator.Spacing.SMALL)
+                    );
+
+                    channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                            .setComponents(cooldownContainer)
+                            .useComponentsV2(true)
+                            .build())
+                            .queue(null, e -> {});
+
+                    scheduler.schedule(() -> {
+                        synchronized (challenge) {
+                            try {
+                                updateHistoryStatus(historyId, "SPAWNED", null);
+
+                                challenge.lockedByUserId = null;
+                                challenge.lockedUntil = 0;
+                                challenge.grid = null;
+                                challenge.questionSlots = null;
+                                challenge.correctAnswers = null;
+                                challenge.isSolving = false;
+                                challenge.isDecoding = false;
+                                challenge.failedReason = null;
+                                challenge.wrongAnswersCount = 0;
+
+                                String levelText = getLevelText(challenge.level);
+                                String statusText = challenge.firstAttemptUserId == null 
+                                        ? "بانتظار المتحدي الأول" 
+                                        : "محجوز لـ <@" + challenge.firstAttemptUserId + ">";
+
+                                Container claimContainer = Container.of(
+                                    TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
+                                                   "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
+                                                   "> 🔒 **الـحَـالَـة:** " + statusText),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
+                                );
+
+                                channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                                        .setComponents(claimContainer)
+                                        .useComponentsV2(true)
+                                        .build())
+                                        .queue(null, e -> {});
+                            } catch (Exception e) {
+                                logger.error("Error resetting crate after cooldown", e);
+                            }
+                        }
+                    }, 10, TimeUnit.SECONDS);
+                } else {
+                    updateHistoryStatus(historyId, "FAILED", "استنفاد جميع المحاولات الإضافية بعد فترة التهدئة");
+
+                    Container expiredContainer = Container.of(
+                        TextDisplay.of("## ❌ ───────── 🔒 تَلَفَ الصُّنْدُوقِ بِالْكَامِل ───────── ❌"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                       "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
+                                       "> ⚠️ **الـحَـالَـة:** `تالف بالكامل (Expired)`\n\n" +
+                                       "🚫 تم استنفاد جميع محاولات فك التشفير المتاحة للصندوق. تم إتلاف الصندوق وتصفير الجائزة.")
+                    );
+
+                    channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                            .setComponents(expiredContainer)
+                            .useComponentsV2(true)
+                            .build())
+                            .queue(null, e -> {});
+
+                    activeChallenges.remove(messageId);
+                }
+
         } else {
             Container failureContainer = Container.of(
                 TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
@@ -1585,6 +1695,7 @@ public class CrateDropCommand extends ListenerAdapter {
         public String failedReason;
         public int wrongAnswersCount;
         public ScheduledFuture<?> timeoutTask;
+        public ScheduledFuture<?> transitionTask;
         public String firstAttemptUserId;
     }
 }
