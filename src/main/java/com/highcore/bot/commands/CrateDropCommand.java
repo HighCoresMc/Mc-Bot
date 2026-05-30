@@ -967,7 +967,7 @@ public class CrateDropCommand extends ListenerAdapter {
                                        "  [7]  [8]  [9]\n" +
                                        "```\n" +
                                        "⏳ **ينتهي الوقت المتاح للحل:** <t:" + solveEnd + ":R>"),
-                        Separator.createDivider(Separator.Spacing.MEDIUM),
+                        Separator.createDivider(Separator.Spacing.SMALL),
                         ActionRow.of(Button.success("drop_hack_" + historyId, "💻 بدء التهكير"))
                     );
 
