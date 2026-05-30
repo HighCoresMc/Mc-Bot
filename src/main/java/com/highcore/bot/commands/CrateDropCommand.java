@@ -442,7 +442,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
         int historyId = Integer.parseInt(id.replace("drop_modal_", ""));
         CrateChallenge challenge = activeChallenges.values().stream()
-                .filter(c -> c.messageId.equals(event.getMessageId()))
+                .filter(c -> event.getMessage() != null && c.messageId.equals(event.getMessage().getId()))
                 .findFirst().orElse(null);
 
         if (challenge == null) {
@@ -920,8 +920,10 @@ public class CrateDropCommand extends ListenerAdapter {
                                "```")
             );
 
-            event.getMessage().editMessage(net.dv8tion.jda.api.utils.messages.MessageEditData.fromComponents(memContainer))
-                    .setComponents(java.util.Collections.emptyList())
+            event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                    .setComponents(memContainer)
+                    .useComponentsV2(true)
+                    .build())
                     .queue(null, e -> {});
 
             final int finalSolveTime = solveTime;
@@ -945,7 +947,10 @@ public class CrateDropCommand extends ListenerAdapter {
                         ActionRow.of(Button.success("drop_hack_" + historyId, "💻 بدء التهكير"))
                     );
 
-                    event.getMessage().editMessage(net.dv8tion.jda.api.utils.messages.MessageEditData.fromComponents(solveContainer))
+                    event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                            .setComponents(solveContainer)
+                            .useComponentsV2(true)
+                            .build())
                             .queue(null, e -> {});
 
                     challenge.timeoutTask = scheduler.schedule(() -> {
@@ -979,11 +984,11 @@ public class CrateDropCommand extends ListenerAdapter {
 
         Modal.Builder modalBuilder = Modal.create("drop_modal_" + historyId, "تهكير الصندوق المشفر");
         for (int slot : challenge.questionSlots) {
-            TextInput input = TextInput.create("slot_" + slot, "ما الرمز في الخانة " + slot + "؟", TextInputStyle.SHORT)
+            TextInput input = TextInput.create("slot_" + slot, TextInputStyle.SHORT)
                     .setPlaceholder("اكتب الرمز القديم هنا...")
                     .setRequired(true)
                     .build();
-            modalBuilder.addComponents(Label.of("الخانة " + slot, input));
+            modalBuilder.addComponents(Label.of("الخانة " + slot + " (الرمز القديم):", input));
         }
 
         event.replyModal(modalBuilder.build()).queue();
@@ -1157,9 +1162,11 @@ public class CrateDropCommand extends ListenerAdapter {
                                        "**الوقت المستغرق:** `" + String.format(Locale.US, "%.1f", elapsed) + "s` ⚡")
                     );
 
-                    channel.editMessageById(messageId, net.dv8tion.jda.api.utils.messages.MessageEditData.fromComponents(successContainer))
-                           .setComponents(Collections.emptyList())
-                           .queue(null, e -> {});
+                    channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                            .setComponents(successContainer)
+                            .useComponentsV2(true)
+                            .build())
+                            .queue(null, e -> {});
 
                     activeChallenges.remove(messageId);
                     return;
@@ -1179,9 +1186,11 @@ public class CrateDropCommand extends ListenerAdapter {
                     TextDisplay.of("### " + bar)
                 );
 
-                channel.editMessageById(messageId, net.dv8tion.jda.api.utils.messages.MessageEditData.fromComponents(decodingContainer))
-                       .setComponents(Collections.emptyList())
-                       .queue(null, e -> {});
+                channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                        .setComponents(decodingContainer)
+                        .useComponentsV2(true)
+                        .build())
+                        .queue(null, e -> {});
 
             } catch (Exception e) {
                 logger.error("Error in animation task", e);
@@ -1205,9 +1214,11 @@ public class CrateDropCommand extends ListenerAdapter {
                            "🔄 تم تحرير الصندوق، ويمكن للاعب آخر المحاولة الآن.")
         );
 
-        channel.editMessageById(messageId, net.dv8tion.jda.api.utils.messages.MessageEditData.fromComponents(failureContainer))
-               .setComponents(Collections.emptyList())
-               .queue(null, e -> {});
+        channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                .setComponents(failureContainer)
+                .useComponentsV2(true)
+                .build())
+                .queue(null, e -> {});
 
         scheduler.schedule(() -> {
             try {
@@ -1232,8 +1243,11 @@ public class CrateDropCommand extends ListenerAdapter {
                     ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                 );
 
-                channel.editMessageById(messageId, net.dv8tion.jda.api.utils.messages.MessageEditData.fromComponents(claimContainer))
-                       .queue(null, e -> {});
+                channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                        .setComponents(claimContainer)
+                        .useComponentsV2(true)
+                        .build())
+                        .queue(null, e -> {});
             } catch (Exception e) {
                 logger.error("Error resetting crate", e);
             }
