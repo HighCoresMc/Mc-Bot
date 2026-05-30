@@ -1205,17 +1205,52 @@ public class CrateDropCommand extends ListenerAdapter {
                     return;
                 }
 
-                String bar = "██████████ 100%";
-                if (p == 0) bar = "██░░░░░░░░ 20%";
-                else if (p == 20) bar = "████░░░░░░ 40%";
-                else if (p == 40) bar = "██████░░░░ 60%";
-                else if (p == 60) bar = "████████░░ 80%";
+                String statusLogs = "";
+                String bar = "";
+                if (p == 0) {
+                    statusLogs = "```ini\n" +
+                                 "> [SYS_INIT]: Injected buffer overflow at 0x7FFF5BE3\n" +
+                                 "> [NET_BYPASS]: Cracking RSA-2048 signature...\n" +
+                                 "> [STATUS]: Infiltrating security layer 1/5...\n" +
+                                 "```";
+                    bar = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 20%";
+                } else if (p == 20) {
+                    statusLogs = "```ini\n" +
+                                 "> [DECRYPT_KEY]: Found match hash: 0x8A92F2E4\n" +
+                                 "> [MEM_CORRUPT]: Corrupting database indexes...\n" +
+                                 "> [STATUS]: Infiltrating security layer 2/5...\n" +
+                                 "```";
+                    bar = "████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 40%";
+                } else if (p == 40) {
+                    statusLogs = "```ini\n" +
+                                 "> [BYPASS_ROOT]: Root access granted locally\n" +
+                                 "> [SYS_OVERRIDE]: Writing payload to sector 4\n" +
+                                 "> [STATUS]: Infiltrating security layer 3/5...\n" +
+                                 "```";
+                    bar = "████████▒▒▒▒▒▒▒▒▒▒▒▒ 60%";
+                } else if (p == 60) {
+                    statusLogs = "```ini\n" +
+                                 "> [FIREWALL]: Disabling active log telemetry\n" +
+                                 "> [EXPLOIT]: Injecting rewards command handler\n" +
+                                 "> [STATUS]: Infiltrating security layer 4/5...\n" +
+                                 "```";
+                    bar = "████████████▒▒▒▒▒▒▒▒ 80%";
+                } else {
+                    statusLogs = "```ini\n" +
+                                 "> [FINALIZING]: Cleaning up event logging trace\n" +
+                                 "> [SUCCESS]: Security protocol disabled\n" +
+                                 "> [STATUS]: Infiltrating security layer 5/5...\n" +
+                                 "```";
+                    bar = "████████████████▒▒▒▒ 95%";
+                }
 
                 Container decodingContainer = Container.of(
-                    TextDisplay.of("## ⏳ ───────── 🛠️ جَارِي فَكُّ التَّشْفِير ───────── ⏳"),
+                    TextDisplay.of("## ⏳ ───────── ⚙️ جَارِي فَكُّ التَّشْفِيرِ وَالْخَرْق ───────── ⏳"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
                                    "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`"),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    TextDisplay.of(statusLogs),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("### " + bar)
                 );
@@ -1243,63 +1278,85 @@ public class CrateDropCommand extends ListenerAdapter {
         boolean triggerCooldown = challenge.wrongAnswersCount >= 3;
 
         if (triggerCooldown) {
-            challenge.cooldownUntil = System.currentTimeMillis() + 10000;
-            long cooldownEndSec = challenge.cooldownUntil / 1000;
+            if (challenge.cooldownsCount == 0) {
+                challenge.cooldownsCount = 1;
+                challenge.cooldownUntil = System.currentTimeMillis() + 10000;
+                long cooldownEndSec = challenge.cooldownUntil / 1000;
 
-            Container cooldownContainer = Container.of(
-                TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                               "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
-                               "> ⚠️ **الـسَّـبَـب:** `فشل في 3 محاولات متتالية`\n\n" +
-                               "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>"),
-                Separator.createDivider(Separator.Spacing.SMALL)
-            );
+                Container cooldownContainer = Container.of(
+                    TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                   "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                   "> ⚠️ **الـسَّـبَـب:** `فشل في 3 محاولات متتالية`\n\n" +
+                                   "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>"),
+                    Separator.createDivider(Separator.Spacing.SMALL)
+                );
 
-            channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                    .setComponents(cooldownContainer)
-                    .useComponentsV2(true)
-                    .build())
-                    .queue(null, e -> {});
+                channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                        .setComponents(cooldownContainer)
+                        .useComponentsV2(true)
+                        .build())
+                        .queue(null, e -> {});
 
-            scheduler.schedule(() -> {
-                try {
-                    updateHistoryStatus(historyId, "SPAWNED", null);
+                scheduler.schedule(() -> {
+                    try {
+                        updateHistoryStatus(historyId, "SPAWNED", null);
 
-                    challenge.lockedByUserId = null;
-                    challenge.lockedUntil = 0;
-                    challenge.grid = null;
-                    challenge.questionSlots = null;
-                    challenge.correctAnswers = null;
-                    challenge.isSolving = false;
-                    challenge.isDecoding = false;
-                    challenge.failedReason = null;
-                    challenge.wrongAnswersCount = 0;
+                        challenge.lockedByUserId = null;
+                        challenge.lockedUntil = 0;
+                        challenge.grid = null;
+                        challenge.questionSlots = null;
+                        challenge.correctAnswers = null;
+                        challenge.isSolving = false;
+                        challenge.isDecoding = false;
+                        challenge.failedReason = null;
+                        challenge.wrongAnswersCount = 0;
 
-                    String levelText = getLevelText(challenge.level);
-                    String statusText = challenge.firstAttemptUserId == null 
-                            ? "بانتظار المتحدي الأول" 
-                            : "محجوز لـ <@" + challenge.firstAttemptUserId + ">";
+                        String levelText = getLevelText(challenge.level);
+                        String statusText = challenge.firstAttemptUserId == null 
+                                ? "بانتظار المتحدي الأول" 
+                                : "محجوز لـ <@" + challenge.firstAttemptUserId + ">";
 
-                    Container claimContainer = Container.of(
-                        TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
-                                       "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                       "> 🔒 **الـحَـالَـة:** " + statusText),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
-                    );
+                        Container claimContainer = Container.of(
+                            TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
+                            Separator.createDivider(Separator.Spacing.SMALL),
+                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                           "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
+                                           "> 🔒 **الـحَـالَـة:** " + statusText),
+                            Separator.createDivider(Separator.Spacing.SMALL),
+                            ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
+                        );
 
-                    channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                            .setComponents(claimContainer)
-                            .useComponentsV2(true)
-                            .build())
-                            .queue(null, e -> {});
-                } catch (Exception e) {
-                    logger.error("Error resetting crate after cooldown", e);
-                }
-            }, 10, TimeUnit.SECONDS);
+                        channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                                .setComponents(claimContainer)
+                                .useComponentsV2(true)
+                                .build())
+                                .queue(null, e -> {});
+                    } catch (Exception e) {
+                        logger.error("Error resetting crate after cooldown", e);
+                    }
+                }, 10, TimeUnit.SECONDS);
+            } else {
+                updateHistoryStatus(historyId, "FAILED", "استنفاد جميع المحاولات الإضافية بعد فترة التهدئة");
+
+                Container expiredContainer = Container.of(
+                    TextDisplay.of("## ❌ ───────── 🔒 تَلَفَ الصُّنْدُوقِ بِالْكَامِل ───────── ❌"),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                   "> 🏆 **الـجَـائِـزَة:** `" + challenge.prize + "`\n\n" +
+                                   "> ⚠️ **الـحَـالَـة:** `تالف بالكامل (Expired)`\n\n" +
+                                   "🚫 تم استنفاد جميع محاولات فك التشفير المتاحة للصندوق. تم إتلاف الصندوق وتصفير الجائزة.")
+                );
+
+                channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                        .setComponents(expiredContainer)
+                        .useComponentsV2(true)
+                        .build())
+                        .queue(null, e -> {});
+
+                activeChallenges.remove(messageId);
+            }
         } else {
             Container failureContainer = Container.of(
                 TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
@@ -1451,6 +1508,7 @@ public class CrateDropCommand extends ListenerAdapter {
         public String lockedByUserId;
         public long lockedUntil;
         public long cooldownUntil;
+        public int cooldownsCount;
         public String[] grid;
         public List<Integer> questionSlots;
         public Map<Integer, String> correctAnswers;
