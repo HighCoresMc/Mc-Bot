@@ -91,6 +91,8 @@ public class LeonTrotskyBot {
             // Start Daily Streak Reminder Scheduler
             com.highcore.bot.services.DailyReminderService.startScheduler(jda);
 
+            com.highcore.bot.commands.CrateDropCommand.startScheduler(jda);
+
             // Register Global Slash Commands
             var globalCommands = java.util.List.of(
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض الملف الشخصي والإحصائيات الخاصة باللاعب")
@@ -99,7 +101,8 @@ public class LeonTrotskyBot {
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("panel", "التحكم الكامل بالخادم وإدارة النظام"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec", "إنهاء حالة الصيانة أو التوقف الحالية"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("event", "لوحة تحكم الفعاليات"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("daily", "استلام المكافأة اليومية الخاصة بك")
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("daily", "استلام المكافأة اليومية الخاصة بك"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("drop", "لوحة تحكم نظام الدروبات العشوائية")
             );
 
             jda.updateCommands().addCommands(globalCommands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
@@ -114,6 +117,7 @@ public class LeonTrotskyBot {
             jda.addEventListener(new com.highcore.bot.commands.EventCommand());
             jda.addEventListener(new com.highcore.bot.listeners.MinecraftLogListener());
             jda.addEventListener(new com.highcore.bot.commands.DailyCommand());
+            jda.addEventListener(new com.highcore.bot.commands.CrateDropCommand());
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");
