@@ -25,6 +25,7 @@ import net.dv8tion.jda.api.components.selections.StringSelectMenu;
 import net.dv8tion.jda.api.components.selections.SelectOption;
 import net.dv8tion.jda.api.events.interaction.component.StringSelectInteractionEvent;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import com.highcore.bot.services.ActionLogService;
 import org.jetbrains.annotations.NotNull;
 
 import java.awt.Color;
@@ -187,6 +188,8 @@ public class PanelCommand extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
         if (event.getName().equals("ec")) {
+            ActionLogService.logCommand(event.getJDA(), "/ec", event.getUser().getId(), event.getUser().getName(),
+                "فتح لوحة إدارة الصيانة");
             event.deferReply(true).queue(hook -> {
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
                     MaintenanceState state = getActiveMaintenanceState();
@@ -238,6 +241,8 @@ public class PanelCommand extends ListenerAdapter {
         }
 
         if (!event.getName().equals("panel")) return;
+        ActionLogService.logCommand(event.getJDA(), "/panel", event.getUser().getId(), event.getUser().getName(),
+            "فتح لوحة تحكم الخادم (Panel)");
         event.deferReply().queue(hook -> {
             java.util.concurrent.CompletableFuture.runAsync(() -> {
                 try {
@@ -288,6 +293,8 @@ public class PanelCommand extends ListenerAdapter {
         }
 
         if (id.equals("ec_end")) {
+            ActionLogService.logMaintenance(event.getJDA(), "🛑 Maintenance Ended", event.getUser().getId(), event.getUser().getName(),
+                "إنهاء حالة الصيانة الحالية");
             event.deferEdit().queue();
             java.util.concurrent.CompletableFuture.runAsync(() -> {
                 MaintenanceState state = getActiveMaintenanceState();
@@ -384,6 +391,9 @@ public class PanelCommand extends ListenerAdapter {
 
         if (id.equals("ptdl_stop") || id.equals("ptdl_restart")) {
             boolean isRestart = id.equals("ptdl_restart");
+            ActionLogService.logMaintenance(event.getJDA(), isRestart ? "🔁 Server Restart Initiated" : "⏹️ Server Stop Initiated",
+                event.getUser().getId(), event.getUser().getName(),
+                isRestart ? "بدأ معالج إعادة تشغيل الخادم (Restart)" : "بدأ معالج إيقاف الخادم (Stop)");
             MaintenanceState state = new MaintenanceState();
             state.isRestart = isRestart;
             userStates.put(event.getUser().getId(), state);
@@ -481,6 +491,8 @@ public class PanelCommand extends ListenerAdapter {
         event.deferEdit().queue();
         java.util.concurrent.CompletableFuture.runAsync(() -> {
             if (id.equals("ptdl_start")) {
+                ActionLogService.logMaintenance(event.getJDA(), "🟢 Server Started", event.getUser().getId(), event.getUser().getName(),
+                    "تشغيل الخادم (Server Start)");
                 isKillState = false;
                 pterodactylService.sendPowerSignal("start");
                 pterodactylService.reconnectConsole();
@@ -492,6 +504,8 @@ public class PanelCommand extends ListenerAdapter {
                     }
                 });
             } else if (id.equals("ptdl_kill")) {
+                ActionLogService.logMaintenance(event.getJDA(), "🔴 Server Killed", event.getUser().getId(), event.getUser().getName(),
+                    "إيقاف قسري للخادم (Server Kill)");
                 isKillState = false;
                 pterodactylService.sendPowerSignal("kill");
             }
@@ -562,6 +576,8 @@ public class PanelCommand extends ListenerAdapter {
 
         if (modalId.equals("ptdl_modal")) {
             String command = event.getValue("command").getAsString();
+            ActionLogService.logMaintenance(event.getJDA(), "🖥️ Console Command", event.getUser().getId(), event.getUser().getName(),
+                "الأمر المُرسَل: `" + command + "`");
             pterodactylService.sendCommand(command);
             event.reply("Command sent: `" + command + "`").setEphemeral(true).queue();
             return;

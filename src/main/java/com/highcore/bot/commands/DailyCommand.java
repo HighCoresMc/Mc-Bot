@@ -1,6 +1,7 @@
 package com.highcore.bot.commands;
 
 import com.highcore.bot.LeonTrotskyBot;
+import com.highcore.bot.services.ActionLogService;
 import com.highcore.bot.services.PterodactylService;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -26,6 +27,7 @@ public class DailyCommand extends ListenerAdapter {
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         if (!event.getName().equals("daily")) return;
+        ActionLogService.logCommand(event.getJDA(), "/daily", event.getUser().getId(), event.getUser().getName(), "طلب استلام المكافأة اليومية");
         event.deferReply(true).queue();
 
         String discordId = event.getUser().getId();
@@ -184,6 +186,13 @@ public class DailyCommand extends ListenerAdapter {
                                "تذكر استلام جائزتك غداً للحفاظ على سلسلة أيامك المتتالية!")
             )
         );
+
+        ActionLogService.logGame(event.getJDA(), "🎁 Daily Reward Claimed",
+            event.getUser().getId(), event.getUser().getName(),
+            "**اللاعب:** `" + mcName + "`\n" +
+            "**السلسلة (Streak):** `" + newStreak + "` أيام 🔥\n" +
+            "**الجائزة:** " + rewardText + "\n" +
+            "**الأمر المُنفَّذ:** `" + cmd + "`");
 
         event.getHook().editOriginalComponents(successContainer)
             .setEmbeds(java.util.Collections.emptyList())

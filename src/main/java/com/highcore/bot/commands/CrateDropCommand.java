@@ -3,6 +3,7 @@ package com.highcore.bot.commands;
 
 // IMPORTS
 import com.highcore.bot.LeonTrotskyBot;
+import com.highcore.bot.services.ActionLogService;
 import com.highcore.bot.services.RewardService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Member;
@@ -482,6 +483,10 @@ public class CrateDropCommand extends ListenerAdapter {
                 startDecodingAnimation((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge);
             } else {
                 challenge.wrongAnswersCount++;
+                ActionLogService.logGame(event.getJDA(), "❌ Crate Wrong Answer",
+                    event.getUser().getId(), event.getUser().getName(),
+                    "**عدد المحاولات الخاطئة:** `" + challenge.wrongAnswersCount + "/3`\n" +
+                    "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
                 if (challenge.timeoutTask != null) {
                     challenge.timeoutTask.cancel(false);
                     challenge.timeoutTask = null;
@@ -858,6 +863,11 @@ public class CrateDropCommand extends ListenerAdapter {
 
                         channel.sendMessageComponents(claimContainer).useComponentsV2(true).queue(msg -> {
                             updateHistoryMessage(historyId, msg.getId());
+
+                            ActionLogService.logGame(channel.getJDA(), "🎁 Crate Drop Spawned", null, null,
+                                "**المستوى:** `" + getLevelText(level) + "`\n" +
+                                "**القناة:** <#" + channel.getId() + ">\n" +
+                                "**ID:** `" + historyId + "`");
                             
                             CrateChallenge challenge = new CrateChallenge();
                             challenge.messageId = msg.getId();
@@ -1343,6 +1353,13 @@ public class CrateDropCommand extends ListenerAdapter {
 
                     updateHistoryOnSuccess(historyId, lockedUser, uuid, mcName, elapsed);
 
+                    ActionLogService.logGame(channel.getJDA(), "🏆 Crate Drop WON", lockedUser, mcName,
+                        "**اللاعب:** `" + mcName + "`\n" +
+                        "**الجائزة:** `" + prize + "`\n" +
+                        "**المستوى:** `" + getLevelText(level) + "`\n" +
+                        "**الوقت المستغرق:** `" + String.format(java.util.Locale.US, "%.1f", elapsed) + "s`\n" +
+                        "**الأمر:** `" + command.replace("%player%", mcName) + "`");
+
                     String commandToRun = command.replace("%player%", mcName);
                     RewardService.queueReward(historyId, commandToRun, lockedUser, mcName, prize);
 
@@ -1455,6 +1472,12 @@ public class CrateDropCommand extends ListenerAdapter {
                     challenge.cooldownsCount = 1;
                     challenge.cooldownUntil = System.currentTimeMillis() + 10000;
                     long cooldownEndSec = challenge.cooldownUntil / 1000;
+
+                    ActionLogService.logGame(channel.getJDA(), "⏳ Crate Cooldown Triggered",
+                        challenge.lockedByUserId, null,
+                        "**السبب:** 3 محاولات خاطئة متتالية\n" +
+                        "**الكولداون:** 10 ثواني\n" +
+                        "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
 
                     Container cooldownContainer = Container.of(
                         TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
