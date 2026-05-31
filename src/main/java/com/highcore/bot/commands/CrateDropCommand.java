@@ -127,13 +127,18 @@ public class CrateDropCommand extends ListenerAdapter {
     }
 
     // SCHEDULER METHODS
+    private static final java.util.concurrent.atomic.AtomicBoolean dropCheckRunning = new java.util.concurrent.atomic.AtomicBoolean(false);
+
     public static void startScheduler(net.dv8tion.jda.api.JDA jda) {
         jdaInstance = jda;
         scheduler.scheduleAtFixedRate(() -> {
+            if (!dropCheckRunning.compareAndSet(false, true)) return;
             try {
                 checkAndTriggerDrop();
             } catch (Exception e) {
                 logger.error("Error in drop scheduler task", e);
+            } finally {
+                dropCheckRunning.set(false);
             }
         }, 0, 1, TimeUnit.MINUTES);
     }
@@ -171,12 +176,22 @@ public class CrateDropCommand extends ListenerAdapter {
         if (nextDropAt == 0) {
             long newNext = calculateNextDropTime(intervalType, frequency);
             updateNextDropTime(newNext);
+            logger.info("[DropScheduler] No next_drop_at set — scheduled first drop at: {}", new java.util.Date(newNext));
             return;
         }
 
         if (now >= nextDropAt) {
+            long safetyMargin = 60 * 1000L;
+            if ((now - nextDropAt) > safetyMargin * 5) {
+                logger.warn("[DropScheduler] next_drop_at is very old ({}ms ago), skipping to avoid burst", now - nextDropAt);
+                long newNext = calculateNextDropTime(intervalType, frequency);
+                updateNextDropTime(newNext);
+                return;
+            }
+            logger.info("[DropScheduler] Triggering drop. next_drop_at was: {}", new java.util.Date(nextDropAt));
             triggerAutomaticDrop(channelId);
             long newNext = calculateNextDropTime(intervalType, frequency);
+            logger.info("[DropScheduler] Next drop scheduled at: {}", new java.util.Date(newNext));
             updateNextDropTime(newNext);
         }
     }
@@ -485,7 +500,7 @@ public class CrateDropCommand extends ListenerAdapter {
                 challenge.wrongAnswersCount++;
                 ActionLogService.logGame(event.getJDA(), "❌ Crate Wrong Answer",
                     event.getUser().getId(), event.getUser().getName(),
-                    "**عدد المحاولات الخاطئة:** `" + challenge.wrongAnswersCount + "/3`\n" +
+                    "**عدد المحاولات الخاطئة:** `" + challenge.wrongAnswersCount + "/5`\n" +
                     "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
                 if (challenge.timeoutTask != null) {
                     challenge.timeoutTask.cancel(false);
@@ -929,10 +944,7 @@ public class CrateDropCommand extends ListenerAdapter {
                 return;
             }
 
-            if (challenge.firstAttemptUserId != null && !challenge.firstAttemptUserId.equals(userId)) {
-                event.reply("❌ هذا الصندوق محجوز للاعب الذي بدأ محاولة فكه أولاً ولا يمكن للاعبين الآخرين المشاركة فيه.").setEphemeral(true).queue();
-                return;
-            }
+
 
             if (challenge.transitionTask != null) {
                 challenge.transitionTask.cancel(false);
@@ -1346,14 +1358,23 @@ public class CrateDropCommand extends ListenerAdapter {
                     if (animTask[0] != null) {
                         animTask[0].cancel(false);
                     }
-                    
+
+                    String lockedUserFinal;
+                    synchronized (challenge) {
+                        lockedUserFinal = challenge.lockedByUserId;
+                    }
+                    if (lockedUserFinal == null) {
+                        logger.warn("[CrateDrop] lockedByUserId is null at win stage — aborting animation");
+                        return;
+                    }
+
                     double elapsed = (System.currentTimeMillis() - challenge.challengeStartTime) / 1000.0;
-                    String mcName = getMcName(lockedUser, "Player");
-                    String uuid = getUuid(lockedUser);
+                    String mcName = getMcName(lockedUserFinal, lockedUserFinal);
+                    String uuid = getUuid(lockedUserFinal);
 
-                    updateHistoryOnSuccess(historyId, lockedUser, uuid, mcName, elapsed);
+                    updateHistoryOnSuccess(historyId, lockedUserFinal, uuid, mcName, elapsed);
 
-                    ActionLogService.logGame(channel.getJDA(), "🏆 Crate Drop WON", lockedUser, mcName,
+                    ActionLogService.logGame(channel.getJDA(), "🏆 Crate Drop WON", lockedUserFinal, mcName,
                         "**اللاعب:** `" + mcName + "`\n" +
                         "**الجائزة:** `" + prize + "`\n" +
                         "**المستوى:** `" + getLevelText(level) + "`\n" +
@@ -1361,13 +1382,13 @@ public class CrateDropCommand extends ListenerAdapter {
                         "**الأمر:** `" + command.replace("%player%", mcName) + "`");
 
                     String commandToRun = command.replace("%player%", mcName);
-                    RewardService.queueReward(historyId, commandToRun, lockedUser, mcName, prize);
+                    RewardService.queueReward(historyId, commandToRun, lockedUserFinal, mcName, prize);
 
                     String levelText = getLevelText(level);
                     Container successContainer = Container.of(
                         TextDisplay.of("## 🎉 ───────── 🔓 تَمَّ فَتْحُ الصُّنْدُوقِ بِنَجَاح ───────── 🎉"),
                         Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("> 👤 **الـفَـائِـز:** <@" + lockedUser + ">\n\n" +
+                        TextDisplay.of("> 👤 **الـفَائِز:** <@" + lockedUserFinal + ">\n\n" +
                                        "> 🏆 **الـجَـائِـزَة:** `" + prize + "`\n\n" +
                                        "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
                                        "> ⏱️ **الـوَقْـتُ الـمُـسْتَغْرَق:** `" + String.format(Locale.US, "%.1f", elapsed) + "s` ⚡")
@@ -1465,18 +1486,18 @@ public class CrateDropCommand extends ListenerAdapter {
             recordAttempt(historyId, challenge.lockedByUserId, uuid, details, System.currentTimeMillis() - challenge.challengeStartTime);
             updateHistoryStatus(historyId, details, reason);
 
-            boolean triggerCooldown = challenge.wrongAnswersCount >= 3;
+            boolean triggerCooldown = challenge.cooldownsCount == 0 && challenge.wrongAnswersCount >= 5;
+            boolean postCooldownExpire = challenge.cooldownsCount >= 1 && challenge.wrongAnswersCount >= 2;
 
             if (triggerCooldown) {
-                if (challenge.cooldownsCount == 0) {
                     challenge.cooldownsCount = 1;
-                    challenge.cooldownUntil = System.currentTimeMillis() + 10000;
+                    challenge.cooldownUntil = System.currentTimeMillis() + 20000;
                     long cooldownEndSec = challenge.cooldownUntil / 1000;
 
                     ActionLogService.logGame(channel.getJDA(), "⏳ Crate Cooldown Triggered",
                         challenge.lockedByUserId, null,
-                        "**السبب:** 3 محاولات خاطئة متتالية\n" +
-                        "**الكولداون:** 10 ثواني\n" +
+                        "**السبب:** 5 محاولات خاطئة متتالية\n" +
+                        "**الكولداون:** 20 ثانية\n" +
                         "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
 
                     Container cooldownContainer = Container.of(
@@ -1484,8 +1505,9 @@ public class CrateDropCommand extends ListenerAdapter {
                         Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
                                        "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                       "> ⚠️ **الـسَّـبَـب:** `فشل في 3 محاولات متتالية`\n\n" +
-                                       "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>"),
+                                       "> ⚠️ **الـسَّـبَـب:** `فشل في 5 محاولات متتالية`\n\n" +
+                                       "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>\n\n" +
+                                       "> ⚡ **تحذير:** بعد الكولداون لديك 2 محاولة فقط!"),
                         Separator.createDivider(Separator.Spacing.SMALL)
                     );
 
@@ -1509,6 +1531,7 @@ public class CrateDropCommand extends ListenerAdapter {
                                 challenge.isDecoding = false;
                                 challenge.failedReason = null;
                                 challenge.wrongAnswersCount = 0;
+                                challenge.firstAttemptUserId = null;
 
                                 String levelText = getLevelText(challenge.level);
                                 String statusText = challenge.firstAttemptUserId == null 
@@ -1520,7 +1543,7 @@ public class CrateDropCommand extends ListenerAdapter {
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
                                                    "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                                   "> 🔒 **الـحَـالَـة:** " + statusText),
+                                                   "> 🟢 **الـحَالَة:** `بانتظار المتحدي`"),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                                 );
@@ -1534,8 +1557,8 @@ public class CrateDropCommand extends ListenerAdapter {
                                 logger.error("Error resetting crate after cooldown", e);
                             }
                         }
-                    }, 10, TimeUnit.SECONDS);
-                } else {
+                    }, 20, TimeUnit.SECONDS);
+                } else if (postCooldownExpire) {
                     updateHistoryStatus(historyId, "FAILED", "استنفاد جميع المحاولات الإضافية بعد فترة التهدئة");
 
                     Container expiredContainer = Container.of(
@@ -1585,11 +1608,9 @@ public class CrateDropCommand extends ListenerAdapter {
                     challenge.isSolving = false;
                     challenge.isDecoding = false;
                     challenge.failedReason = null;
+                    challenge.firstAttemptUserId = null;
 
                     String levelText = getLevelText(challenge.level);
-                    String statusText = challenge.firstAttemptUserId == null 
-                            ? "بانتظار المتحدي الأول" 
-                            : "محجوز لـ <@" + challenge.firstAttemptUserId + ">";
 
                     Container claimContainer = Container.of(
                         TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
