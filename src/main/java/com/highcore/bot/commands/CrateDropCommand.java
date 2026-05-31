@@ -1534,15 +1534,12 @@ public class CrateDropCommand extends ListenerAdapter {
                                 challenge.firstAttemptUserId = null;
 
                                 String levelText = getLevelText(challenge.level);
-                                String statusText = challenge.firstAttemptUserId == null 
-                                        ? "بانتظار المتحدي الأول" 
-                                        : "محجوز لـ <@" + challenge.firstAttemptUserId + ">";
 
                                 Container claimContainer = Container.of(
-                                    TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
+                                    TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُندُوق مُشَفَّر ───────── 🌟"),
                                     Separator.createDivider(Separator.Spacing.SMALL),
-                                    TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
-                                                   "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
+                                    TextDisplay.of("> 🏆 **الـجَائِزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِندَ الْفَوز)`\n\n" +
+                                                   "> ⚡ **الـمُسـتَوَى:** `" + levelText + "`\n\n" +
                                                    "> 🟢 **الـحَالَة:** `بانتظار المتحدي`"),
                                     Separator.createDivider(Separator.Spacing.SMALL),
                                     ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
