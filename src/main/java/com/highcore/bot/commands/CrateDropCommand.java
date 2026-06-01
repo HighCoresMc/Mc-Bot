@@ -351,6 +351,12 @@ public class CrateDropCommand extends ListenerAdapter {
             return;
         }
 
+        if (id.equals("drop_admin_refresh_history")) {
+            event.deferEdit().queue();
+            showDropHistoryView(event.getHook());
+            return;
+        }
+
         if (id.equals("drop_admin_back_to_panel")) {
             event.deferEdit().queue();
             wizardStates.remove(event.getUser().getId());
@@ -498,9 +504,10 @@ public class CrateDropCommand extends ListenerAdapter {
                 startDecodingAnimation((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge);
             } else {
                 challenge.wrongAnswersCount++;
+                int limit = challenge.cooldownsCount == 0 ? 5 : 2;
                 ActionLogService.logGame(event.getJDA(), "❌ Crate Wrong Answer",
                     event.getUser().getId(), event.getUser().getName(),
-                    "**عدد المحاولات الخاطئة:** `" + challenge.wrongAnswersCount + "/5`\n" +
+                    "**عدد المحاولات الخاطئة:** `" + challenge.wrongAnswersCount + "/" + limit + "`\n" +
                     "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
                 if (challenge.timeoutTask != null) {
                     challenge.timeoutTask.cancel(false);
@@ -749,7 +756,10 @@ public class CrateDropCommand extends ListenerAdapter {
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of(sb.toString()),
             Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(Button.secondary("drop_admin_back_to_panel", "🔙 العودة للوحة التحكم"))
+            ActionRow.of(
+                Button.primary("drop_admin_refresh_history", "🔄 تحديث"),
+                Button.secondary("drop_admin_back_to_panel", "🔙 العودة للوحة التحكم")
+            )
         );
 
         hook.editOriginalComponents(container).useComponentsV2(true).queue();
@@ -1574,14 +1584,14 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 activeChallenges.remove(messageId);
             } else {
+                int limit = challenge.cooldownsCount == 0 ? 5 : 2;
                 Container failureContainer = Container.of(
                     TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
                                    "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
                                    "> ⚠️ **الـسَّـبَـب:** `" + reason + "`\n\n" +
-                                   "> 🔢 **الـمُـحَـاوَلَاتُ الـفَـاشِـلَة:** `" + challenge.wrongAnswersCount + "/3`\n\n" +
-                                   "🔄 تم الاحتفاظ بالصندوق للمتحدي الأول فقط لإعادة المحاولة.")
+                                   "> 🔢 **الـمُـحَـاوَلَاتُ الـفَـاشِـلَة:** `" + challenge.wrongAnswersCount + "/" + limit + "`")
                 );
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()

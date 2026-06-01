@@ -1,17 +1,18 @@
 package com.highcore.bot.services;
 
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.components.container.Container;
-import net.dv8tion.jda.api.components.separator.Separator;
-import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.awt.Color;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.Locale;
 
 // ACTION LOG SERVICE
 public class ActionLogService {
@@ -65,27 +66,29 @@ public class ActionLogService {
                 return;
             }
 
-            String userLine = (userName != null && userId != null)
-                    ? "@" + userName + " (<@" + userId + ">)"
-                    : userId != null ? "<@" + userId + ">"
+            String userLine = userId != null
+                    ? "<@" + userId + "> (" + userId + ")"
                     : "System";
 
-            Container logContainer = Container.of(
-                TextDisplay.of("## 📋 ─── Action Executed ───"),
-                TextDisplay.of("**► HighCore MC・Activity Log**"),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of(
-                    "**Action:**\n`" + action + "`\n\n" +
-                    "**User:**\n" + userLine + "\n\n" +
-                    (details != null ? "**Details:**\n" + details + "\n\n" : "") +
-                    "**Time:** `" + now() + "`"
-                )
-            );
+            EmbedBuilder embedBuilder = new EmbedBuilder();
+            embedBuilder.setAuthor("Action Executed");
+            embedBuilder.setTitle("► HighCore MC • Activity Log");
+            embedBuilder.setColor(Color.decode("#00A86B"));
+
+            embedBuilder.addField("Action:", "`" + action + "`", false);
+            embedBuilder.addField("User:", userLine, false);
+            if (details != null && !details.isEmpty()) {
+                embedBuilder.addField("Details:", details, false);
+            }
+
+            String footerTime = ZonedDateTime.now(ZoneId.of("Asia/Riyadh"))
+                    .format(DateTimeFormatter.ofPattern("M/d/yyyy h:mm a", Locale.ENGLISH));
+            embedBuilder.setFooter("• UNIFIED TERMINAL v1.2.0 • HIGHCORE MC • " + footerTime, null);
 
             channel.sendMessage(
                 new MessageCreateBuilder()
-                    .setComponents(logContainer)
-                    .useComponentsV2(true)
+                    .setEmbeds(embedBuilder.build())
+                    .setAllowedMentions(Collections.emptyList())
                     .build()
             ).queue(
                 success -> {},
