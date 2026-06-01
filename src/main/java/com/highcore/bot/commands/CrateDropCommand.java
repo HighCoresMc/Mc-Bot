@@ -1614,7 +1614,7 @@ public class CrateDropCommand extends ListenerAdapter {
                         Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
                                        "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                       "> 🔒 **الـحَـالَـة:** " + statusText),
+                                       "> 🟢 **الـحَـالَـة:** `بانتظار المتحدي`"),
                         Separator.createDivider(Separator.Spacing.SMALL),
                         ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                     );
