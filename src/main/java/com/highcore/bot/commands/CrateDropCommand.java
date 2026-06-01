@@ -190,13 +190,17 @@ public class CrateDropCommand extends ListenerAdapter {
             }
             logger.info("[DropScheduler] Triggering drop. next_drop_at was: {}", new java.util.Date(nextDropAt));
             triggerAutomaticDrop(channelId);
-            long newNext = calculateNextDropTime(intervalType, frequency);
+            long newNext = calculateNextDropTime(intervalType, frequency, true);
             logger.info("[DropScheduler] Next drop scheduled at: {}", new java.util.Date(newNext));
             updateNextDropTime(newNext);
         }
     }
 
     private static long calculateNextDropTime(String intervalType, int frequency) {
+        return calculateNextDropTime(intervalType, frequency, false);
+    }
+
+    private static long calculateNextDropTime(String intervalType, int frequency, boolean skipCurrentWindow) {
         java.time.ZonedDateTime now = java.time.ZonedDateTime.now(java.time.ZoneId.systemDefault());
         long nowMs = System.currentTimeMillis();
         long nextTime = 0;
@@ -205,11 +209,16 @@ public class CrateDropCommand extends ListenerAdapter {
             java.time.ZonedDateTime startOfToday = now.toLocalDate().atStartOfDay(now.getZone());
             long startMs = startOfToday.toInstant().toEpochMilli();
             long windowSize = (24 * 60 * 60 * 1000L) / frequency;
-            for (int i = 0; i < frequency; i++) {
+            int startWindow = 0;
+            if (skipCurrentWindow) {
+                startWindow = (int) ((nowMs - startMs) / windowSize) + 1;
+            }
+            for (int i = startWindow; i < frequency; i++) {
+                long windowStart = startMs + i * windowSize;
                 long windowEnd = startMs + (i + 1) * windowSize;
                 if (windowEnd > nowMs) {
-                    long windowStart = Math.max(nowMs, startMs + i * windowSize);
-                    nextTime = windowStart + (long) (Math.random() * (windowEnd - windowStart));
+                    long actualStart = Math.max(nowMs, windowStart);
+                    nextTime = actualStart + (long) (Math.random() * (windowEnd - actualStart));
                     break;
                 }
             }
@@ -222,11 +231,16 @@ public class CrateDropCommand extends ListenerAdapter {
             java.time.ZonedDateTime startOfWeek = now.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).toLocalDate().atStartOfDay(now.getZone());
             long startMs = startOfWeek.toInstant().toEpochMilli();
             long windowSize = (7 * 24 * 60 * 60 * 1000L) / frequency;
-            for (int i = 0; i < frequency; i++) {
+            int startWindow = 0;
+            if (skipCurrentWindow) {
+                startWindow = (int) ((nowMs - startMs) / windowSize) + 1;
+            }
+            for (int i = startWindow; i < frequency; i++) {
+                long windowStart = startMs + i * windowSize;
                 long windowEnd = startMs + (i + 1) * windowSize;
                 if (windowEnd > nowMs) {
-                    long windowStart = Math.max(nowMs, startMs + i * windowSize);
-                    nextTime = windowStart + (long) (Math.random() * (windowEnd - windowStart));
+                    long actualStart = Math.max(nowMs, windowStart);
+                    nextTime = actualStart + (long) (Math.random() * (windowEnd - actualStart));
                     break;
                 }
             }
@@ -239,11 +253,16 @@ public class CrateDropCommand extends ListenerAdapter {
             java.time.ZonedDateTime startOfMonth = now.with(java.time.temporal.TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay(now.getZone());
             long startMs = startOfMonth.toInstant().toEpochMilli();
             long windowSize = (30 * 24 * 60 * 60 * 1000L) / frequency;
-            for (int i = 0; i < frequency; i++) {
+            int startWindow = 0;
+            if (skipCurrentWindow) {
+                startWindow = (int) ((nowMs - startMs) / windowSize) + 1;
+            }
+            for (int i = startWindow; i < frequency; i++) {
+                long windowStart = startMs + i * windowSize;
                 long windowEnd = startMs + (i + 1) * windowSize;
                 if (windowEnd > nowMs) {
-                    long windowStart = Math.max(nowMs, startMs + i * windowSize);
-                    nextTime = windowStart + (long) (Math.random() * (windowEnd - windowStart));
+                    long actualStart = Math.max(nowMs, windowStart);
+                    nextTime = actualStart + (long) (Math.random() * (windowEnd - actualStart));
                     break;
                 }
             }
@@ -323,71 +342,73 @@ public class CrateDropCommand extends ListenerAdapter {
         }
 
         if (id.equals("drop_admin_toggle_pause")) {
-            event.deferEdit().queue();
-            togglePauseConfig();
-            sendControlPanelEdit(event.getHook());
+            event.deferEdit().queue(hook -> {
+                togglePauseConfig();
+                sendControlPanelEdit(hook);
+            });
             return;
         }
 
         if (id.equals("drop_admin_instant_drop")) {
-            event.deferReply(true).queue();
-            double roll = Math.random();
-            String level = roll < 0.40 ? "SIMPLE" : (roll < 0.70 ? "RARE" : (roll < 0.90 ? "EPIC" : "NETHERITE"));
-            Loot loot = selectRandomLootStatic(level);
-            spawnCrateDrop((TextChannel) event.getChannel(), level, loot);
-            event.getHook().sendMessage("تم إطلاق دروب عشوائي عاجل في هذه القناة!").queue();
+            event.deferReply(true).queue(hook -> {
+                double roll = Math.random();
+                String level = roll < 0.40 ? "SIMPLE" : (roll < 0.70 ? "RARE" : (roll < 0.90 ? "EPIC" : "NETHERITE"));
+                Loot loot = selectRandomLootStatic(level);
+                spawnCrateDrop((TextChannel) event.getChannel(), level, loot);
+                hook.sendMessage("تم إطلاق دروب عشوائي عاجل في هذه القناة!").queue();
+            });
             return;
         }
 
         if (id.equals("drop_admin_custom")) {
-            event.deferEdit().queue();
-            showCustomWizardStep1(event.getHook(), event.getUser().getId());
+            event.deferEdit().queue(hook -> showCustomWizardStep1(hook, event.getUser().getId()));
             return;
         }
 
         if (id.equals("drop_admin_view_history")) {
-            event.deferEdit().queue();
-            showDropHistoryView(event.getHook());
+            event.deferEdit().queue(hook -> showDropHistoryView(hook));
             return;
         }
 
         if (id.equals("drop_admin_refresh_history")) {
-            event.deferEdit().queue();
-            showDropHistoryView(event.getHook());
+            event.deferEdit().queue(hook -> showDropHistoryView(hook));
             return;
         }
 
         if (id.equals("drop_admin_back_to_panel")) {
-            event.deferEdit().queue();
-            wizardStates.remove(event.getUser().getId());
-            sendControlPanelEdit(event.getHook());
+            event.deferEdit().queue(hook -> {
+                wizardStates.remove(event.getUser().getId());
+                sendControlPanelEdit(hook);
+            });
             return;
         }
 
         if (id.equals("drop_admin_custom_cancel")) {
-            event.deferEdit().queue();
-            wizardStates.remove(event.getUser().getId());
-            sendControlPanelEdit(event.getHook());
+            event.deferEdit().queue(hook -> {
+                wizardStates.remove(event.getUser().getId());
+                sendControlPanelEdit(hook);
+            });
             return;
         }
 
         if (id.equals("drop_admin_custom_send")) {
-            event.deferReply(true).queue();
-            CustomWizardState state = wizardStates.get(event.getUser().getId());
-            if (state == null || state.level == null || state.channelId == null) {
-                event.getHook().sendMessage("انتهت صلاحية جلسة معالج الدروب المخصص.").queue();
-                return;
-            }
-            TextChannel targetChannel = event.getJDA().getTextChannelById(state.channelId);
-            if (targetChannel == null) {
-                event.getHook().sendMessage("لم يتم العثور على القناة المحددة.").queue();
-                return;
-            }
-            Loot loot = selectRandomLootStatic(state.level);
-            spawnCrateDrop(targetChannel, state.level, loot);
-            wizardStates.remove(event.getUser().getId());
-            event.getHook().sendMessage("تم إطلاق الدروب المخصص بنجاح في القناة!").queue();
-            sendControlPanelEdit(event.getHook());
+            event.deferReply(true).queue(hook -> {
+                CustomWizardState state = wizardStates.get(event.getUser().getId());
+                if (state == null || state.level == null || state.channelId == null) {
+                    hook.sendMessage("انتهت صلاحية جلسة معالج الدروب المخصص.").queue();
+                    return;
+                }
+                TextChannel targetChannel = event.getJDA().getTextChannelById(state.channelId);
+                if (targetChannel == null) {
+                    hook.sendMessage("لم يتم العثور على القناة المحددة.").queue();
+                    return;
+                }
+                Loot loot = selectRandomLootStatic(state.level);
+                spawnCrateDrop(targetChannel, state.level, loot);
+                wizardStates.remove(event.getUser().getId());
+                hook.sendMessage("تم إطلاق الدروب المخصص بنجاح في القناة!").queue();
+                sendControlPanelEdit(hook);
+            });
         }
     }
 
