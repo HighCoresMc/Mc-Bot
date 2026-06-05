@@ -173,7 +173,13 @@ public class EventCommand extends ListenerAdapter {
                 ResultSet rs = ps.getGeneratedKeys();
                 if (rs.next()) {
                     int eventId = rs.getInt(1);
-                    
+
+                    // Supabase
+                    com.highcore.bot.database.SupabaseManager supa = LeonTrotskyBot.getSupabaseManager();
+                    if (supa != null) {
+                        supa.logEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, 0, pe.seats);
+                    }
+
                     Container publicContainer = getPublicEventContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, dbImageUrl, null, null, guild);
                     ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, "OPEN"));
 

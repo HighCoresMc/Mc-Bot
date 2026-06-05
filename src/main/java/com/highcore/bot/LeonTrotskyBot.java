@@ -4,6 +4,7 @@ import com.highcore.bot.commands.PanelCommand;
 import com.highcore.bot.commands.ProfileCommand;
 import com.highcore.bot.commands.StatsCommand;
 import com.highcore.bot.database.DatabaseManager;
+import com.highcore.bot.database.SupabaseManager;
 import com.highcore.bot.services.DiscordSRVManager;
 import com.highcore.bot.services.ServerStatsService;
 import io.github.cdimascio.dotenv.Dotenv;
@@ -17,6 +18,7 @@ import org.slf4j.LoggerFactory;
 public class LeonTrotskyBot {
     private static final Logger logger = LoggerFactory.getLogger(LeonTrotskyBot.class);
     private static DatabaseManager dbManager;
+    private static SupabaseManager supabaseManager;
     private static DiscordSRVManager discordSRVManager;
     private static JDA jda;
 
@@ -49,6 +51,16 @@ public class LeonTrotskyBot {
             dbManager.initializeEventTables();
         } catch (Exception e) {
             logger.error("Failed to connect to MySQL database!", e);
+        }
+
+        // Supabase
+        String supabaseUrl = dotenv.get("SUPABASE_URL", "");
+        String supabaseKey = dotenv.get("SUPABASE_KEY", "");
+        if (!supabaseUrl.isEmpty() && !supabaseKey.isEmpty()) {
+            supabaseManager = new SupabaseManager(supabaseUrl, supabaseKey);
+            logger.info("Supabase connection initialized.");
+        } else {
+            logger.warn("SUPABASE_URL or SUPABASE_KEY not set. Event logging to Supabase disabled.");
         }
 
         String cmiHost = dotenv.get("CMI_DB_HOST", "");
@@ -133,6 +145,10 @@ public class LeonTrotskyBot {
 
     public static DatabaseManager getDbManager() {
         return dbManager;
+    }
+
+    public static SupabaseManager getSupabaseManager() {
+        return supabaseManager;
     }
     
     public static DiscordSRVManager getDiscordSRVManager() {
