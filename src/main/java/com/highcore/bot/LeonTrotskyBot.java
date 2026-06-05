@@ -105,6 +105,9 @@ public class LeonTrotskyBot {
 
             com.highcore.bot.commands.CrateDropCommand.startScheduler(jda);
 
+            // Start Team Tag Scheduler
+            com.highcore.bot.commands.TeamCommand.startTagScheduler();
+
             // Register Global Slash Commands
             var globalCommands = java.util.List.of(
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض الملف الشخصي والإحصائيات الخاصة باللاعب")
@@ -114,7 +117,20 @@ public class LeonTrotskyBot {
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec", "إنهاء حالة الصيانة أو التوقف الحالية"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("event", "لوحة تحكم الفعاليات"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("daily", "استلام المكافأة اليومية الخاصة بك"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("drop", "لوحة تحكم نظام الدروبات العشوائية")
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("drop", "لوحة تحكم نظام الدروبات العشوائية"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("team", "نظام إدارة الفرق")
+                            .addSubcommands(
+                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("view", "لوحة تحكم الفرق"),
+                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("create", "إنشاء فريق جديد")
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "name",    "اسم الفريق", true)
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "color",   "كود اللون (مثال: #FF5733)", true)
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "leader",  "قائد الفريق", true)
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member2", "العضو الثاني", true)
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member3", "العضو الثالث (اختياري)", false)
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member4", "العضو الرابع (اختياري)", false),
+                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("edit", "تعديل فريق")
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "team", "اسم الفريق (اختياري)", false)
+                            )
             );
 
             jda.updateCommands().addCommands(globalCommands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
@@ -130,6 +146,7 @@ public class LeonTrotskyBot {
             jda.addEventListener(new com.highcore.bot.listeners.MinecraftLogListener());
             jda.addEventListener(new com.highcore.bot.commands.DailyCommand());
             jda.addEventListener(new com.highcore.bot.commands.CrateDropCommand());
+            jda.addEventListener(new com.highcore.bot.commands.TeamCommand());
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");

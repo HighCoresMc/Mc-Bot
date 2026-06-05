@@ -119,6 +119,25 @@ public class DatabaseManager {
             stmt.executeUpdate(createDailyTable);
             try { stmt.executeUpdate("ALTER TABLE daily_streaks ADD COLUMN warning_sent BOOLEAN DEFAULT FALSE"); } catch (Exception ignored) {}
 
+            // DATABASE TABLES INITIALIZATION
+            String createTeamsTable = "CREATE TABLE IF NOT EXISTS teams (" +
+                    "id INT AUTO_INCREMENT PRIMARY KEY, " +
+                    "name VARCHAR(255) NOT NULL, " +
+                    "color VARCHAR(20) NOT NULL, " +
+                    "role_id VARCHAR(64), " +
+                    "category_id VARCHAR(64), " +
+                    "voice_channel_id VARCHAR(64), " +
+                    "text_channel_id VARCHAR(64), " +
+                    "leader_id VARCHAR(64), " +
+                    "member2_id VARCHAR(64), " +
+                    "member3_id VARCHAR(64), " +
+                    "member4_id VARCHAR(64), " +
+                    "tag VARCHAR(64) DEFAULT 'New Born', " +
+                    "announcement_message_id VARCHAR(64), " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")";
+            stmt.executeUpdate(createTeamsTable);
+
             logger.info("Event tables initialized successfully.");
         } catch (SQLException e) {
             logger.error("Failed to initialize event tables!", e);
