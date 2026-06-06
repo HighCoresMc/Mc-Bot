@@ -53,7 +53,7 @@ public class TeamCommand extends ListenerAdapter {
     public static void startTagScheduler() {
         tagScheduler = Executors.newSingleThreadScheduledExecutor(R -> {
             Thread t = new Thread(R, "TeamTagScheduler");
-            t.setDaemon(true) ;
+            t.setDaemon(true);
             return t;
         });
         tagScheduler.scheduleAtFixedRate(TeamCommand::checkAndUpdateTags, 1, 12, TimeUnit.HOURS);
