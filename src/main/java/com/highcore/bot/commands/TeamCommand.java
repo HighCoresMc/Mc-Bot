@@ -406,7 +406,7 @@ public class TeamCommand extends ListenerAdapter {
         StringBuilder sb = new StringBuilder("## 📋 قائمة الفرق\n\n");
         for (TeamData t : teams) {
             sb.append(tagEmoji(t.tag)).append(" **").append(t.name)
-              .append("** | 🎨 `").append(t.color).append("`\n");
+              .append("** | 🎨 `").append(t.color).append("` \n");
         }
 
         StringSelectMenu.Builder menu = StringSelectMenu.create("tm_select_view")
@@ -470,7 +470,7 @@ public class TeamCommand extends ListenerAdapter {
             .build();
 
         Modal modal = Modal.create("tm_modal_delete_" + teamId, "سبب حذف الفريق")
-            .addComponents(ActionRow.of(reasonInput))
+            .addActionRow(reasonInput)
             .build();
 
         event.replyModal(modal).queue();
@@ -526,10 +526,8 @@ public class TeamCommand extends ListenerAdapter {
             .setValue(td.color).setMaxLength(20).setRequired(true).build();
 
         Modal modal = Modal.create("tm_modal_edit_" + teamId, "تعديل الفريق: " + td.name)
-            .addComponents(
-                ActionRow.of(nameInput),
-                ActionRow.of(colorInput)
-            )
+            .addActionRow(nameInput)
+            .addActionRow(colorInput)
             .build();
 
         event.replyModal(modal).queue();
@@ -556,12 +554,10 @@ public class TeamCommand extends ListenerAdapter {
             .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false).build();
 
         Modal modal = Modal.create("tm_modal_members_" + teamId, "تعديل أعضاء: " + td.name)
-            .addComponents(
-                ActionRow.of(leaderInput),
-                ActionRow.of(m2Input),
-                ActionRow.of(m3Input),
-                ActionRow.of(m4Input)
-            )
+            .addActionRow(leaderInput)
+            .addActionRow(m2Input)
+            .addActionRow(m3Input)
+            .addActionRow(m4Input)
             .build();
 
         event.replyModal(modal).queue();
