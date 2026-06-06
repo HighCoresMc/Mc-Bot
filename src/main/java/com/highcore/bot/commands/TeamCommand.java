@@ -470,7 +470,7 @@ public class TeamCommand extends ListenerAdapter {
             .build();
 
         Modal modal = Modal.create("tm_modal_delete_" + teamId, "سبب حذف الفريق")
-            .addComponents(Label.of("السبب", reasonInput))
+            .addComponents(ActionRow.of(reasonInput))
             .build();
 
         event.replyModal(modal).queue();
@@ -527,8 +527,8 @@ public class TeamCommand extends ListenerAdapter {
 
         Modal modal = Modal.create("tm_modal_edit_" + teamId, "تعديل الفريق: " + td.name)
             .addComponents(
-                Label.of("اسم الفريق الجديد", nameInput),
-                Label.of("كود اللون الجديد (مثال: #FF5733)", colorInput)
+                ActionRow.of(nameInput),
+                ActionRow.of(colorInput)
             )
             .build();
 
@@ -557,10 +557,10 @@ public class TeamCommand extends ListenerAdapter {
 
         Modal modal = Modal.create("tm_modal_members_" + teamId, "تعديل أعضاء: " + td.name)
             .addComponents(
-                Label.of("القائد (Leader)", leaderInput),
-                Label.of("العضو الثاني", m2Input),
-                Label.of("العضو الثالث (اختياري)", m3Input),
-                Label.of("العضو الرابع (اختياري)", m4Input)
+                ActionRow.of(leaderInput),
+                ActionRow.of(m2Input),
+                ActionRow.of(m3Input),
+                ActionRow.of(m4Input)
             )
             .build();
 
