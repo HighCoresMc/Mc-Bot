@@ -520,9 +520,9 @@ public class TeamCommand extends ListenerAdapter {
             return;
         }
 
-        TextInput nameInput  = TextInput.create("tm_name", TextInputStyle.SHORT)
+        TextInput nameInput  = TextInput.create("tm_name", "اسم الفريق الجديد", TextInputStyle.SHORT)
             .setValue(td.name).setMaxLength(50).setRequired(true).build();
-        TextInput colorInput = TextInput.create("tm_color", TextInputStyle.SHORT)
+        TextInput colorInput = TextInput.create("tm_color", "كود اللون الجديد", TextInputStyle.SHORT)
             .setValue(td.color).setMaxLength(20).setRequired(true).build();
 
         Modal modal = Modal.create("tm_modal_edit_" + teamId, "تعديل الفريق: " + td.name)
@@ -542,16 +542,16 @@ public class TeamCommand extends ListenerAdapter {
             return;
         }
 
-        TextInput leaderInput = TextInput.create("tm_leader", TextInputStyle.SHORT)
+        TextInput leaderInput = TextInput.create("tm_leader", "القائد (Leader)", TextInputStyle.SHORT)
             .setValue(td.leaderId  != null ? td.leaderId : "")
             .setPlaceholder("@mention أو Discord ID").setRequired(true).build();
-        TextInput m2Input = TextInput.create("tm_m2", TextInputStyle.SHORT)
+        TextInput m2Input = TextInput.create("tm_m2", "العضو الثاني", TextInputStyle.SHORT)
             .setValue(td.member2Id != null ? td.member2Id : "")
             .setPlaceholder("@mention أو Discord ID").setRequired(true).build();
-        TextInput m3Input = TextInput.create("tm_m3", TextInputStyle.SHORT)
+        TextInput m3Input = TextInput.create("tm_m3", "العضو الثالث (اختياري)", TextInputStyle.SHORT)
             .setValue(td.member3Id != null ? td.member3Id : "")
             .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false).build();
-        TextInput m4Input = TextInput.create("tm_m4", TextInputStyle.SHORT)
+        TextInput m4Input = TextInput.create("tm_m4", "العضو الرابع (اختياري)", TextInputStyle.SHORT)
             .setValue(td.member4Id != null ? td.member4Id : "")
             .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false).build();
 
