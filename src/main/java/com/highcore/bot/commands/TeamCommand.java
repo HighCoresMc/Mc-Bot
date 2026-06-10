@@ -967,10 +967,17 @@ public class TeamCommand extends ListenerAdapter {
                                   String m3, String m4, String tag, String oldName) {
         com.highcore.bot.database.SupabaseManager supa = LeonTrotskyBot.getSupabaseManager();
         if (supa == null) return;
-        if (oldName != null && !oldName.equals(name)) {
-            supa.deleteTeam(oldName);
+        
+        if (tag.equals("New Born")) {
+            supa.upsertTeam(name, color, leader, m2, m3, m4, tag);
+        } else {
+            if (oldName != null && !oldName.equals(name)) {
+                supa.deleteTeam(oldName);
+                supa.upsertTeam(name, color, leader, m2, m3, m4, tag);
+            } else {
+                supa.updateTeam(name, color, leader, m2, m3, m4, tag);
+            }
         }
-        supa.upsertTeam(name, color, leader, m2, m3, m4, tag);
     }
 
     private void deleteDiscordResources(Guild guild, TeamData td, Runnable onComplete) {
@@ -1055,6 +1062,10 @@ public class TeamCommand extends ListenerAdapter {
         if (id == null) return null;
         Member m = guild.getMemberById(id);
         if (m != null) return m.getUser().getName() + " | " + id;
+        try {
+            net.dv8tion.jda.api.entities.User u = guild.getJDA().retrieveUserById(id).complete();
+            if (u != null) return u.getName() + " | " + id;
+        } catch (Exception e) {}
         return "Unknown | " + id;
     }
 
