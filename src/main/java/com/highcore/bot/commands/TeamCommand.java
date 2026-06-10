@@ -1143,4 +1143,3 @@ public class TeamCommand extends ListenerAdapter {
         }
     }
 }
-ء
