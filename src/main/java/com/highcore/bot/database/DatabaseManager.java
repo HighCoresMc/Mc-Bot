@@ -90,6 +90,8 @@ public class DatabaseManager {
             
             try { stmt.executeUpdate("ALTER TABLE events ADD COLUMN rewards_json TEXT"); } catch (Exception ignored) {}
             try { stmt.executeUpdate("ALTER TABLE events ADD COLUMN winner_id VARCHAR(64)"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE events ADD COLUMN supabase_id INT"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE events ADD COLUMN category VARCHAR(32) DEFAULT 'MC'"); } catch (Exception ignored) {}
 
             String createParticipantsTable = "CREATE TABLE IF NOT EXISTS event_participants (" +
                     "event_id INT, " +

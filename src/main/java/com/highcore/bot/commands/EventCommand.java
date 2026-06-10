@@ -65,8 +65,9 @@ public class EventCommand extends ListenerAdapter {
         String conditions;
         String customQuestion;
         String staffChannelId;
+        String category;
 
-        PendingEvent(String name, String type, String dateStr, com.google.gson.JsonArray rewardsJson, int seats, String conditions, String customQuestion, String staffChannelId) {
+        PendingEvent(String name, String type, String dateStr, com.google.gson.JsonArray rewardsJson, int seats, String conditions, String customQuestion, String staffChannelId, String category) {
             this.name = name;
             this.type = type;
             this.dateStr = dateStr;
@@ -75,6 +76,7 @@ public class EventCommand extends ListenerAdapter {
             this.conditions = conditions;
             this.customQuestion = customQuestion;
             this.staffChannelId = staffChannelId;
+            this.category = category;
         }
     }
 
@@ -156,7 +158,7 @@ public class EventCommand extends ListenerAdapter {
         String dbImageUrl = fileName != null ? "attachment://" + fileName : null;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String insertSql = "INSERT INTO events (name, type, event_date, rewards_json, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            String insertSql = "INSERT INTO events (name, type, event_date, rewards_json, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id, category) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setString(1, pe.name);
                 ps.setString(2, pe.type);
@@ -168,6 +170,7 @@ public class EventCommand extends ListenerAdapter {
                 ps.setString(8, pe.customQuestion);
                 ps.setString(9, dbImageUrl);
                 ps.setString(10, pe.staffChannelId);
+                ps.setString(11, pe.category);
                 ps.executeUpdate();
 
                 ResultSet rs = ps.getGeneratedKeys();
@@ -177,7 +180,11 @@ public class EventCommand extends ListenerAdapter {
                     // Supabase
                     com.highcore.bot.database.SupabaseManager supa = LeonTrotskyBot.getSupabaseManager();
                     if (supa != null) {
-                        supa.logEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, 0, pe.seats);
+                        if ("DC".equalsIgnoreCase(pe.category)) {
+                            supa.logDcEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, 0, pe.seats);
+                        } else {
+                            supa.logEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, 0, pe.seats);
+                        }
                     }
 
                     Container publicContainer = getPublicEventContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, dbImageUrl, null, null, guild);
@@ -227,7 +234,7 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    private Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl, String winnerId, String winnerMcName, Guild guild) {
+    public static Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl, String winnerId, String winnerMcName, Guild guild) {
         String rewardsStr = "لا توجد";
         try {
             if (rewards != null && !rewards.isEmpty() && !rewards.equals("[]")) {
@@ -303,7 +310,7 @@ public class EventCommand extends ListenerAdapter {
         return Container.of(components);
     }
 
-    private Container getStaffContainer(String name, String mention, int eventId, String status, int participantCount, List<String> participantMentions) {
+    public static Container getStaffContainer(String name, String mention, int eventId, String status, int participantCount, List<String> participantMentions) {
         String participantsStr = participantMentions.isEmpty() ? "لا يوجد مشاركين" : String.join(", ", participantMentions);
         if (participantsStr.length() > 2000) {
             participantsStr = participantsStr.substring(0, 1996) + "...";
@@ -338,6 +345,22 @@ public class EventCommand extends ListenerAdapter {
         }
 
         if (id.equals("ev_panel_create")) {
+            Container categoryContainer = Container.of(
+                TextDisplay.of("## ❓ تحديد قسم الفعالية"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("يرجى اختيار القسم المخصص لهذه الفعالية لتظهر في التبويب الصحيح بالموقع:"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(
+                    Button.primary("ev_choose_dc", "🌐 فعالية DC"),
+                    Button.success("ev_choose_mc", "🎮 فعالية MC")
+                )
+            );
+            event.replyComponents(categoryContainer).useComponentsV2(true).setEphemeral(true).queue();
+            return;
+        }
+
+        if (id.equals("ev_choose_dc") || id.equals("ev_choose_mc")) {
+            String category = id.endsWith("dc") ? "DC" : "MC";
             TextInput nameInput = TextInput.create("ev_create_name", TextInputStyle.SHORT)
                 .setRequired(true)
                 .build();
@@ -357,7 +380,7 @@ public class EventCommand extends ListenerAdapter {
                 .setRequired(true)
                 .build();
 
-            Modal modal = Modal.create("ev_modal_create", "إنشاء فعالية جديدة")
+            Modal modal = Modal.create("ev_modal_create_" + (category.equals("DC") ? "dc" : "mc"), "إنشاء فعالية جديدة (" + category + ")")
                 .addComponents(
                     Label.of("اسم الفعالية", nameInput),
                     Label.of("نوع الفعالية", typeInput),
@@ -569,7 +592,8 @@ public class EventCommand extends ListenerAdapter {
 
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
-        if (event.getModalId().equals("ev_modal_create")) {
+        if (event.getModalId().startsWith("ev_modal_create_")) {
+            String category = event.getModalId().endsWith("dc") ? "DC" : "MC";
             String name = event.getValue("ev_create_name").getAsString();
             String type = event.getValue("ev_create_type").getAsString();
             String dateStr = event.getValue("ev_create_date").getAsString();
@@ -592,7 +616,7 @@ public class EventCommand extends ListenerAdapter {
                 conditions = conditions.substring(0, lastOpen).trim();
             }
 
-            PendingEvent pe = new PendingEvent(name, type, dateStr, new com.google.gson.JsonArray(), seats, conditions, customQuestion, event.getChannel().getId());
+            PendingEvent pe = new PendingEvent(name, type, dateStr, new com.google.gson.JsonArray(), seats, conditions, customQuestion, event.getChannel().getId(), category);
             pendingEvents.put(event.getUser().getId(), pe);
 
             net.dv8tion.jda.api.components.selections.StringSelectMenu rewardMenu = net.dv8tion.jda.api.components.selections.StringSelectMenu.create("ev_reward_menu")
@@ -1113,7 +1137,7 @@ public class EventCommand extends ListenerAdapter {
         return false;
     }
 
-    private List<Button> getPublicButtons(int eventId, String status) {
+    public static List<Button> getPublicButtons(int eventId, String status) {
         List<Button> buttons = new ArrayList<>();
         if ("OPEN".equals(status)) {
             buttons.add(Button.success("ev_reg_" + eventId, "تسجيل"));
@@ -1133,7 +1157,7 @@ public class EventCommand extends ListenerAdapter {
         return buttons;
     }
 
-    private List<Button> getStaffButtons(int eventId, String status) {
+    public static List<Button> getStaffButtons(int eventId, String status) {
         List<Button> buttons = new ArrayList<>();
         if ("OPEN".equals(status)) {
             buttons.add(Button.danger("ev_staff_close_" + eventId, "إغلاق التسجيل"));

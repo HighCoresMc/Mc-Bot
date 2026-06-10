@@ -208,6 +208,59 @@ public class SupabaseManager {
         }
     }
 
+    public String getSupabaseUrl() {
+        return supabaseUrl;
+    }
+
+    public String getSupabaseKey() {
+        return supabaseKey;
+    }
+
+    public HttpClient getHttpClient() {
+        return httpClient;
+    }
+
+    public void logDcEvent(int eventId, String title, String type, String description, String eventDate, int points, int maxSupervisors) {
+        try {
+            String json = String.format(
+                "{\"id\":%d,\"title\":%s,\"event_type\":%s,\"description\":%s,\"event_date\":%s,\"points\":%d,\"max_supervisors\":%d,\"section\":\"dc\",\"created_by\":\"HighCoreMc Bot\"}",
+                eventId,
+                jsonStr(title),
+                jsonStr(type),
+                jsonStr(description),
+                jsonStr(eventDate),
+                points,
+                maxSupervisors
+            );
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(supabaseUrl + "/rest/v1/events"))
+                    .timeout(Duration.ofSeconds(15))
+                    .header("Content-Type", "application/json")
+                    .header("apikey", supabaseKey)
+                    .header("Authorization", "Bearer " + supabaseKey)
+                    .header("Prefer", "return=minimal")
+                    .POST(HttpRequest.BodyPublishers.ofString(json))
+                    .build();
+
+            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                    .thenAccept(response -> {
+                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                            logger.info("DC Event logged to Supabase successfully. ID: {}", eventId);
+                        } else {
+                            logger.warn("Supabase returned status {} for DC event ID {}. Body: {}", response.statusCode(), eventId, response.body());
+                        }
+                    })
+                    .exceptionally(e -> {
+                        logger.error("Failed to log DC event to Supabase", e);
+                        return null;
+                    });
+
+        } catch (Exception e) {
+            logger.error("Error sending DC event to Supabase", e);
+        }
+    }
+
     private String jsonStr(String value) {
         if (value == null) return "null";
         return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r") + "\"";

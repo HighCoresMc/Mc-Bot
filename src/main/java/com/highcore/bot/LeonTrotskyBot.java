@@ -108,6 +108,9 @@ public class LeonTrotskyBot {
             // Start Team Tag Scheduler
             com.highcore.bot.commands.TeamCommand.startTagScheduler();
 
+            // Start Supabase Sync Scheduler
+            com.highcore.bot.services.SupabaseSyncService.startScheduler(jda);
+
             // Register Global Slash Commands
             var globalCommands = java.util.List.of(
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض الملف الشخصي والإحصائيات الخاصة باللاعب")
