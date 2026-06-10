@@ -200,10 +200,24 @@ public class EventCommand extends ListenerAdapter {
                         builder.addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(imageBytes, fileName));
                     }
 
-                    String tagId = "DC".equalsIgnoreCase(pe.category) ? "1514287675589525704" : "1514290357813252186";
-                    forumChannel.createForumPost("🎉 " + pe.name, builder.build())
-                        .setTags(net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake.fromId(tagId))
-                        .queue(forumPost -> {
+                    java.util.List<net.dv8tion.jda.api.entities.channel.forums.ForumTag> availableTags = forumChannel.getAvailableTags();
+                    net.dv8tion.jda.api.entities.channel.forums.ForumTag targetTag = null;
+                    for (net.dv8tion.jda.api.entities.channel.forums.ForumTag t : availableTags) {
+                        if (pe.category.equalsIgnoreCase(t.getName())) {
+                            targetTag = t;
+                            break;
+                        }
+                    }
+
+                    net.dv8tion.jda.api.requests.restaction.ForumPostAction postAction = forumChannel.createForumPost("🎉 " + pe.name, builder.build());
+                    if (targetTag != null) {
+                        postAction = postAction.setTags(targetTag);
+                    } else {
+                        String tagIdFallback = "DC".equalsIgnoreCase(pe.category) ? "1514287675589525704" : "1514290357813252186";
+                        postAction = postAction.setTags(net.dv8tion.jda.api.entities.channel.forums.ForumTagSnowflake.fromId(tagIdFallback));
+                    }
+                    
+                    postAction.queue(forumPost -> {
                             String threadId = forumPost.getThreadChannel().getId();
                             String messageId = forumPost.getMessage().getId();
                             
@@ -363,12 +377,38 @@ public class EventCommand extends ListenerAdapter {
             return;
         }
 
-        if (id.equals("ev_choose_dc") || id.equals("ev_choose_mc")) {
-            String category = id.endsWith("dc") ? "DC" : "MC";
+        if (id.equals("ev_choose_dc")) {
+            Container typeContainer = Container.of(
+                TextDisplay.of("## ❓ تحديد نوع الفعالية (DC)"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(
+                    Button.primary("ev_type_dc_stage", "🎤 Stage"),
+                    Button.primary("ev_type_dc_written", "💬 Written")
+                )
+            );
+            event.replyComponents(typeContainer).useComponentsV2(true).setEphemeral(true).queue();
+            return;
+        }
+
+        if (id.equals("ev_choose_mc")) {
+            Container typeContainer = Container.of(
+                TextDisplay.of("## ❓ تحديد نوع الفعالية (MC)"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(
+                    Button.success("ev_type_mc_voice", "🎤 Voice"),
+                    Button.success("ev_type_mc_text", "💬 Text")
+                )
+            );
+            event.replyComponents(typeContainer).useComponentsV2(true).setEphemeral(true).queue();
+            return;
+        }
+
+        if (id.startsWith("ev_type_")) {
+            String[] parts = id.split("_");
+            String category = parts[2].toUpperCase(); // DC or MC
+            String type = parts[3]; // stage, written, voice, text
+            
             TextInput nameInput = TextInput.create("ev_create_name", TextInputStyle.SHORT)
-                .setRequired(true)
-                .build();
-            TextInput typeInput = TextInput.create("ev_create_type", TextInputStyle.SHORT)
                 .setRequired(true)
                 .build();
             TextInput dateInput = TextInput.create("ev_create_date", TextInputStyle.SHORT)
@@ -384,10 +424,9 @@ public class EventCommand extends ListenerAdapter {
                 .setRequired(true)
                 .build();
 
-            Modal modal = Modal.create("ev_modal_create_" + (category.equals("DC") ? "dc" : "mc"), "إنشاء فعالية جديدة (" + category + ")")
+            Modal modal = Modal.create("ev_modal_create_" + category.toLowerCase() + "_" + type, "إنشاء فعالية جديدة (" + category + ")")
                 .addComponents(
                     Label.of("اسم الفعالية", nameInput),
-                    Label.of("نوع الفعالية", typeInput),
                     Label.of("تاريخ ووقت الفعالية", dateInput),
                     Label.of("عدد الإداريين", staffInput),
                     Label.of("الشروط (والسؤال الإضافي)", conditionsInput)
@@ -597,9 +636,10 @@ public class EventCommand extends ListenerAdapter {
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
         if (event.getModalId().startsWith("ev_modal_create_")) {
-            String category = event.getModalId().endsWith("dc") ? "DC" : "MC";
+            String[] parts = event.getModalId().split("_");
+            String category = parts[3].toUpperCase();
+            String type = parts[4];
             String name = event.getValue("ev_create_name").getAsString();
-            String type = event.getValue("ev_create_type").getAsString();
             String dateStr = event.getValue("ev_create_date").getAsString();
             String staffStr = event.getValue("ev_create_staff").getAsString();
             String conditions = event.getValue("ev_create_conditions").getAsString();
@@ -630,19 +670,25 @@ public class EventCommand extends ListenerAdapter {
             PendingEvent pe = new PendingEvent(name, type, dateStr, new com.google.gson.JsonArray(), seats, conditions, customQuestion, event.getChannel().getId(), category);
             pendingEvents.put(event.getUser().getId(), pe);
 
-            net.dv8tion.jda.api.components.selections.StringSelectMenu rewardMenu = net.dv8tion.jda.api.components.selections.StringSelectMenu.create("ev_reward_menu")
-                .setPlaceholder("اختر نوع الجائزة للإضافة...")
-                .addOption("فلوس CMI", "cmi")
-                .addOption("فلوس Tokens", "tokens")
-                .addOption("رتبة (LuckPerms)", "rank")
-                .addOption("أيتم", "item")
-                .addOption("خبرة (XP)", "xp")
-                .addOption("كليمات (acb)", "claims")
-                .addOption("مفتاح AFK", "afk")
-                .build();
+            net.dv8tion.jda.api.components.selections.StringSelectMenu.Builder rewardMenuBuilder = net.dv8tion.jda.api.components.selections.StringSelectMenu.create("ev_reward_menu")
+                .setPlaceholder("اختر نوع الجائزة للإضافة...");
+
+            if ("DC".equalsIgnoreCase(category)) {
+                rewardMenuBuilder.addOption("نقاط اوبيكس", "opics")
+                    .addOption("رتبة معينة (ID)", "dc_role")
+                    .addOption("نيترو (رابط)", "nitro");
+            } else {
+                rewardMenuBuilder.addOption("فلوس CMI", "cmi")
+                    .addOption("فلوس Tokens", "tokens")
+                    .addOption("رتبة (LuckPerms)", "rank")
+                    .addOption("أيتم", "item")
+                    .addOption("خبرة (XP)", "xp")
+                    .addOption("كليمات (acb)", "claims")
+                    .addOption("مفتاح AFK", "afk");
+            }
 
             event.reply("🎁 **الرجاء إضافة جوائز للفعالية:**\nاختر من القائمة بالأسفل:")
-                 .setComponents(ActionRow.of(rewardMenu),
+                 .setComponents(ActionRow.of(rewardMenuBuilder.build()),
                                 ActionRow.of(Button.success("ev_reward_finish", "✅ الانتهاء من إضافة الجوائز ورفع الصورة")))
                  .setEphemeral(true)
                  .queue();
@@ -660,11 +706,13 @@ public class EventCommand extends ListenerAdapter {
             JsonObject reward = new JsonObject();
             reward.addProperty("type", type);
             
-            if (type.equals("rank")) {
+            if (type.equals("rank") || type.equals("dc_role")) {
                 reward.addProperty("roleId", event.getValue("rank_id").getAsString());
             } else if (type.equals("item")) {
                 reward.addProperty("itemName", event.getValue("item_name").getAsString());
                 reward.addProperty("amount", event.getValue("item_amount").getAsString());
+            } else if (type.equals("nitro")) {
+                reward.addProperty("nitroLink", event.getValue("nitro_link").getAsString());
             } else {
                 reward.addProperty("amount", event.getValue("amount").getAsString());
             }
@@ -1199,7 +1247,7 @@ public class EventCommand extends ListenerAdapter {
 
             Modal.Builder modalBuilder = Modal.create("ev_reward_modal_" + type, "إضافة جائزة");
             
-            if (type.equals("rank")) {
+            if (type.equals("rank") || type.equals("dc_role")) {
                 TextInput rankInput = TextInput.create("rank_id", TextInputStyle.SHORT)
                     .setRequired(true)
                     .build();
@@ -1212,6 +1260,11 @@ public class EventCommand extends ListenerAdapter {
                     .setRequired(true)
                     .build();
                 modalBuilder.addComponents(net.dv8tion.jda.api.components.label.Label.of("اسم الأيتم (مثل minecraft:diamond)", itemInput), net.dv8tion.jda.api.components.label.Label.of("الكمية", amountInput));
+            } else if (type.equals("nitro")) {
+                TextInput nitroInput = TextInput.create("nitro_link", TextInputStyle.SHORT)
+                    .setRequired(true)
+                    .build();
+                modalBuilder.addComponents(net.dv8tion.jda.api.components.label.Label.of("رابط النيترو (https://discord.gift/...)", nitroInput));
             } else {
                 TextInput amountInput = TextInput.create("amount", TextInputStyle.SHORT)
                     .setRequired(true)
@@ -1246,11 +1299,6 @@ public class EventCommand extends ListenerAdapter {
                     }
                 }
 
-                if (mcName == null || mcName.equals("Unknown") || mcName.equals("مجهول")) {
-                    event.getHook().sendMessage("اللاعب غير مسجل في الفعالية أو لم يتم العثور على اسمه في ماينكرافت!").queue();
-                    return;
-                }
-
                 String rewardsJson = null;
                 String q2 = "SELECT rewards_json FROM events WHERE id = ?";
                 try (PreparedStatement ps = conn.prepareStatement(q2)) {
@@ -1266,7 +1314,21 @@ public class EventCommand extends ListenerAdapter {
                     return;
                 }
 
+                boolean hasMcReward = false;
                 JsonArray rewards = JsonParser.parseString(rewardsJson).getAsJsonArray();
+                for (int i = 0; i < rewards.size(); i++) {
+                    String type = rewards.get(i).getAsJsonObject().get("type").getAsString();
+                    if (!type.equals("opics") && !type.equals("dc_role") && !type.equals("nitro")) {
+                        hasMcReward = true;
+                    }
+                }
+
+                if (hasMcReward && (mcName == null || mcName.equals("Unknown") || mcName.equals("مجهول"))) {
+                    event.getHook().sendMessage("اللاعب غير مسجل في الفعالية أو لم يتم العثور على اسمه في ماينكرافت! (يحتاج اسم ماينكرافت لتوزيع الجوائز)").queue();
+                    return;
+                }
+
+
                 com.highcore.bot.services.PterodactylService ptero = new com.highcore.bot.services.PterodactylService();
                 
                 for (int i = 0; i < rewards.size(); i++) {
@@ -1281,6 +1343,20 @@ public class EventCommand extends ListenerAdapter {
                         case "xp": cmd = "cmi exp " + mcName + " add " + r.get("amount").getAsString() + "L"; break;
                         case "claims": cmd = "acb " + mcName + " " + r.get("amount").getAsString(); break;
                         case "afk": cmd = "crate key give " + mcName + " afk " + r.get("amount").getAsString(); break;
+                        case "opics":
+                            int amt = Integer.parseInt(r.get("amount").getAsString());
+                            giveOpexyPoints(event.getGuild().getId(), winner.getId(), amt);
+                            break;
+                        case "dc_role":
+                            String rId = r.get("roleId").getAsString();
+                            net.dv8tion.jda.api.entities.Role role = event.getGuild().getRoleById(rId);
+                            if (role != null) {
+                                event.getGuild().addRoleToMember(winner, role).queue();
+                            }
+                            break;
+                        case "nitro":
+                            // Delivered in DM
+                            break;
                     }
                     if (!cmd.isEmpty() && ptero != null) {
                         ptero.sendConsoleCommand(cmd);
@@ -1325,12 +1401,24 @@ public class EventCommand extends ListenerAdapter {
                     }
                 }
 
-                final String finalMcName = mcName;
+                String dmMsg = "لقد فزت في الفعالية بحسابك **" + (mcName != null ? mcName : "غير متوفر") + "**!\n\nتم تسليم جوائز الفعالية لحسابك بنجاح، نتمنى لك وقتاً ممتعاً! 🎁";
+                if (!hasMcReward) {
+                    dmMsg = "لقد فزت في الفعالية!\n\nتم تسليم الجوائز بنجاح، نتمنى لك وقتاً ممتعاً! 🎁";
+                }
+                
+                for (int i = 0; i < rewards.size(); i++) {
+                    JsonObject r = rewards.get(i).getAsJsonObject();
+                    if (r.get("type").getAsString().equals("nitro")) {
+                        dmMsg += "\n\nرابط النيترو الخاص بك: " + r.get("nitroLink").getAsString();
+                    }
+                }
+
+                String finalDmMsg = dmMsg;
                 winner.openPrivateChannel().queue(privateChannel -> {
                     Container dmContainer = Container.of(
                         TextDisplay.of("## 🎉 مبروك الفوز في الفعالية!"),
                         Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("لقد فزت في فعالية الماينكرافت بحسابك **" + finalMcName + "**!\n\nتم تسليم جوائز الفعالية لحسابك في السيرفر بنجاح، نتمنى لك وقتاً ممتعاً! 🎁")
+                        TextDisplay.of(finalDmMsg)
                     );
                     net.dv8tion.jda.api.utils.messages.MessageCreateBuilder dmBuilder = new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder()
                         .setComponents(dmContainer)
@@ -1349,6 +1437,9 @@ public class EventCommand extends ListenerAdapter {
     private String formatReward(JsonObject r) {
         String type = r.get("type").getAsString();
         switch (type) {
+            case "opics": return r.get("amount").getAsString() + " نقاط أوبيكس";
+            case "dc_role": return "رتبة ديسكورد (ID: " + r.get("roleId").getAsString() + ")";
+            case "nitro": return "نيترو (" + r.get("nitroLink").getAsString() + ")";
             case "cmi": return r.get("amount").getAsString() + " فلوس CMI";
             case "tokens": return r.get("amount").getAsString() + " Tokens";
             case "rank": return "رتبة: " + r.get("roleId").getAsString();
@@ -1357,6 +1448,41 @@ public class EventCommand extends ListenerAdapter {
             case "claims": return r.get("amount").getAsString() + " كليمات";
             case "afk": return r.get("amount").getAsString() + " مفتاح AFK";
             default: return "جائزة غير معروفة";
+        }
+    }
+
+    private void giveOpexyPoints(String guildId, String userId, int amount) {
+        String dbUrl = "jdbc:postgresql://shuttle.proxy.rlwy.net:24812/railway";
+        String user = "postgres";
+        String pass = "XFToIKMrXECxyBkEHChsdDqyqIvQEsMT";
+        try (java.sql.Connection conn = java.sql.DriverManager.getConnection(dbUrl, user, pass)) {
+            String check = "SELECT event_points FROM user_entity WHERE guild_id = ? AND user_id = ?";
+            boolean exists = false;
+            try (PreparedStatement ps = conn.prepareStatement(check)) {
+                ps.setString(1, guildId);
+                ps.setString(2, userId);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) exists = true;
+            }
+            if (exists) {
+                String update = "UPDATE user_entity SET event_points = event_points + ? WHERE guild_id = ? AND user_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(update)) {
+                    ps.setInt(1, amount);
+                    ps.setString(2, guildId);
+                    ps.setString(3, userId);
+                    ps.executeUpdate();
+                }
+            } else {
+                String insert = "INSERT INTO user_entity (guild_id, user_id, event_points) VALUES (?, ?, ?)";
+                try (PreparedStatement ps = conn.prepareStatement(insert)) {
+                    ps.setString(1, guildId);
+                    ps.setString(2, userId);
+                    ps.setInt(3, amount);
+                    ps.executeUpdate();
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Failed to give opexy points", e);
         }
     }
 }
