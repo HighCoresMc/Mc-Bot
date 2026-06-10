@@ -756,7 +756,7 @@ public class TeamCommand extends ListenerAdapter {
         Guild guild     = event.getGuild();
         
         Member lMember = guild.getMemberById(leaderId);
-        Member m2Member = guild.getMemberById(m2Id);
+        Member m2Member = m2Id != null ? guild.getMemberById(m2Id) : null;
         Member m3Member = m3Id != null ? guild.getMemberById(m3Id) : null;
         Member m4Member = m4Id != null ? guild.getMemberById(m4Id) : null;
 
@@ -896,7 +896,7 @@ public class TeamCommand extends ListenerAdapter {
         sb.append("### 🏆 ").append(teamName).append("\n\n");
         sb.append("**👥 Team Members:**\n");
         sb.append("👑 Leader : <@").append(extractIdOnly(leaderId)).append(">\n");
-        sb.append("👤 Member 2 : <@").append(extractIdOnly(m2Id)).append(">");
+        if (m2Id != null && !m2Id.isEmpty()) sb.append("👤 Member 2 : <@").append(extractIdOnly(m2Id)).append(">");
         if (m3Id != null && !m3Id.isEmpty()) sb.append("\n👤 Member 3 : <@").append(extractIdOnly(m3Id)).append(">");
         if (m4Id != null && !m4Id.isEmpty()) sb.append("\n👤 Member 4 : <@").append(extractIdOnly(m4Id)).append(">");
         sb.append("\n\n**🎨 Color:** `").append(colorCode).append("`");
