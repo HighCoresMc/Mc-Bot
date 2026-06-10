@@ -81,7 +81,8 @@ public class EventCommand extends ListenerAdapter {
     }
 
     private static final Map<String, PendingEvent> pendingEvents = new ConcurrentHashMap<>();
-    private static final String EVENT_ROLE_ID = "1509885693818699776";
+    private static final String DC_EVENT_ROLE_ID = "1514287675589525704";
+    private static final String MC_EVENT_ROLE_ID = "1514290357813252186";
     private static final String HYPE_MANAGER_ID = "1487195247430602852";
     private static final String HYPE_EVENTS_ID = "1487195248059879555";
     private static final String EVENTS_FORUM_ID = "1487142537666760735";
@@ -180,10 +181,12 @@ public class EventCommand extends ListenerAdapter {
                     // Supabase
                     com.highcore.bot.database.SupabaseManager supa = LeonTrotskyBot.getSupabaseManager();
                     if (supa != null) {
+                        int points = "written".equalsIgnoreCase(pe.type) || "text".equalsIgnoreCase(pe.type) ? 15 : 55;
+                        int maxSupervisors = "written".equalsIgnoreCase(pe.type) || "text".equalsIgnoreCase(pe.type) ? 1 : 2;
                         if ("DC".equalsIgnoreCase(pe.category)) {
-                            supa.logDcEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, 0, pe.seats);
+                            supa.logDcEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, points, maxSupervisors);
                         } else {
-                            supa.logEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, 0, pe.seats);
+                            supa.logEvent(eventId, pe.name, pe.type, pe.conditions, pe.dateStr, points, maxSupervisors);
                         }
                     }
 
@@ -274,7 +277,7 @@ public class EventCommand extends ListenerAdapter {
         components.add(TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل."));
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("📋 **التفاصيل**"));
-        components.add(TextDisplay.of("**نوع الفعالية:** `" + type + "`\n**الوقت:** <t:" + unixTime + ":F>\n**المكافآت:** `" + rewardsStr + "`\n**المقاعد المتاحة:** `" + currentSeats + " / " + maxSeats + "`"));
+        components.add(TextDisplay.of("**نوع الفعالية:** `" + type + "`\n**الوقت:** <t:" + unixTime + ":F>\n**المكافآت:** `" + rewardsStr + "`\n**عدد المشاركين:** `" + currentSeats + "`"));
 
         if (winnerId != null && !winnerId.isEmpty()) {
             components.add(Separator.createDivider(Separator.Spacing.SMALL));
@@ -371,10 +374,6 @@ public class EventCommand extends ListenerAdapter {
                 .setPlaceholder("مثال: 2026-06-20 21:00")
                 .setRequired(true)
                 .build();
-            TextInput seatsInput = TextInput.create("ev_create_seats", TextInputStyle.SHORT)
-                .setPlaceholder("عدد المقاعد (مثال: 50)")
-                .setRequired(true)
-                .build();
             TextInput conditionsInput = TextInput.create("ev_create_conditions", TextInputStyle.PARAGRAPH)
                 .setPlaceholder("الشروط، (أضف سؤالاً إضافياً بين قوسين في النهاية إذا أردت)")
                 .setRequired(true)
@@ -385,7 +384,6 @@ public class EventCommand extends ListenerAdapter {
                     Label.of("اسم الفعالية", nameInput),
                     Label.of("نوع الفعالية", typeInput),
                     Label.of("تاريخ ووقت الفعالية", dateInput),
-                    Label.of("عدد المقاعد", seatsInput),
                     Label.of("الشروط (والسؤال الإضافي)", conditionsInput)
                 )
                 .build();
@@ -516,7 +514,7 @@ public class EventCommand extends ListenerAdapter {
                 ps3.setInt(1, eventId);
                 ResultSet rs3 = ps3.executeQuery();
                 if (rs3.next()) {
-                    if (rs3.getInt(1) >= maxSeats) {
+                    if (maxSeats > 0 && rs3.getInt(1) >= maxSeats) {
                         event.reply("اكتمل العدد، لا يوجد مقاعد متاحة!").setEphemeral(true).queue();
                         return;
                     }
@@ -579,7 +577,7 @@ public class EventCommand extends ListenerAdapter {
             } else {
                 registerParticipant(event.getUser().getId(), event.getUser().getId(), eventId, mcName, mcUuid, null);
                 event.reply("تم تسجيلك بنجاح في الفعالية باسم: " + mcName + "!\nتم التعرف على حسابك المربوط تلقائياً.").setEphemeral(true).queue();
-                giveEventRole(event.getGuild(), event.getUser().getId());
+                giveEventRole(event.getGuild(), event.getUser().getId(), eventId);
                 updatePublicEmbedSeats(event.getGuild(), eventId);
                 updateStaffEmbed(event.getGuild(), eventId);
             }
@@ -597,7 +595,6 @@ public class EventCommand extends ListenerAdapter {
             String name = event.getValue("ev_create_name").getAsString();
             String type = event.getValue("ev_create_type").getAsString();
             String dateStr = event.getValue("ev_create_date").getAsString();
-            String seatsStr = event.getValue("ev_create_seats").getAsString();
             String conditions = event.getValue("ev_create_conditions").getAsString();
             
             if (!TimeUtils.isValidFormat(dateStr)) {
@@ -606,8 +603,7 @@ public class EventCommand extends ListenerAdapter {
             }
             dateStr = TimeUtils.getStandardFormat(dateStr);
 
-            int seats = 50;
-            try { seats = Integer.parseInt(seatsStr.trim()); } catch (Exception ignored) {}
+            int seats = 0;
 
             String customQuestion = null;
             if (conditions.contains("(") && conditions.endsWith(")")) {
@@ -720,7 +716,7 @@ public class EventCommand extends ListenerAdapter {
 
             registerParticipant(event.getUser().getId(), event.getUser().getId(), eventId, mcName, mcUuid, customAnswer);
             event.reply("تم تسجيلك بنجاح في الفعالية!").setEphemeral(true).queue();
-            giveEventRole(event.getGuild(), event.getUser().getId());
+            giveEventRole(event.getGuild(), event.getUser().getId(), eventId);
             updatePublicEmbedSeats(event.getGuild(), eventId);
             updateStaffEmbed(event.getGuild(), eventId);
 
@@ -751,7 +747,7 @@ public class EventCommand extends ListenerAdapter {
                 int rows = ps.executeUpdate();
                 if (rows > 0) {
                     event.reply("تم إلغاء تسجيلك من الفعالية.").setEphemeral(true).queue();
-                    removeEventRole(event.getGuild(), event.getUser().getId());
+                    removeEventRole(event.getGuild(), event.getUser().getId(), eventId);
                     updatePublicEmbedSeats(event.getGuild(), eventId);
                     updateStaffEmbed(event.getGuild(), eventId);
                 } else {
@@ -857,19 +853,22 @@ public class EventCommand extends ListenerAdapter {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String channelId = null;
             String name = null;
-            String q = "SELECT channel_id, name FROM events WHERE id = ?";
+            String category = null;
+            String q = "SELECT channel_id, name, category FROM events WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(q)) {
                 ps.setInt(1, eventId);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
                     channelId = rs.getString("channel_id");
                     name = rs.getString("name");
+                    category = rs.getString("category");
                 }
             }
             if (channelId != null) {
                 ThreadChannel thread = event.getGuild().getThreadChannelById(channelId);
                 if (thread != null) {
-                    thread.sendMessage("🔔 تذكير: فعالية **" + name + "** ستبدأ بعد 30 دقيقة! <@&" + EVENT_ROLE_ID + ">").queue();
+                    String roleId = "DC".equalsIgnoreCase(category) ? DC_EVENT_ROLE_ID : MC_EVENT_ROLE_ID;
+                    thread.sendMessage("🔔 تذكير: فعالية **" + name + "** ستبدأ بعد 30 دقيقة! <@&" + roleId + ">").queue();
                 }
             }
 
@@ -936,7 +935,7 @@ public class EventCommand extends ListenerAdapter {
                 ps2.setInt(1, eventId);
                 ResultSet rs2 = ps2.executeQuery();
                 while (rs2.next()) {
-                    removeEventRole(event.getGuild(), rs2.getString("discord_id"));
+                    removeEventRole(event.getGuild(), rs2.getString("discord_id"), eventId);
                 }
             }
         } catch (Exception e) {
@@ -959,8 +958,10 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    private void giveEventRole(Guild guild, String userId) {
-        Role role = guild.getRoleById(EVENT_ROLE_ID);
+    private void giveEventRole(Guild guild, String userId, int eventId) {
+        String roleId = getEventRoleId(eventId);
+        if (roleId == null) return;
+        Role role = guild.getRoleById(roleId);
         if (role != null) {
             guild.retrieveMemberById(userId).queue(m -> {
                 guild.addRoleToMember(m, role).queue(s -> {}, e -> {});
@@ -968,13 +969,33 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    private void removeEventRole(Guild guild, String userId) {
-        Role role = guild.getRoleById(EVENT_ROLE_ID);
+    private void removeEventRole(Guild guild, String userId, int eventId) {
+        String roleId = getEventRoleId(eventId);
+        if (roleId == null) return;
+        Role role = guild.getRoleById(roleId);
         if (role != null) {
             guild.retrieveMemberById(userId).queue(m -> {
                 guild.removeRoleFromMember(m, role).queue(s -> {}, e -> {});
             });
         }
+    }
+
+    private String getEventRoleId(int eventId) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+            String q = "SELECT category FROM events WHERE id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(q)) {
+                ps.setInt(1, eventId);
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) {
+                    String category = rs.getString("category");
+                    if ("DC".equalsIgnoreCase(category)) return DC_EVENT_ROLE_ID;
+                    else if ("MC".equalsIgnoreCase(category)) return MC_EVENT_ROLE_ID;
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error getting event role", e);
+        }
+        return null;
     }
 
     private void updatePublicEmbedSeats(Guild guild, int eventId) {
