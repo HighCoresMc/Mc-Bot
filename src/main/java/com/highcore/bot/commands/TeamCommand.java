@@ -89,6 +89,20 @@ public class TeamCommand extends ListenerAdapter {
     // ===================================================================
 
     @Override
+    public void onCommandAutoCompleteInteraction(net.dv8tion.jda.api.events.interaction.command.CommandAutoCompleteInteractionEvent event) {
+        if (event.getName().equals("team")) {
+            String input = event.getFocusedOption().getValue().toLowerCase();
+            List<TeamData> teams = getTeamList();
+            List<net.dv8tion.jda.api.interactions.commands.Command.Choice> choices = teams.stream()
+                .filter(t -> t.name.toLowerCase().contains(input))
+                .limit(25)
+                .map(t -> new net.dv8tion.jda.api.interactions.commands.Command.Choice(t.name, t.name))
+                .collect(java.util.stream.Collectors.toList());
+            event.replyChoices(choices).queue();
+        }
+    }
+
+    @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         if (!event.getName().equals("team")) return;
 
@@ -167,6 +181,25 @@ public class TeamCommand extends ListenerAdapter {
             event.reply("❌ خطأ في تحديد الأعضاء.").setEphemeral(true).queue();
             return;
         }
+
+        String BANNED_ROLE = "1513569599155867678";
+        if (leader.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.reply("العضو المختار (رقم : 1) محظور من نظام الاتيام").setEphemeral(true).queue();
+            return;
+        }
+        if (member2.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.reply("العضو المختار (رقم : 2) محظور من نظام الاتيام").setEphemeral(true).queue();
+            return;
+        }
+        if (member3 != null && member3.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.reply("العضو المختار (رقم : 3) محظور من نظام الاتيام").setEphemeral(true).queue();
+            return;
+        }
+        if (member4 != null && member4.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.reply("العضو المختار (رقم : 4) محظور من نظام الاتيام").setEphemeral(true).queue();
+            return;
+        }
+
         if (teamExistsByName(teamName)) {
             event.reply("❌ يوجد فريق بهذا الاسم بالفعل!").setEphemeral(true).queue();
             return;
@@ -232,10 +265,10 @@ public class TeamCommand extends ListenerAdapter {
                                     .queue(tc -> {
                                         tc.getManager().sync().queue();
 
-                                        String lId  = fLeader.getId();
-                                        String m2Id = fMember2.getId();
-                                        String m3Id = m3 != null ? m3.getId() : null;
-                                        String m4Id = m4 != null ? m4.getId() : null;
+                                        String lId  = formatDbUser(fLeader);
+                                        String m2Id = formatDbUser(fMember2);
+                                        String m3Id = m3 != null ? formatDbUser(m3) : null;
+                                        String m4Id = m4 != null ? formatDbUser(m4) : null;
 
                                         int dbId = saveTeamToDb(
                                             teamName, fColor,
@@ -245,8 +278,12 @@ public class TeamCommand extends ListenerAdapter {
                                         );
 
                                         sendAnnouncementAndSave(
-                                            guild, teamName, fLeader, fMember2, m3, m4, fColor, dbId, false
+                                            guild, teamName, fLeader.getId(), fMember2.getId(),
+                                            m3 != null ? m3.getId() : null, m4 != null ? m4.getId() : null,
+                                            fColor, dbId, false
                                         );
+
+                                        sendLog(guild, "✅ إنشاء فريق", "تم إنشاء فريق جديد: **" + teamName + "**\nبواسطة: " + event.getUser().getAsMention(), finalColor);
 
                                         event.getHook().editOriginal(
                                             "✅ تم إنشاء فريق **" + teamName + "** بنجاح!"
@@ -327,36 +364,40 @@ public class TeamCommand extends ListenerAdapter {
 
     private void replyWithTeamManageEmbed(SlashCommandInteractionEvent event, TeamData td) {
         Guild guild = event.getGuild();
-        event.replyComponents(
-            buildTeamInfoContainer(guild, td),
+        Container container = Container.of(
+            TextDisplay.of(buildTeamInfoText(guild, td)),
+            Separator.createDivider(Separator.Spacing.SMALL),
             ActionRow.of(
                 Button.primary("tm_edit_"         + td.id, "✏️ تعديل المعلومات"),
                 Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء")
             )
-        ).useComponentsV2(true).setEphemeral(true).queue();
+        );
+        event.replyComponents(container).useComponentsV2(true).setEphemeral(true).queue();
     }
 
     private void replyWithTeamManageEmbed(ButtonInteractionEvent event, TeamData td) {
         Guild guild = event.getGuild();
-        event.replyComponents(
-            buildTeamInfoContainer(guild, td),
+        Container container = Container.of(
+            TextDisplay.of(buildTeamInfoText(guild, td)),
+            Separator.createDivider(Separator.Spacing.SMALL),
             ActionRow.of(
                 Button.primary("tm_edit_"          + td.id, "✏️ تعديل المعلومات"),
                 Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء")
             )
-        ).useComponentsV2(true).setEphemeral(true).queue();
+        );
+        event.replyComponents(container).useComponentsV2(true).setEphemeral(true).queue();
     }
 
-    private Container buildTeamInfoContainer(Guild guild, TeamData td) {
+    private String buildTeamInfoText(Guild guild, TeamData td) {
         StringBuilder sb = new StringBuilder();
         sb.append("## 🏆 ").append(td.name).append("\n\n");
         sb.append("🎨 **Color:** `").append(td.color).append("`\n");
-        sb.append("**Leader:** ").append(resolveDisplay(guild, td.leaderId)).append("\n");
-        sb.append("**Member 2:** ").append(resolveDisplay(guild, td.member2Id)).append("\n");
-        if (td.member3Id != null) sb.append("**Member 3:** ").append(resolveDisplay(guild, td.member3Id)).append("\n");
-        if (td.member4Id != null) sb.append("**Member 4:** ").append(resolveDisplay(guild, td.member4Id)).append("\n");
+        sb.append("**Leader:** ").append(resolveDisplay(guild, extractIdOnly(td.leaderId))).append("\n");
+        sb.append("**Member 2:** ").append(resolveDisplay(guild, extractIdOnly(td.member2Id))).append("\n");
+        if (td.member3Id != null && !td.member3Id.isEmpty()) sb.append("**Member 3:** ").append(resolveDisplay(guild, extractIdOnly(td.member3Id))).append("\n");
+        if (td.member4Id != null && !td.member4Id.isEmpty()) sb.append("**Member 4:** ").append(resolveDisplay(guild, extractIdOnly(td.member4Id))).append("\n");
         sb.append("\n🏷️ **Tag:** ").append(tagEmoji(td.tag)).append(" `").append(td.tag).append("`");
-        return Container.of(TextDisplay.of(sb.toString()));
+        return sb.toString();
     }
 
     // ===================================================================
@@ -462,19 +503,12 @@ public class TeamCommand extends ListenerAdapter {
     }
 
     private void handleConfirmDelete(ButtonInteractionEvent event, int teamId) {
-        event.deferEdit().queue();
-
-        TeamData td = getTeamById(teamId);
-        if (td == null) {
-            event.getHook().editOriginal("❌ الفريق غير موجود.").queue();
-            return;
-        }
-
-        Guild guild = event.getGuild();
-        deleteDiscordResources(guild, td, () -> {
-            deleteTeamFromDb(teamId, td.name);
-            event.getHook().editOriginal("✅ تم حذف فريق **" + td.name + "** بنجاح! 🗑️").queue();
-        });
+        TextInput reasonInput = TextInput.create("tm_del_reason", TextInputStyle.PARAGRAPH)
+            .setPlaceholder("سبب الحذف...").setRequired(true).build();
+        Modal modal = Modal.create("tm_modal_del_" + teamId, "سبب حذف الفريق")
+            .addComponents(Label.of("السبب", reasonInput))
+            .build();
+        event.replyModal(modal).queue();
     }
 
     private void handleEditButton(ButtonInteractionEvent event, int teamId) {
@@ -506,25 +540,28 @@ public class TeamCommand extends ListenerAdapter {
             return;
         }
 
-        TextInput leaderInput = TextInput.create("tm_leader", TextInputStyle.SHORT)
-            .setValue(td.leaderId  != null ? "<@" + td.leaderId  + ">" : "")
-            .setPlaceholder("@mention أو Discord ID").setRequired(true).build();
-        TextInput m2Input = TextInput.create("tm_m2", TextInputStyle.SHORT)
-            .setValue(td.member2Id != null ? "<@" + td.member2Id + ">" : "")
-            .setPlaceholder("@mention أو Discord ID").setRequired(true).build();
-        TextInput m3Input = TextInput.create("tm_m3", TextInputStyle.SHORT)
-            .setValue(td.member3Id != null ? "<@" + td.member3Id + ">" : "")
-            .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false).build();
-        TextInput m4Input = TextInput.create("tm_m4", TextInputStyle.SHORT)
-            .setValue(td.member4Id != null ? "<@" + td.member4Id + ">" : "")
-            .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false).build();
+        TextInput.Builder leaderBuilder = TextInput.create("tm_leader", TextInputStyle.SHORT)
+            .setPlaceholder("@mention أو Discord ID").setRequired(true);
+        if (td.leaderId != null && !td.leaderId.isEmpty()) leaderBuilder.setValue("<@" + extractIdOnly(td.leaderId) + ">");
+
+        TextInput.Builder m2Builder = TextInput.create("tm_m2", TextInputStyle.SHORT)
+            .setPlaceholder("@mention أو Discord ID").setRequired(true);
+        if (td.member2Id != null && !td.member2Id.isEmpty()) m2Builder.setValue("<@" + extractIdOnly(td.member2Id) + ">");
+
+        TextInput.Builder m3Builder = TextInput.create("tm_m3", TextInputStyle.SHORT)
+            .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false);
+        if (td.member3Id != null && !td.member3Id.isEmpty()) m3Builder.setValue("<@" + extractIdOnly(td.member3Id) + ">");
+
+        TextInput.Builder m4Builder = TextInput.create("tm_m4", TextInputStyle.SHORT)
+            .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false);
+        if (td.member4Id != null && !td.member4Id.isEmpty()) m4Builder.setValue("<@" + extractIdOnly(td.member4Id) + ">");
 
         Modal modal = Modal.create("tm_modal_members_" + teamId, "تعديل أعضاء: " + td.name)
             .addComponents(
-                Label.of("القائد (Leader)", leaderInput),
-                Label.of("العضو الثاني", m2Input),
-                Label.of("العضو الثالث (اختياري)", m3Input),
-                Label.of("العضو الرابع (اختياري)", m4Input)
+                Label.of("القائد (Leader)", leaderBuilder.build()),
+                Label.of("العضو الثاني", m2Builder.build()),
+                Label.of("العضو الثالث (اختياري)", m3Builder.build()),
+                Label.of("العضو الرابع (اختياري)", m4Builder.build())
             )
             .build();
 
@@ -569,17 +606,20 @@ public class TeamCommand extends ListenerAdapter {
         } else if (id.equals("tm_select_edit")) {
             Guild guild = event.getGuild();
             event.replyComponents(
-                buildTeamInfoContainer(guild, td),
-                ActionRow.of(
-                    Button.primary("tm_edit_"          + td.id, "✏️ تعديل المعلومات"),
-                    Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء")
+                Container.of(
+                    TextDisplay.of(buildTeamInfoText(guild, td)),
+                    Separator.createDivider(Separator.Spacing.SMALL),
+                    ActionRow.of(
+                        Button.primary("tm_edit_"          + td.id, "✏️ تعديل المعلومات"),
+                        Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء")
+                    )
                 )
             ).useComponentsV2(true).setEphemeral(true).queue();
 
         } else if (id.equals("tm_select_view")) {
             Guild guild = event.getGuild();
             event.replyComponents(
-                buildTeamInfoContainer(guild, td)
+                Container.of(TextDisplay.of(buildTeamInfoText(guild, td)))
             ).useComponentsV2(true).setEphemeral(true).queue();
         }
     }
@@ -595,6 +635,8 @@ public class TeamCommand extends ListenerAdapter {
             handleEditInfoModal(event, Integer.parseInt(id.replace("tm_modal_edit_", "")));
         } else if (id.startsWith("tm_modal_members_")) {
             handleEditMembersModal(event, Integer.parseInt(id.replace("tm_modal_members_", "")));
+        } else if (id.startsWith("tm_modal_del_")) {
+            handleDeleteModal(event, Integer.parseInt(id.replace("tm_modal_del_", "")));
         }
     }
 
@@ -661,8 +703,10 @@ public class TeamCommand extends ListenerAdapter {
                        "Modified", oldName.equals(newName) ? null : oldName);
 
         // Update announcement embed
-        updateAnnouncementEmbed(guild, teamId, newName, td.leaderId, td.member2Id,
-                                td.member3Id, td.member4Id, fColor);
+        updateAnnouncementEmbed(guild, teamId, newName, extractIdOnly(td.leaderId), extractIdOnly(td.member2Id),
+                                extractIdOnly(td.member3Id), extractIdOnly(td.member4Id), fColor);
+                                
+        sendLog(guild, "✏️ تعديل معلومات فريق", "تم تعديل معلومات الفريق: **" + newName + "**\nبواسطة: " + event.getUser().getAsMention(), color);
 
         event.getHook().editOriginal("✅ تم تعديل معلومات الفريق **" + newName + "** بنجاح!").queue();
     }
@@ -692,6 +736,30 @@ public class TeamCommand extends ListenerAdapter {
         }
 
         Guild guild     = event.getGuild();
+        
+        Member lMember = guild.getMemberById(leaderId);
+        Member m2Member = guild.getMemberById(m2Id);
+        Member m3Member = m3Id != null ? guild.getMemberById(m3Id) : null;
+        Member m4Member = m4Id != null ? guild.getMemberById(m4Id) : null;
+
+        String BANNED_ROLE = "1513569599155867678";
+        if (lMember != null && lMember.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.getHook().editOriginal("العضو المختار (رقم : 1) محظور من نظام الاتيام").queue();
+            return;
+        }
+        if (m2Member != null && m2Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.getHook().editOriginal("العضو المختار (رقم : 2) محظور من نظام الاتيام").queue();
+            return;
+        }
+        if (m3Member != null && m3Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.getHook().editOriginal("العضو المختار (رقم : 3) محظور من نظام الاتيام").queue();
+            return;
+        }
+        if (m4Member != null && m4Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
+            event.getHook().editOriginal("العضو المختار (رقم : 4) محظور من نظام الاتيام").queue();
+            return;
+        }
+
         Role  teamRole  = td.roleId != null ? guild.getRoleById(td.roleId) : null;
         Role  leaderRole = guild.getRoleById(LEADER_ROLE_ID);
 
@@ -705,14 +773,19 @@ public class TeamCommand extends ListenerAdapter {
         if (m3Id != null) addRoleToMember(guild, m3Id, teamRole);
         if (m4Id != null) addRoleToMember(guild, m4Id, teamRole);
 
+        String fLeaderDb = formatDbUser(guild, leaderId);
+        String fM2Db = formatDbUser(guild, m2Id);
+        String fM3Db = m3Id != null ? formatDbUser(guild, m3Id) : null;
+        String fM4Db = m4Id != null ? formatDbUser(guild, m4Id) : null;
+
         // Update DB
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(
                  "UPDATE teams SET leader_id = ?, member2_id = ?, member3_id = ?, member4_id = ?, tag = 'Modified' WHERE id = ?")) {
-            ps.setString(1, leaderId);
-            ps.setString(2, m2Id);
-            ps.setString(3, m3Id);
-            ps.setString(4, m4Id);
+            ps.setString(1, fLeaderDb);
+            ps.setString(2, fM2Db);
+            ps.setString(3, fM3Db);
+            ps.setString(4, fM4Db);
             ps.setInt(5, teamId);
             ps.executeUpdate();
         } catch (Exception e) {
@@ -720,10 +793,12 @@ public class TeamCommand extends ListenerAdapter {
         }
 
         // Sync Supabase
-        syncToSupabase(td.name, td.color, leaderId, m2Id, m3Id, m4Id, "Modified", null);
+        syncToSupabase(td.name, td.color, fLeaderDb, fM2Db, fM3Db, fM4Db, "Modified", null);
 
         // Update announcement embed
         updateAnnouncementEmbed(guild, teamId, td.name, leaderId, m2Id, m3Id, m4Id, td.color);
+        
+        sendLog(guild, "👥 تعديل أعضاء فريق", "تم تعديل أعضاء الفريق: **" + td.name + "**\nبواسطة: " + event.getUser().getAsMention(), Color.decode(td.color.startsWith("#") ? td.color : "#" + td.color));
 
         event.getHook().editOriginal("✅ تم تعديل أعضاء الفريق **" + td.name + "** بنجاح!").queue();
     }
@@ -733,20 +808,16 @@ public class TeamCommand extends ListenerAdapter {
     // ===================================================================
 
     private void sendAnnouncementAndSave(Guild guild, String teamName,
-                                          Member leader, Member member2,
-                                          Member member3, Member member4,
+                                          String leaderId, String m2Id,
+                                          String m3Id, String m4Id,
                                           String colorCode, int teamDbId, boolean isEdit) {
         TextChannel ch = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID);
         if (ch == null) return;
 
         Container container = buildAnnouncementContainer(
             teamName,
-            leader.getId(),   member2.getId(),
-            member3 != null ? member3.getId() : null,
-            member4 != null ? member4.getId() : null,
-            leader.getUser().getEffectiveName(),   member2.getUser().getEffectiveName(),
-            member3 != null ? member3.getUser().getEffectiveName() : null,
-            member4 != null ? member4.getUser().getEffectiveName() : null,
+            leaderId,   m2Id,
+            m3Id, m4Id,
             colorCode, isEdit
         );
 
@@ -773,14 +844,8 @@ public class TeamCommand extends ListenerAdapter {
         String msgId = getAnnouncementMsgId(teamId);
         if (msgId == null) return;
 
-        String leaderName = resolveDisplayName(guild, leaderId);
-        String m2Name     = resolveDisplayName(guild, m2Id);
-        String m3Name     = m3Id != null ? resolveDisplayName(guild, m3Id) : null;
-        String m4Name     = m4Id != null ? resolveDisplayName(guild, m4Id) : null;
-
         Container container = buildAnnouncementContainer(
             teamName, leaderId, m2Id, m3Id, m4Id,
-            leaderName, m2Name, m3Name, m4Name,
             colorCode, true
         );
 
@@ -792,16 +857,16 @@ public class TeamCommand extends ListenerAdapter {
     private Container buildAnnouncementContainer(
             String teamName,
             String leaderId, String m2Id, String m3Id, String m4Id,
-            String leaderName, String m2Name, String m3Name, String m4Name,
             String colorCode, boolean isEdit) {
 
         StringBuilder sb = new StringBuilder();
         sb.append("## ▶ ").append(isEdit ? "Team Updated" : "New Team").append("\n\n");
-        sb.append("### ").append(teamName).append("\n\n");
-        sb.append("Leader : `").append(leaderName != null ? leaderName : leaderId).append("`\n");
-        sb.append("Member 2 : `").append(m2Name != null ? m2Name : m2Id).append("`");
-        if (m3Name != null) sb.append("\nMember 3 : `").append(m3Name).append("`");
-        if (m4Name != null) sb.append("\nMember 4 : `").append(m4Name).append("`");
+        sb.append("### 🏆 ").append(teamName).append("\n\n");
+        sb.append("**👥 Team Members:**\n");
+        sb.append("👑 Leader : <@").append(extractIdOnly(leaderId)).append(">\n");
+        sb.append("👤 Member 2 : <@").append(extractIdOnly(m2Id)).append(">");
+        if (m3Id != null && !m3Id.isEmpty()) sb.append("\n👤 Member 3 : <@").append(extractIdOnly(m3Id)).append(">");
+        if (m4Id != null && !m4Id.isEmpty()) sb.append("\n👤 Member 4 : <@").append(extractIdOnly(m4Id)).append(">");
         sb.append("\n\n**🎨 Color:** `").append(colorCode).append("`");
         sb.append("\n**🏷️ Status:** ").append(isEdit ? "✏️ `Modified`" : "🆕 `New Born`");
 
@@ -815,6 +880,51 @@ public class TeamCommand extends ListenerAdapter {
     // ===================================================================
     // Helpers
     // ===================================================================
+    
+    private void handleDeleteModal(ModalInteractionEvent event, int teamId) {
+        String reason = event.getValue("tm_del_reason").getAsString();
+        event.deferReply().setEphemeral(true).queue();
+        TeamData td = getTeamById(teamId);
+        if (td == null) {
+            event.getHook().editOriginal("❌ الفريق غير موجود.").queue();
+            return;
+        }
+
+        Guild guild = event.getGuild();
+        
+        // Take leader role
+        Role leaderRole = guild.getRoleById(LEADER_ROLE_ID);
+        if (leaderRole != null && td.leaderId != null) {
+            guild.retrieveMemberById(extractIdOnly(td.leaderId)).queue(m -> {
+                guild.removeRoleFromMember(m, leaderRole).queue(null, e -> {});
+            }, e -> {});
+        }
+
+        // Delete announcement embed
+        if (td.announcementMessageId != null) {
+            TextChannel annCh = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID);
+            if (annCh != null) {
+                annCh.deleteMessageById(td.announcementMessageId).queue(null, e -> {});
+            }
+        }
+
+        // Send DM
+        if (td.leaderId != null) {
+            guild.retrieveMemberById(extractIdOnly(td.leaderId)).queue(m -> {
+                m.getUser().openPrivateChannel().queue(pc -> {
+                    pc.sendMessage("تم حذف فريقك **" + td.name + "**\n**السبب:** " + reason).queue(null, e -> {});
+                }, e -> {});
+            }, e -> {});
+        }
+
+        // Send LOG
+        sendLog(guild, "🗑️ حذف فريق", "تم حذف الفريق: **" + td.name + "**\nبواسطة: " + event.getUser().getAsMention() + "\nالسبب: " + reason, Color.RED);
+
+        deleteDiscordResources(guild, td, () -> {
+            deleteTeamFromDb(teamId, td.name);
+            event.getHook().editOriginal("✅ تم حذف فريق **" + td.name + "** بنجاح! 🗑️").queue();
+        });
+    }
 
     private void syncToSupabase(String name, String color, String leader, String m2,
                                   String m3, String m4, String tag, String oldName) {
@@ -864,12 +974,12 @@ public class TeamCommand extends ListenerAdapter {
     }
 
     private void removeRolesFromOldMembers(Guild guild, TeamData td, Role teamRole, Role leaderRole) {
-        String[] ids = {td.leaderId, td.member2Id, td.member3Id, td.member4Id};
+        String[] ids = {extractIdOnly(td.leaderId), extractIdOnly(td.member2Id), extractIdOnly(td.member3Id), extractIdOnly(td.member4Id)};
         for (String uid : ids) {
             if (uid == null) continue;
             guild.retrieveMemberById(uid).queue(m -> {
                 if (teamRole != null) guild.removeRoleFromMember(m, teamRole).queue(null, e -> {});
-                if (uid.equals(td.leaderId) && leaderRole != null) {
+                if (uid.equals(extractIdOnly(td.leaderId)) && leaderRole != null) {
                     guild.removeRoleFromMember(m, leaderRole).queue(null, e -> {});
                 }
             }, e -> {});
@@ -888,6 +998,38 @@ public class TeamCommand extends ListenerAdapter {
         if (raw == null || raw.isEmpty()) return null;
         raw = raw.trim().replaceAll("[<@!>]", "");
         try { Long.parseLong(raw); return raw; } catch (NumberFormatException e) { return null; }
+    }
+
+    private String extractIdOnly(String dbValue) {
+        if (dbValue == null) return null;
+        if (dbValue.contains("|")) {
+            String[] parts = dbValue.split("\\|");
+            if (parts.length > 1) return parts[1].trim();
+        }
+        return dbValue.trim();
+    }
+    
+    private String formatDbUser(Member m) {
+        if (m == null) return null;
+        return m.getUser().getName() + " | " + m.getId();
+    }
+
+    private String formatDbUser(Guild guild, String id) {
+        if (id == null) return null;
+        Member m = guild.getMemberById(id);
+        if (m != null) return m.getUser().getName() + " | " + id;
+        return "Unknown | " + id;
+    }
+
+    private void sendLog(Guild guild, String title, String description, Color color) {
+        TextChannel logCh = guild.getTextChannelById("1512492553793044521");
+        if (logCh == null) return;
+        net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
+        eb.setTitle(title);
+        eb.setDescription(description);
+        eb.setColor(color);
+        eb.setTimestamp(java.time.Instant.now());
+        logCh.sendMessageEmbeds(eb.build()).queue();
     }
 
     private String resolveDisplay(Guild guild, String userId) {
@@ -1001,3 +1143,4 @@ public class TeamCommand extends ListenerAdapter {
         }
     }
 }
+ء
