@@ -192,7 +192,7 @@ public class TeamCommand extends ListenerAdapter {
         if (bannedNum != -1) {
             String details = "### 🚫 محاولة إنشاء فريق بعضو محظور\n"
                            + "▫️ **اسم الفريق:** " + teamName + "\n"
-                           + "▫️ **اللون:** `" + fColor + "`\n"
+                           + "▫️ **اللون:** `" + colorCode + "`\n"
                            + "▫️ **القائد:** " + leader.getAsMention() + "\n"
                            + "▫️ **العضو 2:** " + member2.getAsMention() + "\n"
                            + (member3 != null ? "▫️ **العضو 3:** " + member3.getAsMention() + "\n" : "")
@@ -287,14 +287,14 @@ public class TeamCommand extends ListenerAdapter {
 
                                         String details = "### ✅ تم إنشاء فريق جديد\n"
                                                        + "▫️ **اسم الفريق:** " + teamName + "\n"
-                                                       + "▫️ **اللون:** `" + finalColor + "`\n"
+                                                       + "▫️ **اللون:** `" + fColor + "`\n"
                                                        + "▫️ **رتبة الفريق:** <@&" + teamRole.getId() + ">\n"
                                                        + "▫️ **قسم الفريق:** <#" + category.getId() + ">\n"
                                                        + "▫️ **القائد:** " + fLeader.getAsMention() + "\n"
                                                        + "▫️ **العضو 2:** " + fMember2.getAsMention() + "\n"
                                                        + (m3 != null ? "▫️ **العضو 3:** " + m3.getAsMention() + "\n" : "")
                                                        + (m4 != null ? "▫️ **العضو 4:** " + m4.getAsMention() + "\n" : "");
-                                        sendLog(guild, "/team create", event.getUser(), teamName, details, finalColor);
+                                        sendLog(guild, "/team create", event.getUser(), teamName, details, fColor);
 
                                         event.getHook().editOriginal(
                                             "✅ تم إنشاء فريق **" + teamName + "** بنجاح!"
@@ -1058,7 +1058,7 @@ public class TeamCommand extends ListenerAdapter {
         return "Unknown | " + id;
     }
 
-    private void sendLog(Guild guild, String action, User user, String target, String details, String colorCode) {
+    private void sendLog(Guild guild, String action, net.dv8tion.jda.api.entities.User user, String target, String details, String colorCode) {
         TextChannel logCh = guild.getTextChannelById("1512492553793044521");
         if (logCh == null) return;
         
