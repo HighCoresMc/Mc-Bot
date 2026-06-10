@@ -183,20 +183,22 @@ public class TeamCommand extends ListenerAdapter {
         }
 
         String BANNED_ROLE = "1513569599155867678";
-        if (leader.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.reply("العضو المختار (رقم : 1) محظور من نظام الاتيام").setEphemeral(true).queue();
-            return;
-        }
-        if (member2.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.reply("العضو المختار (رقم : 2) محظور من نظام الاتيام").setEphemeral(true).queue();
-            return;
-        }
-        if (member3 != null && member3.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.reply("العضو المختار (رقم : 3) محظور من نظام الاتيام").setEphemeral(true).queue();
-            return;
-        }
-        if (member4 != null && member4.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.reply("العضو المختار (رقم : 4) محظور من نظام الاتيام").setEphemeral(true).queue();
+        int bannedNum = -1;
+        if (leader.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 1;
+        else if (member2.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 2;
+        else if (member3 != null && member3.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 3;
+        else if (member4 != null && member4.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 4;
+
+        if (bannedNum != -1) {
+            String details = "### 🚫 محاولة إنشاء فريق بعضو محظور\n"
+                           + "▫️ **اسم الفريق:** " + teamName + "\n"
+                           + "▫️ **اللون:** `" + fColor + "`\n"
+                           + "▫️ **القائد:** " + leader.getAsMention() + "\n"
+                           + "▫️ **العضو 2:** " + member2.getAsMention() + "\n"
+                           + (member3 != null ? "▫️ **العضو 3:** " + member3.getAsMention() + "\n" : "")
+                           + (member4 != null ? "▫️ **العضو 4:** " + member4.getAsMention() + "\n" : "");
+            sendLog(event.getGuild(), "/team create (Blocked)", event.getUser(), "Team System", details, "#ff0000");
+            event.reply("العضو المختار (رقم : " + bannedNum + ") محظور من نظام الاتيام").setEphemeral(true).queue();
             return;
         }
 
@@ -283,7 +285,16 @@ public class TeamCommand extends ListenerAdapter {
                                             fColor, dbId, false
                                         );
 
-                                        sendLog(guild, "✅ إنشاء فريق", "تم إنشاء فريق جديد: **" + teamName + "**\nبواسطة: " + event.getUser().getAsMention(), finalColor);
+                                        String details = "### ✅ تم إنشاء فريق جديد\n"
+                                                       + "▫️ **اسم الفريق:** " + teamName + "\n"
+                                                       + "▫️ **اللون:** `" + finalColor + "`\n"
+                                                       + "▫️ **رتبة الفريق:** <@&" + teamRole.getId() + ">\n"
+                                                       + "▫️ **قسم الفريق:** <#" + category.getId() + ">\n"
+                                                       + "▫️ **القائد:** " + fLeader.getAsMention() + "\n"
+                                                       + "▫️ **العضو 2:** " + fMember2.getAsMention() + "\n"
+                                                       + (m3 != null ? "▫️ **العضو 3:** " + m3.getAsMention() + "\n" : "")
+                                                       + (m4 != null ? "▫️ **العضو 4:** " + m4.getAsMention() + "\n" : "");
+                                        sendLog(guild, "/team create", event.getUser(), teamName, details, finalColor);
 
                                         event.getHook().editOriginal(
                                             "✅ تم إنشاء فريق **" + teamName + "** بنجاح!"
@@ -545,15 +556,15 @@ public class TeamCommand extends ListenerAdapter {
         if (td.leaderId != null && !td.leaderId.isEmpty()) leaderBuilder.setValue("<@" + extractIdOnly(td.leaderId) + ">");
 
         TextInput.Builder m2Builder = TextInput.create("tm_m2", TextInputStyle.SHORT)
-            .setPlaceholder("@mention أو Discord ID").setRequired(true);
+            .setPlaceholder("@mention (فارغ للحذف)").setRequired(false);
         if (td.member2Id != null && !td.member2Id.isEmpty()) m2Builder.setValue("<@" + extractIdOnly(td.member2Id) + ">");
 
         TextInput.Builder m3Builder = TextInput.create("tm_m3", TextInputStyle.SHORT)
-            .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false);
+            .setPlaceholder("@mention (فارغ للحذف)").setRequired(false);
         if (td.member3Id != null && !td.member3Id.isEmpty()) m3Builder.setValue("<@" + extractIdOnly(td.member3Id) + ">");
 
         TextInput.Builder m4Builder = TextInput.create("tm_m4", TextInputStyle.SHORT)
-            .setPlaceholder("@mention أو Discord ID (اختياري)").setRequired(false);
+            .setPlaceholder("@mention (فارغ للحذف)").setRequired(false);
         if (td.member4Id != null && !td.member4Id.isEmpty()) m4Builder.setValue("<@" + extractIdOnly(td.member4Id) + ">");
 
         Modal modal = Modal.create("tm_modal_members_" + teamId, "تعديل أعضاء: " + td.name)
@@ -706,14 +717,21 @@ public class TeamCommand extends ListenerAdapter {
         updateAnnouncementEmbed(guild, teamId, newName, extractIdOnly(td.leaderId), extractIdOnly(td.member2Id),
                                 extractIdOnly(td.member3Id), extractIdOnly(td.member4Id), fColor);
                                 
-        sendLog(guild, "✏️ تعديل معلومات فريق", "تم تعديل معلومات الفريق: **" + newName + "**\nبواسطة: " + event.getUser().getAsMention(), color);
+        String details = "### ✏️ تم تعديل معلومات الفريق\n"
+                       + "▫️ **الاسم القديم:** " + td.name + "\n"
+                       + "▫️ **الاسم الجديد:** " + newName + "\n"
+                       + "▫️ **اللون القديم:** `" + td.color + "`\n"
+                       + "▫️ **اللون الجديد:** `" + fColor + "`\n"
+                       + "▫️ **القائد:** <@" + extractIdOnly(td.leaderId) + ">\n"
+                       + "▫️ **رابط الروم:** <#" + td.textChannelId + ">\n";
+        sendLog(guild, "Edit Team Info", event.getUser(), newName, details, fColor);
 
         event.getHook().editOriginal("✅ تم تعديل معلومات الفريق **" + newName + "** بنجاح!").queue();
     }
 
     private void handleEditMembersModal(ModalInteractionEvent event, int teamId) {
         String leaderRaw = event.getValue("tm_leader").getAsString().trim();
-        String m2Raw     = event.getValue("tm_m2").getAsString().trim();
+        String m2Raw     = event.getValue("tm_m2") != null ? event.getValue("tm_m2").getAsString().trim() : "";
         String m3Raw     = event.getValue("tm_m3") != null ? event.getValue("tm_m3").getAsString().trim() : "";
         String m4Raw     = event.getValue("tm_m4") != null ? event.getValue("tm_m4").getAsString().trim() : "";
 
@@ -726,12 +744,12 @@ public class TeamCommand extends ListenerAdapter {
         }
 
         String leaderId = extractUserId(leaderRaw);
-        String m2Id     = extractUserId(m2Raw);
+        String m2Id     = m2Raw.isEmpty() ? null : extractUserId(m2Raw);
         String m3Id     = m3Raw.isEmpty() ? null : extractUserId(m3Raw);
         String m4Id     = m4Raw.isEmpty() ? null : extractUserId(m4Raw);
 
-        if (leaderId == null || m2Id == null) {
-            event.getHook().editOriginal("❌ خطأ في بيانات الأعضاء! استخدم @mention أو Discord ID.").queue();
+        if (leaderId == null) {
+            event.getHook().editOriginal("❌ خطأ: القائد مطلوب! استخدم @mention أو Discord ID.").queue();
             return;
         }
 
@@ -743,20 +761,22 @@ public class TeamCommand extends ListenerAdapter {
         Member m4Member = m4Id != null ? guild.getMemberById(m4Id) : null;
 
         String BANNED_ROLE = "1513569599155867678";
-        if (lMember != null && lMember.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.getHook().editOriginal("العضو المختار (رقم : 1) محظور من نظام الاتيام").queue();
-            return;
-        }
-        if (m2Member != null && m2Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.getHook().editOriginal("العضو المختار (رقم : 2) محظور من نظام الاتيام").queue();
-            return;
-        }
-        if (m3Member != null && m3Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.getHook().editOriginal("العضو المختار (رقم : 3) محظور من نظام الاتيام").queue();
-            return;
-        }
-        if (m4Member != null && m4Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) {
-            event.getHook().editOriginal("العضو المختار (رقم : 4) محظور من نظام الاتيام").queue();
+        int bannedNum = -1;
+        if (lMember != null && lMember.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 1;
+        else if (m2Member != null && m2Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 2;
+        else if (m3Member != null && m3Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 3;
+        else if (m4Member != null && m4Member.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 4;
+
+        if (bannedNum != -1) {
+            String details = "### 🚫 محاولة تعديل أعضاء وإضافة شخص محظور\n"
+                           + "▫️ **اسم الفريق:** " + td.name + "\n"
+                           + "▫️ **الرقم المحظور:** العضو رقم " + bannedNum + "\n"
+                           + "▫️ **القائد المختار:** " + (lMember != null ? lMember.getAsMention() : leaderId) + "\n"
+                           + "▫️ **العضو 2 المختار:** " + (m2Member != null ? m2Member.getAsMention() : (m2Id != null ? m2Id : "*محذوف*")) + "\n"
+                           + "▫️ **العضو 3 المختار:** " + (m3Member != null ? m3Member.getAsMention() : (m3Id != null ? m3Id : "*محذوف*")) + "\n"
+                           + "▫️ **العضو 4 المختار:** " + (m4Member != null ? m4Member.getAsMention() : (m4Id != null ? m4Id : "*محذوف*")) + "\n";
+            sendLog(guild, "Team Edit Members (Blocked)", event.getUser(), td.name, details, "#ff0000");
+            event.getHook().editOriginal("العضو المختار (رقم : " + bannedNum + ") محظور من نظام الاتيام").queue();
             return;
         }
 
@@ -798,7 +818,19 @@ public class TeamCommand extends ListenerAdapter {
         // Update announcement embed
         updateAnnouncementEmbed(guild, teamId, td.name, leaderId, m2Id, m3Id, m4Id, td.color);
         
-        sendLog(guild, "👥 تعديل أعضاء فريق", "تم تعديل أعضاء الفريق: **" + td.name + "**\nبواسطة: " + event.getUser().getAsMention(), Color.decode(td.color.startsWith("#") ? td.color : "#" + td.color));
+        String details = "### 👥 تم تعديل أعضاء الفريق\n"
+                       + "▫️ **اسم الفريق:** " + td.name + "\n"
+                       + "▫️ **القائد (الجديد):** <@" + leaderId + ">\n"
+                       + "▫️ **العضو 2 (الجديد):** " + (m2Id != null ? "<@" + m2Id + ">" : "*محذوف*") + "\n"
+                       + "▫️ **العضو 3 (الجديد):** " + (m3Id != null ? "<@" + m3Id + ">" : "*محذوف*") + "\n"
+                       + "▫️ **العضو 4 (الجديد):** " + (m4Id != null ? "<@" + m4Id + ">" : "*محذوف*") + "\n"
+                       + "\n**الأعضاء السابقين قبل التعديل:**\n"
+                       + "القائد: " + (td.leaderId != null ? "<@" + extractIdOnly(td.leaderId) + ">" : "None") + "\n"
+                       + "العضو 2: " + (td.member2Id != null ? "<@" + extractIdOnly(td.member2Id) + ">" : "None") + "\n"
+                       + "العضو 3: " + (td.member3Id != null ? "<@" + extractIdOnly(td.member3Id) + ">" : "None") + "\n"
+                       + "العضو 4: " + (td.member4Id != null ? "<@" + extractIdOnly(td.member4Id) + ">" : "None");
+
+        sendLog(guild, "Edit Team Members", event.getUser(), td.name, details, td.color);
 
         event.getHook().editOriginal("✅ تم تعديل أعضاء الفريق **" + td.name + "** بنجاح!").queue();
     }
@@ -918,7 +950,12 @@ public class TeamCommand extends ListenerAdapter {
         }
 
         // Send LOG
-        sendLog(guild, "🗑️ حذف فريق", "تم حذف الفريق: **" + td.name + "**\nبواسطة: " + event.getUser().getAsMention() + "\nالسبب: " + reason, Color.RED);
+        String details = "### 🗑️ تم حذف الفريق\n"
+                       + "▫️ **اسم الفريق:** " + td.name + "\n"
+                       + "▫️ **سبب الحذف:**\n```text\n" + reason + "\n```\n"
+                       + "▫️ **القائد السابق:** <@" + extractIdOnly(td.leaderId) + ">\n"
+                       + "▫️ **لون الفريق:** `" + td.color + "`";
+        sendLog(guild, "Delete Team", event.getUser(), td.name, details, "#ff0000");
 
         deleteDiscordResources(guild, td, () -> {
             deleteTeamFromDb(teamId, td.name);
@@ -1021,14 +1058,30 @@ public class TeamCommand extends ListenerAdapter {
         return "Unknown | " + id;
     }
 
-    private void sendLog(Guild guild, String title, String description, Color color) {
+    private void sendLog(Guild guild, String action, User user, String target, String details, String colorCode) {
         TextChannel logCh = guild.getTextChannelById("1512492553793044521");
         if (logCh == null) return;
+        
+        Color color;
+        try {
+            color = Color.decode(colorCode.startsWith("#") ? colorCode : "#" + colorCode);
+        } catch (Exception e) {
+            color = Color.DARK_GRAY;
+        }
+
         net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
-        eb.setTitle(title);
-        eb.setDescription(description);
+        eb.setAuthor("► HighcoreMc・ Activity Log", null, guild.getIconUrl());
+        
+        StringBuilder desc = new StringBuilder();
+        desc.append("**Action:**\n").append(action).append("\n\n");
+        desc.append("**User:**\n").append(user != null ? user.getAsMention() + " (" + user.getId() + ")" : "Automated System").append("\n\n");
+        desc.append("**Target:**\n").append(target).append("\n\n");
+        desc.append("**Details:**\n").append(details);
+        
+        eb.setDescription(desc.toString());
         eb.setColor(color);
         eb.setTimestamp(java.time.Instant.now());
+        
         logCh.sendMessageEmbeds(eb.build()).queue();
     }
 
