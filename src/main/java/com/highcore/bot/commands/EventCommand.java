@@ -875,6 +875,40 @@ public class EventCommand extends ListenerAdapter {
                 ps.setInt(2, eventId);
                 ps.executeUpdate();
             }
+            
+            int supabaseId = -1;
+            String category = null;
+            try (PreparedStatement ps = conn.prepareStatement("SELECT supabase_id, category FROM events WHERE id = ?")) {
+                ps.setInt(1, eventId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        supabaseId = rs.getInt("supabase_id");
+                        category = rs.getString("category");
+                    }
+                }
+            }
+            
+            if (supabaseId > 0 && category != null) {
+                com.highcore.bot.database.SupabaseManager supa = LeonTrotskyBot.getSupabaseManager();
+                if (supa != null) {
+                    try {
+                        String table = "DC".equalsIgnoreCase(category) ? "events" : "mc_events";
+                        String jsonPayload = "{\"status\": \"" + newStatus + "\"}";
+                        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                            .uri(java.net.URI.create(supa.getSupabaseUrl() + "/rest/v1/" + table + "?id=eq." + supabaseId))
+                            .timeout(java.time.Duration.ofSeconds(10))
+                            .header("apikey", supa.getSupabaseKey())
+                            .header("Authorization", "Bearer " + supa.getSupabaseKey())
+                            .header("Content-Type", "application/json")
+                            .method("PATCH", java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload))
+                            .build();
+                        supa.getHttpClient().sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+                    } catch (Exception e) {
+                        logger.error("Error updating supabase status", e);
+                    }
+                }
+            }
+
             event.reply("تم تغيير حالة الفعالية إلى: " + newStatus).setEphemeral(true).queue();
             refreshPublicEmbed(event.getGuild(), eventId);
             updateStaffEmbed(event.getGuild(), eventId);

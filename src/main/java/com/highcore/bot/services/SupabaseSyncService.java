@@ -153,6 +153,8 @@ public class SupabaseSyncService {
             String dbDateStr = formatIsoToStandard(eventDateIso);
             long unixTime = TimeUtils.parseToUnixTimestamp(dbDateStr);
 
+            String imageUrl = obj.has("image_url") && !obj.get("image_url").isJsonNull() ? obj.get("image_url").getAsString() : null;
+
             int localId = -1;
             String insertSql = "INSERT INTO events (name, type, event_date, rewards_json, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id, category, supabase_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (PreparedStatement ps = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
@@ -164,7 +166,11 @@ public class SupabaseSyncService {
                 ps.setString(6, description);
                 ps.setBoolean(7, true);
                 ps.setNull(8, java.sql.Types.VARCHAR);
-                ps.setNull(9, java.sql.Types.VARCHAR);
+                if (imageUrl != null && !imageUrl.isEmpty()) {
+                    ps.setString(9, imageUrl);
+                } else {
+                    ps.setNull(9, java.sql.Types.VARCHAR);
+                }
                 ps.setString(10, STAFF_CHANNEL_ID);
                 ps.setString(11, category);
                 ps.setInt(12, supabaseId);
@@ -180,7 +186,7 @@ public class SupabaseSyncService {
             ForumChannel forumChannel = guild.getForumChannelById(EVENTS_FORUM_ID);
             if (forumChannel != null) {
                 final int finalLocalId = localId;
-                Container publicContainer = EventCommand.getPublicEventContainer(title, type, unixTime, "[]", maxSeats, 0, description, "OPEN", finalLocalId, null, null, null, guild);
+                Container publicContainer = EventCommand.getPublicEventContainer(title, type, unixTime, "[]", maxSeats, 0, description, "OPEN", finalLocalId, imageUrl, null, null, guild);
                 ActionRow actionRow = ActionRow.of(EventCommand.getPublicButtons(finalLocalId, "OPEN"));
 
                 MessageCreateBuilder builder = new MessageCreateBuilder()
