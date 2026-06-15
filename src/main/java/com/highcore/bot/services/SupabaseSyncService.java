@@ -248,7 +248,7 @@ public class SupabaseSyncService {
                     ps.setString(4, "[]");
                     ps.setInt(5, maxSeats);
                     ps.setString(6, description);
-                    ps.setBoolean(7, true);
+                    ps.setBoolean(7, !"DC".equalsIgnoreCase(category));
                     ps.setNull(8, java.sql.Types.VARCHAR);
                     if (imageUrl != null && !imageUrl.isEmpty()) {
                         ps.setString(9, imageUrl);
@@ -271,7 +271,7 @@ public class SupabaseSyncService {
             ForumChannel forumChannel = guild.getForumChannelById(EVENTS_FORUM_ID);
             if (forumChannel != null) {
                 final int finalLocalId = localId;
-                Container publicContainer = EventCommand.getPublicEventContainer(title, type, unixTime, "[]", maxSeats, 0, description, "OPEN", finalLocalId, imageUrl, null, null, guild);
+                Container publicContainer = EventCommand.getPublicEventContainer(title, type, unixTime, "[]", maxSeats, 0, description, "OPEN", finalLocalId, imageUrl, null, null, guild, !"DC".equalsIgnoreCase(category));
                 ActionRow actionRow = ActionRow.of(EventCommand.getPublicButtons(finalLocalId, "OPEN"));
 
                 MessageCreateBuilder builder = new MessageCreateBuilder()

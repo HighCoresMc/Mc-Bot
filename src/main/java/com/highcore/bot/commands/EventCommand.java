@@ -166,7 +166,7 @@ public class EventCommand extends ListenerAdapter {
                 ps.setString(4, pe.rewardsJson.toString());
                 ps.setInt(5, pe.seats);
                 ps.setString(6, pe.conditions);
-                ps.setBoolean(7, true);
+                ps.setBoolean(7, !"DC".equalsIgnoreCase(pe.category));
                 ps.setString(8, pe.customQuestion);
                 ps.setString(9, dbImageUrl);
                 ps.setString(10, pe.staffChannelId);
@@ -189,7 +189,7 @@ public class EventCommand extends ListenerAdapter {
                         }
                     }
 
-                    Container publicContainer = getPublicEventContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, dbImageUrl, null, null, guild);
+                    Container publicContainer = getPublicEventContainer(pe.name, pe.type, unixTime, pe.rewardsJson.toString(), pe.seats, 0, pe.conditions, "OPEN", eventId, dbImageUrl, null, null, guild, !"DC".equalsIgnoreCase(pe.category));
                     ActionRow actionRow = ActionRow.of(getPublicButtons(eventId, "OPEN"));
 
                     MessageCreateBuilder builder = new MessageCreateBuilder()
@@ -252,7 +252,7 @@ public class EventCommand extends ListenerAdapter {
         }
     }
 
-    public static Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl, String winnerId, String winnerMcName, Guild guild) {
+    public static Container getPublicEventContainer(String name, String type, long unixTime, String rewards, int maxSeats, int currentSeats, String conditions, String status, int eventId, String imageUrl, String winnerId, String winnerMcName, Guild guild, boolean requiresLink) {
         String rewardsStr = "لا توجد";
         try {
             if (rewards != null && !rewards.isEmpty() && !rewards.equals("[]")) {
@@ -289,8 +289,10 @@ public class EventCommand extends ListenerAdapter {
         java.util.List<net.dv8tion.jda.api.components.container.ContainerChildComponent> components = new java.util.ArrayList<>();
         components.add(TextDisplay.of("## 🎉 فعالية جديدة: " + name));
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
-        components.add(TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل."));
-        components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        if (requiresLink) {
+            components.add(TextDisplay.of("⚠️ **تنبيه:** هذه الفعالية تتطلب حساب ماينكرافت مربوط بالديسكورد للتسجيل."));
+            components.add(Separator.createDivider(Separator.Spacing.SMALL));
+        }
         components.add(TextDisplay.of("📋 **التفاصيل**"));
         components.add(TextDisplay.of("**نوع الفعالية:** `" + type + "`\n**الوقت:** <t:" + unixTime + ":F>\n**المكافآت:** `" + rewardsStr + "`\n**عدد المشاركين:** `" + currentSeats + "`"));
 
@@ -308,7 +310,7 @@ public class EventCommand extends ListenerAdapter {
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("**الحالة:** " + statusText + " | **Event ID:** `" + eventId + "`"));
 
-        if (imageUrl != null && !imageUrl.trim().isEmpty() && imageUrl.startsWith("http")) {
+        if (imageUrl != null && !imageUrl.trim().isEmpty() && imageUrl.startsWith("http") && !imageUrl.contains("localhost") && !imageUrl.contains("127.0.0.1")) {
             try {
                 components.add(MediaGallery.of(MediaGalleryItem.fromUrl(imageUrl)));
             } catch (Exception ignored) {}
@@ -523,7 +525,8 @@ public class EventCommand extends ListenerAdapter {
             String customQuestion = null;
             int maxSeats = 0;
             String status = "OPEN";
-            String q1 = "SELECT requires_link, custom_question, max_seats, status FROM events WHERE id = ?";
+            String category = "MC";
+            String q1 = "SELECT requires_link, custom_question, max_seats, status, category FROM events WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(q1)) {
                 ps.setInt(1, eventId);
                 ResultSet rs = ps.executeQuery();
@@ -532,6 +535,7 @@ public class EventCommand extends ListenerAdapter {
                     customQuestion = rs.getString("custom_question");
                     maxSeats = rs.getInt("max_seats");
                     status = rs.getString("status");
+                    category = rs.getString("category");
                 } else {
                     event.reply("الفعالية غير موجودة!").setEphemeral(true).queue();
                     return;
@@ -595,36 +599,54 @@ public class EventCommand extends ListenerAdapter {
                 }
             }
 
-            if (customQuestion != null && !customQuestion.trim().isEmpty()) {
-                TextInput customInput = TextInput.create("custom_answer", TextInputStyle.PARAGRAPH)
-                    .setRequired(true)
-                    .build();
-                
-                Modal.Builder modalBuilder = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية");
-                if (!requiresLink) {
+            if ("DC".equalsIgnoreCase(category)) {
+                if (customQuestion != null && !customQuestion.trim().isEmpty()) {
+                    TextInput customInput = TextInput.create("custom_answer", TextInputStyle.PARAGRAPH)
+                        .setRequired(true)
+                        .build();
+                    Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
+                        .addComponents(Label.of(customQuestion, customInput))
+                        .build();
+                    event.replyModal(modal).queue();
+                } else {
+                    registerParticipant(event.getUser().getId(), event.getUser().getId(), eventId, event.getUser().getName(), null, null);
+                    event.reply("تم تسجيلك بنجاح في الفعالية!").setEphemeral(true).queue();
+                    giveEventRole(event.getGuild(), event.getUser().getId());
+                    updatePublicEmbedSeats(event.getGuild(), eventId);
+                    updateStaffEmbed(event.getGuild(), eventId);
+                }
+            } else {
+                if (customQuestion != null && !customQuestion.trim().isEmpty()) {
+                    TextInput customInput = TextInput.create("custom_answer", TextInputStyle.PARAGRAPH)
+                        .setRequired(true)
+                        .build();
+                    
+                    Modal.Builder modalBuilder = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية");
+                    if (!requiresLink) {
+                        TextInput mcNameInput = TextInput.create("mc_name", TextInputStyle.SHORT)
+                            .setRequired(true)
+                            .build();
+                        modalBuilder.addComponents(Label.of("اسمك في ماينكرافت", mcNameInput), Label.of(customQuestion, customInput));
+                    } else {
+                        modalBuilder.addComponents(Label.of(customQuestion, customInput));
+                    }
+
+                    event.replyModal(modalBuilder.build()).queue();
+                } else if (!requiresLink) {
                     TextInput mcNameInput = TextInput.create("mc_name", TextInputStyle.SHORT)
                         .setRequired(true)
                         .build();
-                    modalBuilder.addComponents(Label.of("اسمك في ماينكرافت", mcNameInput), Label.of(customQuestion, customInput));
+                    Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
+                        .addComponents(Label.of("اسمك في ماينكرافت", mcNameInput))
+                        .build();
+                    event.replyModal(modal).queue();
                 } else {
-                    modalBuilder.addComponents(Label.of(customQuestion, customInput));
+                    registerParticipant(event.getUser().getId(), event.getUser().getId(), eventId, mcName, mcUuid, null);
+                    event.reply("تم تسجيلك بنجاح في الفعالية باسم: " + mcName + "!\nتم التعرف على حسابك المربوط تلقائياً.").setEphemeral(true).queue();
+                    giveEventRole(event.getGuild(), event.getUser().getId());
+                    updatePublicEmbedSeats(event.getGuild(), eventId);
+                    updateStaffEmbed(event.getGuild(), eventId);
                 }
-
-                event.replyModal(modalBuilder.build()).queue();
-            } else if (!requiresLink) {
-                TextInput mcNameInput = TextInput.create("mc_name", TextInputStyle.SHORT)
-                    .setRequired(true)
-                    .build();
-                Modal modal = Modal.create("ev_modal_" + eventId, "تسجيل الفعالية")
-                    .addComponents(Label.of("اسمك في ماينكرافت", mcNameInput))
-                    .build();
-                event.replyModal(modal).queue();
-            } else {
-                registerParticipant(event.getUser().getId(), event.getUser().getId(), eventId, mcName, mcUuid, null);
-                event.reply("تم تسجيلك بنجاح في الفعالية باسم: " + mcName + "!\nتم التعرف على حسابك المربوط تلقائياً.").setEphemeral(true).queue();
-                giveEventRole(event.getGuild(), event.getUser().getId());
-                updatePublicEmbedSeats(event.getGuild(), eventId);
-                updateStaffEmbed(event.getGuild(), eventId);
             }
 
         } catch (Exception e) {
@@ -794,18 +816,22 @@ public class EventCommand extends ListenerAdapter {
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             boolean requiresLink = false;
-            String q1 = "SELECT requires_link FROM events WHERE id = ?";
+            String category = "MC";
+            String q1 = "SELECT requires_link, category FROM events WHERE id = ?";
             try (PreparedStatement ps = conn.prepareStatement(q1)) {
                 ps.setInt(1, eventId);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
                     requiresLink = rs.getBoolean("requires_link");
+                    category = rs.getString("category");
                 }
             }
 
             String mcName = null;
             String mcUuid = null;
-            if (requiresLink) {
+            if ("DC".equalsIgnoreCase(category)) {
+                mcName = event.getUser().getName();
+            } else if (requiresLink) {
                 Optional<String> uuidOpt = LeonTrotskyBot.getDiscordSRVManager().getUuidByDiscordId(event.getUser().getId());
                 mcUuid = uuidOpt.orElse(null);
                 if (mcUuid != null) {
@@ -1184,6 +1210,7 @@ public class EventCommand extends ListenerAdapter {
 
             final String fWinnerId = winnerId;
             final String fWinnerMcName = winnerMcName;
+            final boolean fRequiresLink = requiresLink;
             ThreadChannel thread = guild.getThreadChannelById(channelId);
             if (thread != null) {
                 final String finalImageUrl = imageUrl;
@@ -1193,7 +1220,7 @@ public class EventCommand extends ListenerAdapter {
                         actualImageUrl = msg.getEmbeds().get(0).getImage().getUrl();
                     }
                     
-                    Container eventContainer = getPublicEventContainer(fName, fType, fUnixTime, fRewards, fMaxSeats, fCurrentSeats, fConditions, fStatus, fEventId, actualImageUrl, fWinnerId, fWinnerMcName, guild);
+                    Container eventContainer = getPublicEventContainer(fName, fType, fUnixTime, fRewards, fMaxSeats, fCurrentSeats, fConditions, fStatus, fEventId, actualImageUrl, fWinnerId, fWinnerMcName, guild, fRequiresLink);
 
                     MessageEditBuilder editBuilder = new MessageEditBuilder()
                         .setComponents(eventContainer, fActionRow)
