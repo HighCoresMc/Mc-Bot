@@ -94,6 +94,10 @@ public class SupabaseSyncService {
             String url = supa.getSupabaseUrl();
             String key = supa.getSupabaseKey();
 
+            List<Integer> activeSupabaseIds = new ArrayList<>();
+            boolean mcSuccess = false;
+            boolean dcSuccess = false;
+
             // 1. Fetch MC Events
             HttpRequest mcRequest = HttpRequest.newBuilder()
                     .uri(URI.create(url + "/rest/v1/mc_events?select=*"))
@@ -104,9 +108,12 @@ public class SupabaseSyncService {
                     .build();
             HttpResponse<String> mcResponse = client.send(mcRequest, HttpResponse.BodyHandlers.ofString());
             if (mcResponse.statusCode() >= 200 && mcResponse.statusCode() < 300) {
+                mcSuccess = true;
                 JsonArray mcArray = JsonParser.parseString(mcResponse.body()).getAsJsonArray();
                 for (int i = 0; i < mcArray.size(); i++) {
-                    processEventRow(guild, mcArray.get(i).getAsJsonObject(), "MC");
+                    JsonObject obj = mcArray.get(i).getAsJsonObject();
+                    activeSupabaseIds.add(obj.get("id").getAsInt());
+                    processEventRow(guild, obj, "MC");
                 }
             }
 
@@ -120,13 +127,79 @@ public class SupabaseSyncService {
                     .build();
             HttpResponse<String> dcResponse = client.send(dcRequest, HttpResponse.BodyHandlers.ofString());
             if (dcResponse.statusCode() >= 200 && dcResponse.statusCode() < 300) {
+                dcSuccess = true;
                 JsonArray dcArray = JsonParser.parseString(dcResponse.body()).getAsJsonArray();
                 for (int i = 0; i < dcArray.size(); i++) {
-                    processEventRow(guild, dcArray.get(i).getAsJsonObject(), "DC");
+                    JsonObject obj = dcArray.get(i).getAsJsonObject();
+                    activeSupabaseIds.add(obj.get("id").getAsInt());
+                    processEventRow(guild, obj, "DC");
                 }
+            }
+
+            // 3. Delete removed events (only if both requests succeeded)
+            if (mcSuccess && dcSuccess) {
+                deleteRemovedEvents(guild, activeSupabaseIds);
             }
         } catch (Exception e) {
             logger.error("Error fetching events from Supabase", e);
+        }
+    }
+
+    private static void deleteRemovedEvents(Guild guild, List<Integer> activeSupabaseIds) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+            List<Integer> localIdsToDelete = new ArrayList<>();
+            List<String> threadIdsToDelete = new ArrayList<>();
+            List<String[]> staffMsgsToDelete = new ArrayList<>();
+            
+            try (PreparedStatement ps = conn.prepareStatement("SELECT id, channel_id, staff_message_id, staff_channel_id, supabase_id FROM events WHERE supabase_id IS NOT NULL")) {
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        int supabaseId = rs.getInt("supabase_id");
+                        if (!activeSupabaseIds.contains(supabaseId)) {
+                            localIdsToDelete.add(rs.getInt("id"));
+                            String threadId = rs.getString("channel_id");
+                            if (threadId != null && !threadId.isEmpty()) {
+                                threadIdsToDelete.add(threadId);
+                            }
+                            String sMsgId = rs.getString("staff_message_id");
+                            String sChId = rs.getString("staff_channel_id");
+                            if (sMsgId != null && sChId != null) {
+                                staffMsgsToDelete.add(new String[]{sChId, sMsgId});
+                            }
+                        }
+                    }
+                }
+            }
+
+            for (String threadId : threadIdsToDelete) {
+                try {
+                    net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel thread = guild.getThreadChannelById(threadId);
+                    if (thread != null) {
+                        thread.delete().queue();
+                    }
+                } catch (Exception e) {
+                    logger.error("Failed to delete thread " + threadId, e);
+                }
+            }
+
+            for (String[] staffMsg : staffMsgsToDelete) {
+                try {
+                    net.dv8tion.jda.api.entities.channel.concrete.TextChannel sChannel = guild.getTextChannelById(staffMsg[0]);
+                    if (sChannel != null) {
+                        sChannel.deleteMessageById(staffMsg[1]).queue(s -> {}, f -> {});
+                    }
+                } catch (Exception ignored) {}
+            }
+
+            for (int localId : localIdsToDelete) {
+                try (PreparedStatement ps = conn.prepareStatement("DELETE FROM events WHERE id = ?")) {
+                    ps.setInt(1, localId);
+                    ps.executeUpdate();
+                }
+                logger.info("Deleted event local ID {} because it was removed from Supabase.", localId);
+            }
+        } catch (Exception e) {
+            logger.error("Error deleting removed events", e);
         }
     }
 
