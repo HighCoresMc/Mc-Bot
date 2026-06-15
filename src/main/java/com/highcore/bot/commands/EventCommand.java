@@ -635,6 +635,65 @@ public class EventCommand extends ListenerAdapter {
 
     @Override
     public void onModalInteraction(ModalInteractionEvent event) {
+        if (event.getModalId().startsWith("ev_staff_remind_")) {
+            int eventId = Integer.parseInt(event.getModalId().replace("ev_staff_remind_", ""));
+            String timeValue = event.getValue("time_value").getAsString();
+            
+            try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+                String channelId = null;
+                String name = null;
+                String q = "SELECT channel_id, name FROM events WHERE id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(q)) {
+                    ps.setInt(1, eventId);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        channelId = rs.getString("channel_id");
+                        name = rs.getString("name");
+                    }
+                }
+                
+                if (channelId != null) {
+                    ThreadChannel thread = event.getGuild().getThreadChannelById(channelId);
+                    if (thread != null) {
+                        thread.sendMessage("🔔 تذكير: فعالية **" + name + "** ستبدأ بعد " + timeValue + "! <@&" + EVENT_ROLE_ID + ">").queue();
+                    }
+                }
+
+                // Send DMs to those who requested
+                String q2 = "SELECT discord_id FROM event_participants WHERE event_id = ? AND wants_reminder = TRUE";
+                try (PreparedStatement ps2 = conn.prepareStatement(q2)) {
+                    ps2.setInt(1, eventId);
+                    ResultSet rs2 = ps2.executeQuery();
+                    while (rs2.next()) {
+                        String uid = rs2.getString("discord_id");
+                        Member m = event.getGuild().getMemberById(uid);
+                        if (m == null) {
+                            User u = LeonTrotskyBot.getJda().getUserById(uid);
+                            if (u != null) {
+                                String finalName = name;
+                                u.openPrivateChannel().queue(pc -> pc.sendMessage("تذكير: فعاليتك " + finalName + " ستبدأ بعد " + timeValue + "!").queue(s -> {}, e -> {}));
+                            }
+                        } else {
+                            String finalName = name;
+                            m.getUser().openPrivateChannel().queue(pc -> pc.sendMessage("تذكير: فعاليتك " + finalName + " ستبدأ بعد " + timeValue + "!").queue(s -> {}, e -> {}));
+                        }
+                    }
+                }
+                event.reply("تم إرسال التذكير بنجاح!").setEphemeral(true).queue();
+                
+                // Mark reminder as sent
+                String mark = "UPDATE events SET reminder_sent = TRUE WHERE id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(mark)) {
+                    ps.setInt(1, eventId);
+                    ps.executeUpdate();
+                }
+            } catch (Exception e) {
+                logger.error("Error notifying", e);
+                event.reply("حدث خطأ.").setEphemeral(true).queue();
+            }
+            return;
+        }
+
         if (event.getModalId().startsWith("ev_modal_create_")) {
             String[] parts = event.getModalId().split("_");
             String category = parts[3].toUpperCase();
@@ -876,6 +935,20 @@ public class EventCommand extends ListenerAdapter {
                 ps.executeUpdate();
             }
             
+            if ("CANCELLED".equals(newStatus) || "FINISHED".equals(newStatus)) {
+                String qParts = "SELECT user_id FROM event_participants WHERE event_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(qParts)) {
+                    ps.setInt(1, eventId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            removeEventRole(event.getGuild(), rs.getString("user_id"));
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("Error removing roles on event end", e);
+                }
+            }
+            
             int supabaseId = -1;
             String category = null;
             try (PreparedStatement ps = conn.prepareStatement("SELECT supabase_id, category FROM events WHERE id = ?")) {
@@ -926,19 +999,32 @@ public class EventCommand extends ListenerAdapter {
                 ps.setInt(1, eventId);
                 ResultSet rs = ps.executeQuery();
                 StringBuilder sb = new StringBuilder();
-                sb.append("Discord ID | Minecraft Name | Custom Answer\n");
-                sb.append("-------------------------------------------\n");
+                int count = 0;
                 while (rs.next()) {
-                    sb.append(rs.getString("discord_id")).append(" | ")
-                      .append(rs.getString("mc_name")).append(" | ")
-                      .append(rs.getString("custom_answer") == null ? "N/A" : rs.getString("custom_answer"))
-                      .append("\n");
+                    count++;
+                    String dc = rs.getString("discord_id");
+                    String mc = rs.getString("mc_name");
+                    String ans = rs.getString("custom_answer");
+                    if (ans == null) ans = "N/A";
+                    sb.append(count).append(". <@").append(dc).append("> | **").append(mc).append("** | `").append(ans).append("`\n");
                 }
-                File file = new File("participants_" + eventId + ".txt");
-                try (FileWriter writer = new FileWriter(file)) {
-                    writer.write(sb.toString());
+                
+                if (sb.length() == 0) {
+                    event.getHook().editOriginal("لا يوجد مشاركين حتى الآن.").queue();
+                    return;
                 }
-                event.getHook().sendFiles(FileUpload.fromData(file)).queue(s -> file.delete(), e -> file.delete());
+                
+                net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
+                eb.setTitle("قائمة المشاركين - الفعالية #" + eventId);
+                eb.setColor(java.awt.Color.decode("#5865F2"));
+                
+                String desc = sb.toString();
+                if (desc.length() > 4096) {
+                    desc = desc.substring(0, 4090) + "...";
+                }
+                eb.setDescription(desc);
+                
+                event.getHook().editOriginalEmbeds(eb.build()).queue();
             }
         } catch (Exception e) {
             logger.error("Error exporting", e);
@@ -947,57 +1033,18 @@ public class EventCommand extends ListenerAdapter {
     }
 
     private void handleNotify(ButtonInteractionEvent event, int eventId) {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String channelId = null;
-            String name = null;
-            String q = "SELECT channel_id, name FROM events WHERE id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(q)) {
-                ps.setInt(1, eventId);
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    channelId = rs.getString("channel_id");
-                    name = rs.getString("name");
-                }
-            }
-            if (channelId != null) {
-                ThreadChannel thread = event.getGuild().getThreadChannelById(channelId);
-                if (thread != null) {
-                    thread.sendMessage("🔔 تذكير: فعالية **" + name + "** ستبدأ بعد 30 دقيقة! <@&" + EVENT_ROLE_ID + ">").queue();
-                }
-            }
-
-            // Send DMs to those who requested
-            String q2 = "SELECT discord_id FROM event_participants WHERE event_id = ? AND wants_reminder = TRUE";
-            try (PreparedStatement ps2 = conn.prepareStatement(q2)) {
-                ps2.setInt(1, eventId);
-                ResultSet rs2 = ps2.executeQuery();
-                while (rs2.next()) {
-                    String uid = rs2.getString("discord_id");
-                    Member m = event.getGuild().getMemberById(uid);
-                    if (m == null) {
-                        User u = LeonTrotskyBot.getJda().getUserById(uid);
-                        if (u != null) {
-                            String finalName = name;
-                            u.openPrivateChannel().queue(pc -> pc.sendMessage("تذكير: فعاليتك " + finalName + " ستبدأ بعد 30 دقيقة!").queue(s -> {}, e -> {}));
-                        }
-                    } else {
-                        String finalName = name;
-                        m.getUser().openPrivateChannel().queue(pc -> pc.sendMessage("تذكير: فعاليتك " + finalName + " ستبدأ بعد 30 دقيقة!").queue(s -> {}, e -> {}));
-                    }
-                }
-            }
-            event.reply("تم إرسال التذكير بنجاح!").setEphemeral(true).queue();
+        TextInput timeInput = TextInput.create("time_value", TextInputStyle.SHORT)
+            .setPlaceholder("مثال: 30 دقيقة, ساعة, 10 دقائق")
+            .setMinLength(1)
+            .setMaxLength(50)
+            .setRequired(true)
+            .build();
             
-            // Mark reminder as sent
-            String mark = "UPDATE events SET reminder_sent = TRUE WHERE id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(mark)) {
-                ps.setInt(1, eventId);
-                ps.executeUpdate();
-            }
-        } catch (Exception e) {
-            logger.error("Error notifying", e);
-            event.reply("حدث خطأ.").setEphemeral(true).queue();
-        }
+        Modal modal = Modal.create("ev_staff_remind_" + eventId, "إرسال تذكير للفعالية")
+            .addComponents(net.dv8tion.jda.api.components.label.Label.of("الوقت المتبقي للفعالية", timeInput))
+            .build();
+            
+        event.replyModal(modal).queue();
     }
 
     private void handleFinishEvent(ButtonInteractionEvent event, int eventId) {
