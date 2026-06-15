@@ -193,7 +193,19 @@ public class SupabaseSyncService {
                         .setComponents(publicContainer, actionRow)
                         .useComponentsV2(true);
 
-                var forumPost = forumChannel.createForumPost("🎉 " + title, builder.build()).complete();
+                var postAction = forumChannel.createForumPost("🎉 " + title, builder.build());
+                List<net.dv8tion.jda.api.entities.channel.forums.ForumTag> tags = new ArrayList<>();
+                for (net.dv8tion.jda.api.entities.channel.forums.ForumTag t : forumChannel.getAvailableTags()) {
+                    if (category.equalsIgnoreCase("MC") && t.getName().equalsIgnoreCase("MC")) {
+                        tags.add(t);
+                    } else if (category.equalsIgnoreCase("DC") && t.getName().equalsIgnoreCase("DC")) {
+                        tags.add(t);
+                    }
+                }
+                if (!tags.isEmpty()) {
+                    postAction = postAction.setTags(tags);
+                }
+                var forumPost = postAction.complete();
                 String threadId = forumPost.getThreadChannel().getId();
                 String messageId = forumPost.getMessage().getId();
 
@@ -698,12 +710,26 @@ public class SupabaseSyncService {
     }
 
     private static String formatIsoToStandard(String isoStr) {
+        if (isoStr == null) return "2099-01-01 00:00";
         try {
+            // First try to parse as ISO with offset
             java.time.OffsetDateTime odt = java.time.OffsetDateTime.parse(isoStr);
             java.time.ZonedDateTime zdt = odt.atZoneSameInstant(java.time.ZoneId.of("Asia/Riyadh"));
             return zdt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
         } catch (Exception e) {
-            return isoStr;
+            try {
+                // Try parsing without offset (assume UTC)
+                java.time.LocalDateTime ldt;
+                if (!isoStr.contains("T")) {
+                    ldt = java.time.LocalDateTime.parse(isoStr, java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                } else {
+                    ldt = java.time.LocalDateTime.parse(isoStr);
+                }
+                java.time.ZonedDateTime zdt = ldt.atZone(java.time.ZoneId.of("UTC")).withZoneSameInstant(java.time.ZoneId.of("Asia/Riyadh"));
+                return zdt.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            } catch (Exception ex) {
+                return isoStr.replace("T", " ").substring(0, Math.min(isoStr.length(), 16));
+            }
         }
     }
 

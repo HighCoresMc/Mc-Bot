@@ -124,7 +124,11 @@ public class PterodactylService {
             HTTP_CLIENT.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                     .whenComplete((response, err) -> {
                         if (err != null) {
-                            logger.error("Failed to fetch WebSocket details from Pterodactyl", err);
+                            if (err.getCause() instanceof java.net.ConnectException || err instanceof java.net.ConnectException) {
+                                logger.error("Failed to connect to Pterodactyl API: Connection refused. Retrying...");
+                            } else {
+                                logger.error("Failed to fetch WebSocket details from Pterodactyl", err);
+                            }
                             synchronized (PterodactylService.this) {
                                 connectionState = ConnectionState.DISCONNECTED;
                                 scheduleReconnect();
