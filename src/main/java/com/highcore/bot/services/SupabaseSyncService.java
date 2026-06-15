@@ -142,11 +142,16 @@ public class SupabaseSyncService {
                 }
             }
 
-            if (exists) return;
+            if (exists) {
+                logger.debug("Event with Supabase ID " + supabaseId + " (" + category + ") already exists in local DB.");
+                return;
+            }
 
-            String title = obj.get("title").getAsString();
-            String type = obj.has("event_type") ? obj.get("event_type").getAsString() : (obj.has("type") ? obj.get("type").getAsString() : "written");
-            String eventDateIso = obj.get("event_date").getAsString();
+            logger.info("Syncing new event from Supabase: ID=" + supabaseId + " Category=" + category);
+
+            String title = obj.has("title") && !obj.get("title").isJsonNull() ? obj.get("title").getAsString() : "Untitled";
+            String type = obj.has("event_type") && !obj.get("event_type").isJsonNull() ? obj.get("event_type").getAsString() : (obj.has("type") && !obj.get("type").isJsonNull() ? obj.get("type").getAsString() : "written");
+            String eventDateIso = obj.has("event_date") && !obj.get("event_date").isJsonNull() ? obj.get("event_date").getAsString() : "2099-01-01T00:00:00Z";
             String description = obj.has("description") && !obj.get("description").isJsonNull() ? obj.get("description").getAsString() : "";
             int maxSeats = obj.has("max_supervisors") && !obj.get("max_supervisors").isJsonNull() ? obj.get("max_supervisors").getAsInt() : 50;
 
@@ -230,7 +235,11 @@ public class SupabaseSyncService {
                         p3.setInt(3, finalLocalId);
                         p3.executeUpdate();
                     }
+                } else {
+                    logger.warn("Could not find Staff Channel with ID " + STAFF_CHANNEL_ID);
                 }
+            } else {
+                logger.warn("Could not find Forum Channel with ID " + EVENTS_FORUM_ID + " to create the event post!");
             }
             logger.info("Automatically synced and created event from web. Local ID: {}, Supabase ID: {}, Title: {}", localId, supabaseId, title);
         } catch (Exception e) {
