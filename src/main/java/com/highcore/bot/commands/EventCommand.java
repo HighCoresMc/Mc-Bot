@@ -308,7 +308,7 @@ public class EventCommand extends ListenerAdapter {
         components.add(Separator.createDivider(Separator.Spacing.SMALL));
         components.add(TextDisplay.of("**الحالة:** " + statusText + " | **Event ID:** `" + eventId + "`"));
 
-        if (imageUrl != null && !imageUrl.isEmpty()) {
+        if (imageUrl != null && !imageUrl.trim().isEmpty() && imageUrl.startsWith("http")) {
             try {
                 components.add(MediaGallery.of(MediaGalleryItem.fromUrl(imageUrl)));
             } catch (Exception ignored) {}
