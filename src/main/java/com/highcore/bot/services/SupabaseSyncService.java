@@ -207,15 +207,21 @@ public class SupabaseSyncService {
         int supabaseId = obj.get("id").getAsInt();
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             boolean exists = false;
-            try (PreparedStatement ps = conn.prepareStatement("SELECT 1 FROM events WHERE supabase_id = ? AND category = ?")) {
+            String existingMessageId = null;
+            int localId = -1;
+            try (PreparedStatement ps = conn.prepareStatement("SELECT id, message_id FROM events WHERE supabase_id = ? AND category = ?")) {
                 ps.setInt(1, supabaseId);
                 ps.setString(2, category);
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) exists = true;
+                    if (rs.next()) {
+                        exists = true;
+                        localId = rs.getInt("id");
+                        existingMessageId = rs.getString("message_id");
+                    }
                 }
             }
 
-            if (exists) {
+            if (exists && existingMessageId != null) {
                 logger.debug("Event with Supabase ID " + supabaseId + " (" + category + ") already exists in local DB.");
                 return;
             }
@@ -233,29 +239,30 @@ public class SupabaseSyncService {
 
             String imageUrl = obj.has("image_url") && !obj.get("image_url").isJsonNull() ? obj.get("image_url").getAsString() : null;
 
-            int localId = -1;
-            String insertSql = "INSERT INTO events (name, type, event_date, rewards_json, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id, category, supabase_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            try (PreparedStatement ps = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
-                ps.setString(1, title);
-                ps.setString(2, type);
-                ps.setString(3, dbDateStr);
-                ps.setString(4, "[]");
-                ps.setInt(5, maxSeats);
-                ps.setString(6, description);
-                ps.setBoolean(7, true);
-                ps.setNull(8, java.sql.Types.VARCHAR);
-                if (imageUrl != null && !imageUrl.isEmpty()) {
-                    ps.setString(9, imageUrl);
-                } else {
-                    ps.setNull(9, java.sql.Types.VARCHAR);
-                }
-                ps.setString(10, STAFF_CHANNEL_ID);
-                ps.setString(11, category);
-                ps.setInt(12, supabaseId);
-                ps.executeUpdate();
+            if (!exists) {
+                String insertSql = "INSERT INTO events (name, type, event_date, rewards_json, max_seats, conditions, requires_link, custom_question, image_url, staff_channel_id, category, supabase_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                try (PreparedStatement ps = conn.prepareStatement(insertSql, Statement.RETURN_GENERATED_KEYS)) {
+                    ps.setString(1, title);
+                    ps.setString(2, type);
+                    ps.setString(3, dbDateStr);
+                    ps.setString(4, "[]");
+                    ps.setInt(5, maxSeats);
+                    ps.setString(6, description);
+                    ps.setBoolean(7, true);
+                    ps.setNull(8, java.sql.Types.VARCHAR);
+                    if (imageUrl != null && !imageUrl.isEmpty()) {
+                        ps.setString(9, imageUrl);
+                    } else {
+                        ps.setNull(9, java.sql.Types.VARCHAR);
+                    }
+                    ps.setString(10, STAFF_CHANNEL_ID);
+                    ps.setString(11, category);
+                    ps.setInt(12, supabaseId);
+                    ps.executeUpdate();
 
-                try (ResultSet rs = ps.getGeneratedKeys()) {
-                    if (rs.next()) localId = rs.getInt(1);
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        if (rs.next()) localId = rs.getInt(1);
+                    }
                 }
             }
 
