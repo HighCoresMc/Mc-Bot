@@ -477,11 +477,9 @@ public class SupabaseSyncService {
                     .grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND, Permission.MESSAGE_HISTORY, Permission.VOICE_CONNECT, Permission.VOICE_SPEAK, Permission.VOICE_USE_VAD)
                     .complete();
 
-            VoiceChannel vc = guild.createVoiceChannel("🔊・" + st.name + "・voice").setParent(category).complete();
-            vc.getManager().sync().complete();
-
-            TextChannel tc = guild.createTextChannel("💭・" + st.name).setParent(category).complete();
-            tc.getManager().sync().complete();
+            VoiceChannel vc = category.createVoiceChannel("🔊・" + st.name + "・voice").complete();
+            TextChannel tc = category.createTextChannel("💭・" + st.name).complete();
+            TextChannel cmdCh = category.createTextChannel("📟・" + st.name + "・cmd").complete();
 
             String lDb = formatDbUser(guild, leaderId);
             String m2Db = formatDbUser(guild, member2Id);
@@ -490,7 +488,7 @@ public class SupabaseSyncService {
 
             int localId = -1;
             try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-                String sql = "INSERT INTO teams (name, color, role_id, category_id, voice_channel_id, text_channel_id, leader_id, member2_id, member3_id, member4_id, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                String sql = "INSERT INTO teams (name, color, role_id, category_id, voice_channel_id, text_channel_id, cmd_channel_id, leader_id, member2_id, member3_id, member4_id, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                     ps.setString(1, st.name);
                     ps.setString(2, st.color);
@@ -498,11 +496,12 @@ public class SupabaseSyncService {
                     ps.setString(4, category.getId());
                     ps.setString(5, vc.getId());
                     ps.setString(6, tc.getId());
-                    ps.setString(7, lDb);
-                    ps.setString(8, m2Db);
-                    ps.setString(9, m3Db);
-                    ps.setString(10, m4Db);
-                    ps.setString(11, st.tag);
+                    ps.setString(7, cmdCh.getId());
+                    ps.setString(8, lDb);
+                    ps.setString(9, m2Db);
+                    ps.setString(10, m3Db);
+                    ps.setString(11, m4Db);
+                    ps.setString(12, st.tag);
                     ps.executeUpdate();
                     try (ResultSet rs = ps.getGeneratedKeys()) {
                         if (rs.next()) localId = rs.getInt(1);
@@ -669,23 +668,7 @@ public class SupabaseSyncService {
             if (lt.announcementMessageId != null) {
                 TextChannel annCh = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID);
                 if (annCh != null) {
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("## ▶ Team Updated\n\n");
-                    sb.append("### 🏆 ").append(st.name).append("\n\n");
-                    sb.append("**👥 Team Members:**\n");
-                    sb.append("👑 Leader : <@").append(leaderId).append(">\n");
-                    if (member2Id != null) sb.append("👤 Member 2 : <@").append(member2Id).append(">");
-                    if (member3Id != null) sb.append("\n👤 Member 3 : <@").append(member3Id).append(">");
-                    if (member4Id != null) sb.append("\n👤 Member 4 : <@").append(member4Id).append(">");
-                    sb.append("\n\n**🎨 Color:** `").append(st.color).append("`");
-                    sb.append("\n**🏷️ Status:** ✏️ `").append(st.tag).append("`");
-
-                    Container container = Container.of(
-                            TextDisplay.of(sb.toString()),
-                            Separator.createDivider(Separator.Spacing.SMALL),
-                            TextDisplay.of("> 🏆 HighCore MC • Team System")
-                    );
-
+                    Container container = com.highcore.bot.commands.TeamCommand.buildAnnouncementContainer(st.name, leaderId, member2Id, member3Id, member4Id, st.color, true);
                     MessageEditBuilder meb = new MessageEditBuilder().setComponents(container).useComponentsV2(true);
                     annCh.editMessageById(lt.announcementMessageId, meb.build()).complete();
                 }
@@ -741,22 +724,7 @@ public class SupabaseSyncService {
         TextChannel ch = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID);
         if (ch == null) return;
 
-        StringBuilder sb = new StringBuilder();
-        sb.append("## ▶ New Team\n\n");
-        sb.append("### 🏆 ").append(teamName).append("\n\n");
-        sb.append("**👥 Team Members:**\n");
-        sb.append("👑 Leader : <@").append(leaderId).append(">\n");
-        if (m2Id != null) sb.append("👤 Member 2 : <@").append(m2Id).append(">");
-        if (m3Id != null) sb.append("\n👤 Member 3 : <@").append(m3Id).append(">");
-        if (m4Id != null) sb.append("\n👤 Member 4 : <@").append(m4Id).append(">");
-        sb.append("\n\n**🎨 Color:** `").append(colorCode).append("`");
-        sb.append("\n**🏷️ Status:** 🆕 `New Born`");
-
-        Container container = Container.of(
-                TextDisplay.of(sb.toString()),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                TextDisplay.of("> 🏆 HighCore MC • Team System")
-        );
+        Container container = com.highcore.bot.commands.TeamCommand.buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, false);
 
         ch.sendMessage(new MessageCreateBuilder().setComponents(container).useComponentsV2(true).build())
                 .queue(msg -> {

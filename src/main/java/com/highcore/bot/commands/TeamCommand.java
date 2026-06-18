@@ -261,12 +261,9 @@ public class TeamCommand extends ListenerAdapter {
                 category.upsertPermissionOverride(teamRole).grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND,
                     Permission.MESSAGE_HISTORY, Permission.VOICE_CONNECT, Permission.VOICE_SPEAK, Permission.VOICE_USE_VAD).queue();
 
-                guild.createVoiceChannel("🔊・" + teamName + "・voice").setParent(category).queue(vc -> {
-                    vc.getManager().sync().queue();
-                    guild.createTextChannel("💭・" + teamName).setParent(category).queue(tc -> {
-                        tc.getManager().sync().queue();
-                        guild.createTextChannel("📟︲" + teamName + "・cmd").setParent(category).queue(cmdCh -> {
-                            cmdCh.getManager().sync().queue();
+                category.createVoiceChannel("🔊・" + teamName + "・voice").queue(vc -> {
+                    category.createTextChannel("💭・" + teamName).queue(tc -> {
+                        category.createTextChannel("📟・" + teamName + "・cmd").queue(cmdCh -> {
 
                             String lId = formatDbUser(fLeader), m2Id = formatDbUser(fMember2);
                             String m3Id = m3 != null ? formatDbUser(m3) : null, m4Id = m4 != null ? formatDbUser(m4) : null;
@@ -510,16 +507,23 @@ public class TeamCommand extends ListenerAdapter {
         memberIds.remove(extractIdOnly(td.leaderId));
         if (memberIds.isEmpty()) { event.reply("❌ لا يوجد أعضاء لتعيينهم كو-ليدر.").setEphemeral(true).queue(); return; }
         Guild guild = event.getGuild();
-        StringSelectMenu.Builder menu = StringSelectMenu.create("tm_ldr_coset_select_" + teamId).setPlaceholder("اختر العضو لتعيينه كو-ليدر...");
-        for (String uid : memberIds) {
-            Member m = guild.getMemberById(uid);
-            String label = m != null ? m.getUser().getEffectiveName() : uid;
-            net.dv8tion.jda.api.components.selections.SelectOption opt = net.dv8tion.jda.api.components.selections.SelectOption.of(label, uid);
-            if (m != null) opt = opt.withDescription("@" + m.getUser().getName());
-            menu.addOptions(opt);
-        }
-        if (td.coLeaderId != null && !td.coLeaderId.isEmpty()) menu.addOption("🗑️ إزالة الكو-ليدر الحالي", "remove_co");
-        event.replyComponents(Container.of(TextDisplay.of("## 🥈 تعيين كو-ليدر\nاختر العضو:"), Separator.createDivider(Separator.Spacing.SMALL), ActionRow.of(menu.build()))).useComponentsV2(true).setEphemeral(true).queue();
+        event.deferReply().setEphemeral(true).queue();
+        java.util.List<Long> longIds = new java.util.ArrayList<>();
+        for (String id : memberIds) { try { longIds.add(Long.parseLong(id)); } catch (Exception ignored) {} }
+        guild.retrieveMembersByIds(longIds).onSuccess(members -> {
+            StringSelectMenu.Builder menu = StringSelectMenu.create("tm_ldr_coset_select_" + teamId).setPlaceholder("اختر العضو لتعيينه كو-ليدر...");
+            for (String uid : memberIds) {
+                Member m = members.stream().filter(mem -> mem.getId().equals(uid)).findFirst().orElse(null);
+                String label = m != null ? m.getUser().getEffectiveName() : uid;
+                net.dv8tion.jda.api.components.selections.SelectOption opt = net.dv8tion.jda.api.components.selections.SelectOption.of(label, uid);
+                if (m != null) opt = opt.withDescription("@" + m.getUser().getName());
+                menu.addOptions(opt);
+            }
+            if (td.coLeaderId != null && !td.coLeaderId.isEmpty()) menu.addOption("🗑️ إزالة الكو-ليدر الحالي", "remove_co");
+            event.getHook().editOriginalComponents(Container.of(TextDisplay.of("## 🥈 تعيين كو-ليدر\nاختر العضو:"), Separator.createDivider(Separator.Spacing.SMALL), ActionRow.of(menu.build()))).useComponentsV2(true).queue();
+        }).onError(e -> {
+            event.getHook().editOriginal("❌ حدث خطأ أثناء جلب بيانات الأعضاء.").queue();
+        });
     }
 
     private void handleCoLeaderSelected(StringSelectInteractionEvent event, int teamId) {
@@ -908,14 +912,15 @@ public class TeamCommand extends ListenerAdapter {
         ch.editMessageById(msgId, new MessageEditBuilder().setComponents(buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, true)).useComponentsV2(true).build()).queue(null, e -> logger.error("Failed to update announcement for team {}", teamName));
     }
 
-    private Container buildAnnouncementContainer(String teamName, String leaderId, String m2Id, String m3Id, String m4Id, String colorCode, boolean isEdit) {
+    public static Container buildAnnouncementContainer(String teamName, String leaderId, String m2Id, String m3Id, String m4Id, String colorCode, boolean isEdit) {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         String cleanName = teamName.replaceAll("[^A-Za-z0-9]", "");
         String regId = "REG-" + (cleanName.isEmpty() ? "TEAM" : cleanName.toUpperCase().substring(0, Math.min(6, cleanName.length())));
-        String lM = "<@" + extractIdOnly(leaderId) + ">", m2M = (m2Id != null && !m2Id.isEmpty()) ? "<@" + extractIdOnly(m2Id) + ">" : "*—*";
-        String m3M = (m3Id != null && !m3Id.isEmpty()) ? "> **العضو الثالث:** <@" + extractIdOnly(m3Id) + ">\n" : "";
-        String m4M = (m4Id != null && !m4Id.isEmpty()) ? "> **العضو الرابع:** <@" + extractIdOnly(m4Id) + ">\n" : "";
-        String part1 = "### " + (isEdit ? "تحديث بيانات تيم" : "مرسوم تأسيس تيم") + "\n\n**بِسْمِ البِناءِ والسِّيادة**\n\n" +
+        String lM = leaderId != null ? "<@" + extractIdOnlyGlobal(leaderId) + ">" : "*—*";
+        String m2M = (m2Id != null && !m2Id.isEmpty()) ? "<@" + extractIdOnlyGlobal(m2Id) + ">" : "*—*";
+        String m3M = (m3Id != null && !m3Id.isEmpty()) ? "> **العضو الثالث:** <@" + extractIdOnlyGlobal(m3Id) + ">\n" : "";
+        String m4M = (m4Id != null && !m4Id.isEmpty()) ? "> **العضو الرابع:** <@" + extractIdOnlyGlobal(m4Id) + ">\n" : "";
+        String part1 = "### مرسوم تأسيس تيم\n\n**بِسْمِ البِناءِ والسِّيادة**\n\n" +
             "> __صدر مرسوم رسمي بتأسيس تيم جديد ضمن أراضي السيرفر.__\n\n" +
             "# **تأسيس تيم " + teamName + "**\n\n" +
             "تم تسجيل تيم **" + teamName + "** رسميًا ضمن نظام الأتيام، بعد استيفاء جميع متطلبات التأسيس.\n\n" +
@@ -923,6 +928,12 @@ public class TeamCommand extends ListenerAdapter {
             "> **تاريخ التأسيس:** " + date + "\n> **لون التيم:** `" + colorCode + "`";
         String part2 = "*يحق للتيم عقد التحالفات، وإدارة أعضائه، والمشاركة في الحروب والفعاليات الرسمية.*\n\n__مرحبًا بتيم **" + teamName + "** بين أتيام السيرفر.__\n\n`رقم التسجيل: " + regId + "`";
         return Container.of(TextDisplay.of(part1), Separator.createDivider(Separator.Spacing.LARGE), TextDisplay.of(part2));
+    }
+
+    public static String extractIdOnlyGlobal(String dbValue) {
+        if (dbValue == null) return null;
+        if (dbValue.contains("|")) { String[] parts = dbValue.split("\\|"); if (parts.length > 1) return parts[1].trim(); }
+        return dbValue.trim();
     }
 
     // ===================================================================
