@@ -124,6 +124,7 @@ public class LeonTrotskyBot {
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("team", "نظام إدارة الفرق")
                             .addSubcommands(
                                 new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("view", "لوحة تحكم الفرق"),
+                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("panel", "بنل قيادة التيم الخاص بك"),
                                 new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("create", "إنشاء فريق جديد")
                                     .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "name",    "اسم الفريق", true)
                                     .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "color",   "كود اللون (مثال: #FF5733)", true)
