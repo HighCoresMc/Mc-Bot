@@ -194,7 +194,7 @@ public class TeamCommand extends ListenerAdapter {
             .append("🎨 **اللون:** `").append(td.color).append("`\n")
             .append("👑 **الليدر:** <@").append(extractIdOnly(td.leaderId)).append(">\n")
             .append("🥈 **الكو-ليدر:** ").append(coDisplay).append("\n")
-            .append("👥 **عدد الأعضاء:** `").append(getTeamMemberCount(td)).append("`\n\naختر الإجراء:");
+            .append("👥 **عدد الأعضاء:** `").append(getTeamMemberCount(td)).append("`\n\nاختر الإجراء:");
 
         Container container;
         if (isLeader) {
@@ -210,7 +210,7 @@ public class TeamCommand extends ListenerAdapter {
             container = Container.of(TextDisplay.of(sb.toString()), Separator.createDivider(Separator.Spacing.SMALL),
                 ActionRow.of(Button.danger("tm_ldr_war_" + td.id, "⚔️ إعلان حرب"), Button.primary("tm_ldr_ally_" + td.id, "🤝 إعلان تحالف")));
         }
-        event.replyComponents(container).useComponentsV2(true).setEphemeral(true).queue();
+        event.replyComponents(container).useComponentsV2(true).queue();
     }
 
     // ===================================================================
@@ -511,7 +511,13 @@ public class TeamCommand extends ListenerAdapter {
         if (memberIds.isEmpty()) { event.reply("❌ لا يوجد أعضاء لتعيينهم كو-ليدر.").setEphemeral(true).queue(); return; }
         Guild guild = event.getGuild();
         StringSelectMenu.Builder menu = StringSelectMenu.create("tm_ldr_coset_select_" + teamId).setPlaceholder("اختر العضو لتعيينه كو-ليدر...");
-        for (String uid : memberIds) { String d = resolveDisplayName(guild, uid); menu.addOption(d != null ? d : uid, uid); }
+        for (String uid : memberIds) {
+            Member m = guild.getMemberById(uid);
+            String label = m != null ? m.getUser().getEffectiveName() : uid;
+            net.dv8tion.jda.api.components.selections.SelectOption opt = net.dv8tion.jda.api.components.selections.SelectOption.of(label, uid);
+            if (m != null) opt = opt.withDescription("@" + m.getUser().getName());
+            menu.addOptions(opt);
+        }
         if (td.coLeaderId != null && !td.coLeaderId.isEmpty()) menu.addOption("🗑️ إزالة الكو-ليدر الحالي", "remove_co");
         event.replyComponents(Container.of(TextDisplay.of("## 🥈 تعيين كو-ليدر\nاختر العضو:"), Separator.createDivider(Separator.Spacing.SMALL), ActionRow.of(menu.build()))).useComponentsV2(true).setEphemeral(true).queue();
     }
@@ -564,6 +570,7 @@ public class TeamCommand extends ListenerAdapter {
             ps.setString(1, fColor); ps.setInt(2, teamId); ps.executeUpdate();
         } catch (Exception e) { logger.error("Error updating color", e); }
         syncToSupabase(td.name, fColor, td.leaderId, td.member2Id, td.member3Id, td.member4Id, td.tag, null);
+        updateAnnouncementEmbed(guild, teamId, td.name, extractIdOnly(td.leaderId), extractIdOnly(td.member2Id), extractIdOnly(td.member3Id), extractIdOnly(td.member4Id), fColor);
         event.getHook().editOriginal("✅ تم تغيير لون التيم إلى `" + fColor + "`!").queue();
     }
 
@@ -708,9 +715,37 @@ public class TeamCommand extends ListenerAdapter {
             if (allyCh != null) allyCh.sendMessage(new MessageCreateBuilder().setComponents(Container.of(TextDisplay.of(part1), Separator.createDivider(Separator.Spacing.LARGE), TextDisplay.of(part2))).useComponentsV2(true).build()).queue();
             sendToCmdChannel(guild, state.requesterCmdChannelId, "✅ قبل تيم **" + state.targetTeamName + "** التحالف! تم إرسال الإعلان الرسمي.");
             editVoteMessageToResult(guild, state, true);
+            // منح صلاحية رؤية الكاتيقوري المتبادلة
+            grantAllianceCategoryAccess(guild, state);
         } else {
             sendToCmdChannel(guild, state.requesterCmdChannelId, "❌ رفض تيم **" + state.targetTeamName + "** طلب التحالف.");
             editVoteMessageToResult(guild, state, false);
+        }
+    }
+
+    private void grantAllianceCategoryAccess(Guild guild, AllianceVoteState state) {
+        TeamData requester = getTeamById(state.requesterTeamId);
+        TeamData target    = getTeamById(state.targetTeamId);
+        if (requester == null || target == null) return;
+
+        Role requesterRole = requester.roleId != null ? guild.getRoleById(requester.roleId) : null;
+        Role targetRole    = target.roleId    != null ? guild.getRoleById(target.roleId)    : null;
+
+        // كاتيقوري التيم الأول: يمنح للتيم الثاني صلاحية القراءة
+        if (requester.categoryId != null && targetRole != null) {
+            Category cat = guild.getCategoryById(requester.categoryId);
+            if (cat != null) cat.upsertPermissionOverride(targetRole)
+                .grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY)
+                .deny(Permission.MESSAGE_SEND, Permission.VOICE_CONNECT)
+                .queue(null, e -> {});
+        }
+        // كاتيقوري التيم الثاني: يمنح للتيم الأول صلاحية القراءة
+        if (target.categoryId != null && requesterRole != null) {
+            Category cat = guild.getCategoryById(target.categoryId);
+            if (cat != null) cat.upsertPermissionOverride(requesterRole)
+                .grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY)
+                .deny(Permission.MESSAGE_SEND, Permission.VOICE_CONNECT)
+                .queue(null, e -> {});
         }
     }
 
@@ -826,6 +861,8 @@ public class TeamCommand extends ListenerAdapter {
         String leaderId = extractUserId(leaderRaw), m2Id = m2Raw.isEmpty() ? null : extractUserId(m2Raw);
         String m3Id = m3Raw.isEmpty() ? null : extractUserId(m3Raw), m4Id = m4Raw.isEmpty() ? null : extractUserId(m4Raw);
         if (leaderId == null) { event.getHook().editOriginal("❌ خطأ: القائد مطلوب! استخدم @mention أو Discord ID.").queue(); return; }
+        // العضو الثاني إلزامي ولا يمكن حذفه
+        if (m2Id == null) { event.getHook().editOriginal("❌ العضو الثاني إلزامي ولا يمكن حذفه!").queue(); return; }
         Guild guild = event.getGuild();
         String BANNED_ROLE = "1513569599155867678"; int bannedNum = -1;
         Member lM = guild.getMemberById(leaderId), m2M = m2Id != null ? guild.getMemberById(m2Id) : null;
@@ -903,7 +940,11 @@ public class TeamCommand extends ListenerAdapter {
         Role coRole = guild.getRoleById(CO_LEADER_ROLE_ID);
         if (coRole != null && td.coLeaderId != null && !td.coLeaderId.isEmpty()) guild.retrieveMemberById(td.coLeaderId).queue(m -> guild.removeRoleFromMember(m, coRole).queue(null, e -> {}), e -> {});
         if (td.announcementMessageId != null) { TextChannel annCh = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID); if (annCh != null) annCh.deleteMessageById(td.announcementMessageId).queue(null, e -> {}); }
-        if (td.leaderId != null) guild.retrieveMemberById(extractIdOnly(td.leaderId)).queue(m -> m.getUser().openPrivateChannel().queue(pc -> pc.sendMessage("تم حذف فريقك **" + td.name + "**\n**السبب:** " + reason).queue(null, e -> {}), e -> {}), e -> {});
+        String deleteMsg = "تم حذف فريقك **" + td.name + "**\n**السبب:** " + reason;
+        // DM للليدر
+        if (td.leaderId != null) guild.retrieveMemberById(extractIdOnly(td.leaderId)).queue(m -> m.getUser().openPrivateChannel().queue(pc -> pc.sendMessage(deleteMsg).queue(null, e -> {}), e -> {}), e -> {});
+        // DM للكو-ليدر
+        if (td.coLeaderId != null && !td.coLeaderId.isEmpty()) guild.retrieveMemberById(td.coLeaderId).queue(m -> m.getUser().openPrivateChannel().queue(pc -> pc.sendMessage(deleteMsg).queue(null, e -> {}), e -> {}), e -> {});
         sendLog(guild, "Delete Team", event.getUser(), td.name, "### 🗑️ تم حذف الفريق\n▫️ **اسم الفريق:** " + td.name + "\n▫️ **السبب:**\n```text\n" + reason + "\n```\n▫️ **القائد السابق:** <@" + extractIdOnly(td.leaderId) + ">\n▫️ **اللون:** `" + td.color + "`", "#ff0000");
         deleteDiscordResources(guild, td, () -> { deleteTeamFromDb(teamId, td.name); event.getHook().editOriginal("✅ تم حذف فريق **" + td.name + "** بنجاح! 🗑️").queue(); });
     }
