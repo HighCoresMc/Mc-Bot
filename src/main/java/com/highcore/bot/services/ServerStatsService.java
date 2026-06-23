@@ -91,11 +91,11 @@ public class ServerStatsService {
     }
 
     private static void updateStats(JDA jda) {
-        String host = dotenv.get("MC_SERVER_HOST", "134.255.255.130");
-        int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25010"));
+        String host = dotenv.get("MC_SERVER_HOST", "198.186.130.122");
+        int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25577"));
 
-        String javaIp = dotenv.get("MC_JAVA_IP", "134.255.255.130:25010");
-        String bedrockIp = dotenv.get("MC_BEDROCK_IP", "134.255.255.130:25010");
+        String javaIp = dotenv.get("MC_JAVA_IP", "198.186.130.122:25577");
+        String bedrockIp = dotenv.get("MC_BEDROCK_IP", "198.186.130.122:25577");
         
         String[] javaParts = javaIp.split(":");
         String javaHost    = javaParts[0];
@@ -110,7 +110,7 @@ public class ServerStatsService {
 
         String pteroUrl = dotenv.get("PTERODACTYL_URL", "https://panel.highcores.com");
         String pteroKey = dotenv.get("PTERODACTYL_API_KEY");
-        String pteroId  = dotenv.get("PTERODACTYL_SERVER_ID", "7bc59359");
+        String pteroId  = dotenv.get("PTERODACTYL_SERVER_ID", "190e33f0");
 
         boolean pteroEnabled = pteroKey != null && !pteroKey.trim().isEmpty();
         PterodactylStats ptero = null;
