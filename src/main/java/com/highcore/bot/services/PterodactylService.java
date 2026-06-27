@@ -180,9 +180,21 @@ public class PterodactylService {
                                                     
                                                     try {
                                                         JsonObject json = JsonParser.parseString(completeMessage).getAsJsonObject();
-                                                        String event = json.get("event").getAsString();
+                                                        String event = json.has("event") ? json.get("event").getAsString() : "";
                                                         if ("auth success".equals(event)) {
                                                             webSocket.sendText("{\"event\":\"send logs\",\"args\":[]}", true);
+                                                        } else if ("token expiring".equals(event) || "token expired".equals(event) || "jwt error".equals(event)) {
+                                                            logger.info("Pterodactyl WebSocket token issue ({}). Reconnecting...", event);
+                                                            synchronized (PterodactylService.this) {
+                                                                if (webSocket == currentWebSocket) {
+                                                                    currentWebSocket = null;
+                                                                    connectionState = ConnectionState.DISCONNECTED;
+                                                                    try {
+                                                                        webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Token expired");
+                                                                    } catch (Exception ignored) {}
+                                                                    scheduleReconnect();
+                                                                }
+                                                            }
                                                         } else if ("console output".equals(event)) {
                                                             JsonArray args = json.getAsJsonArray("args");
                                                             if (args != null && args.size() > 0) {
