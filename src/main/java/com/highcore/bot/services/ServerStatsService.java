@@ -91,26 +91,27 @@ public class ServerStatsService {
     }
 
     private static void updateStats(JDA jda) {
-        String host = dotenv.get("MC_SERVER_HOST", "198.186.130.122");
-        int port = Integer.parseInt(dotenv.get("MC_SERVER_PORT", "25577"));
+        // Section: Load Dotenv
+        Dotenv currentEnv = Dotenv.configure().ignoreIfMissing().load();
 
-        String javaIp = dotenv.get("MC_JAVA_IP", "198.186.130.122:25577");
-        String bedrockIp = dotenv.get("MC_BEDROCK_IP", "198.186.130.122:25577");
+        String host = currentEnv.get("MC_SERVER_HOST", "198.186.130.122");
+        int port = Integer.parseInt(currentEnv.get("MC_SERVER_PORT", "25577"));
+
+        String javaIp = currentEnv.get("MC_JAVA_IP", "198.186.130.122:25577");
         
         String[] javaParts = javaIp.split(":");
         String javaHost    = javaParts[0];
-        String javaPortStr = javaParts.length > 1 ? javaParts[1] : "25565";
+        String javaPortStr = javaParts.length > 1 ? javaParts[1] : "25577";
         // Section: Parse Java port as int
-        int javaPort = 25565;
+        int javaPort = 25577;
         try { javaPort = Integer.parseInt(javaPortStr); } catch (Exception ignored) {}
         
-        String[] bedrockParts = bedrockIp.split(":");
-        String bedrockHost = bedrockParts[0];
-        String bedrockPortStr = bedrockParts.length > 1 ? bedrockParts[1] : "19132";
+        String bedrockHost = javaHost;
+        String bedrockPortStr = javaPortStr;
 
-        String pteroUrl = dotenv.get("PTERODACTYL_URL", "https://panel.highcores.com");
-        String pteroKey = dotenv.get("PTERODACTYL_API_KEY");
-        String pteroId  = dotenv.get("PTERODACTYL_SERVER_ID", "190e33f0");
+        String pteroUrl = currentEnv.get("PTERODACTYL_URL", "https://panel.highcores.com");
+        String pteroKey = currentEnv.get("PTERODACTYL_API_KEY");
+        String pteroId  = currentEnv.get("PTERODACTYL_SERVER_ID", "190e33f0");
 
         boolean pteroEnabled = pteroKey != null && !pteroKey.trim().isEmpty();
         PterodactylStats ptero = null;
@@ -193,7 +194,7 @@ public class ServerStatsService {
 
         // Section: Max players
         int envMax = 0;
-        try { envMax = Integer.parseInt(dotenv.get("MC_MAX_PLAYERS", "0")); } catch (Exception ignored) {}
+        try { envMax = Integer.parseInt(currentEnv.get("MC_MAX_PLAYERS", "0")); } catch (Exception ignored) {}
 
         int currentPlayers = 0;
         int maxPlayers = 0;
