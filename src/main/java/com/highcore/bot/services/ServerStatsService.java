@@ -199,7 +199,7 @@ public class ServerStatsService {
         int maxPlayers = 0;
         if (isOnline) {
             // Section: Real-time player set
-            currentPlayers = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.size();
+            currentPlayers = response.onlinePlayers;
             maxPlayers = envMax > 0 ? envMax
                        : (response.online && response.maxPlayers > 0 ? response.maxPlayers
                        : (lastMaxPlayers > 0 ? lastMaxPlayers : 0));
