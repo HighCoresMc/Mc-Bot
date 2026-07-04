@@ -283,7 +283,7 @@ public class PanelCommand extends ListenerAdapter {
 
     @Override
     public void onButtonInteraction(@NotNull ButtonInteractionEvent event) {
-        if (!event.getComponentId().startsWith("ptdl_") && !event.getComponentId().startsWith("ec_")) return;
+        if (!event.getComponentId().startsWith("ptdl_") && !event.getComponentId().startsWith("ec_") && !event.getComponentId().startsWith("sched_")) return;
 
         String id = event.getComponentId();
 
