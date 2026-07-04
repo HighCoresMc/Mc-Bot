@@ -56,6 +56,7 @@ public class PanelCommand extends ListenerAdapter {
 
     private final Map<String, MaintenanceState> userStates = new ConcurrentHashMap<>();
     private Timer maintenanceTimer;
+    private Timer preMaintenanceTimer;
     private static final String STATE_FILE = "maintenance_state.json";
 
     public PanelCommand(net.dv8tion.jda.api.JDA jda) {
@@ -310,134 +311,84 @@ public class PanelCommand extends ListenerAdapter {
             return;
         }
 
-        if (id.equals("ec_init")) {
-            event.deferEdit().queue();
-            java.util.concurrent.CompletableFuture.runAsync(() -> {
-                MaintenanceState state = new MaintenanceState();
-                state.isRestart = false;
-                state.isFromEc = true;
-                userStates.put(event.getUser().getId(), state);
+        if (id.equals("ptdl_stop") || id.equals("ptdl_restart") || id.equals("ec_init")) {
+            boolean isRestart = id.equals("ptdl_restart");
+            boolean isFromEc = id.equals("ec_init");
 
-                StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:ec")
-                        .setPlaceholder("اختر سبب التوقف...")
-                        .addOption("صيانة دورية وتحسينات", "maintenance", "صيانة دورية وتحسينات عامة للخادم")
-                        .addOption("تطوير وتحديث الأنظمة", "dev", "تطوير وتحديث برمجي للأنظمة")
-                        .addOption("إصلاح أخطاء تقنية", "bug", "إصلاح بعض المشاكل والأخطاء التقنية")
-                        .addOption("سبب مخصص...", "custom", "كتابة سبب مخصص يدوياً")
-                        .build();
+            MaintenanceState state = new MaintenanceState();
+            state.isRestart = isRestart;
+            state.isFromEc = isFromEc;
+            userStates.put(event.getUser().getId(), state);
 
-                StringSelectMenu durationMenu = StringSelectMenu.create("ptdl_duration:ec")
-                        .setPlaceholder("اختر وقت العودة المتوقع...")
-                        .addOption("15 دقيقة", "15m")
-                        .addOption("30 دقيقة", "30m")
-                        .addOption("ساعة واحدة", "1h")
-                        .addOption("ساعتين", "2h")
-                        .addOption("6 ساعات", "6h")
-                        .addOption("12 ساعة", "12h")
-                        .addOption("يوم كامل", "1d")
-                        .addOption("وقت مخصص...", "custom", "تحديد ساعة أو مدة مخصصة")
-                        .build();
+            String prefix = isFromEc ? "ec" : (isRestart ? "restart" : "stop");
 
-                Button confirmBtn = Button.success("ptdl_confirm:ec", "تأكيد الإجراء");
-                Button cancelBtn = Button.danger("ptdl_cancel", "إلغاء الإجراء");
+            Button instantBtn = Button.primary("sched_inst:" + prefix, "Instant (فوري)");
+            Button scheduleBtn = Button.secondary("sched_schd:" + prefix, "Scheduling (مجدول)");
 
-                Container container = Container.of(
-                    Section.of(
-                        Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
-                        TextDisplay.of("### 🛠️ معالج بدء الصيانة\n" +
-                                       "يرجى تحديد تفاصيل التوقف والمدة المقدرة بالأسفل لإشعار اللاعبين:")
-                    ),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    ActionRow.of(reasonMenu),
-                    ActionRow.of(durationMenu),
-                    ActionRow.of(confirmBtn, cancelBtn)
-                );
-                MessageEditData editData = new MessageEditBuilder()
-                        .setComponents(container)
-                        .useComponentsV2(true)
-                        .build();
+            Container container = Container.of(
+                Section.of(
+                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                    TextDisplay.of("### 📅 خيارات تنفيذ الإجراء\n" +
+                                   "هل تريد تنفيذ هذا الإجراء فوراً أم جدولته لوقت لاحق؟")
+                ),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(instantBtn, scheduleBtn)
+            );
+            
+            MessageCreateData wizardData = new MessageCreateBuilder()
+                    .setComponents(container)
+                    .useComponentsV2(true)
+                    .build();
 
-                event.getHook().editOriginal(editData).queue();
-            });
+            if (isFromEc) {
+                event.deferEdit().queue();
+                event.getHook().editOriginal(MessageEditData.fromCreateData(wizardData)).queue();
+            } else {
+                event.reply(wizardData).setEphemeral(true).queue();
+            }
             return;
         }
 
-        if (id.equals("ec_extend")) {
-            TextInput durationInput = TextInput.create("new_duration", TextInputStyle.SHORT)
-                    .setPlaceholder("مثال: 30m, 1h, 18:30")
+        if (id.startsWith("sched_schd:")) {
+            String prefix = id.substring("sched_schd:".length());
+            TextInput daysInput = TextInput.create("days", TextInputStyle.SHORT)
+                    .setPlaceholder("0")
+                    .setValue("0")
                     .setRequired(true)
                     .build();
-            Modal modal = Modal.create("ec_extend_modal", "تمديد فترة الصيانة")
-                    .addComponents(Label.of("أدخل المدة أو وقت العودة الجديد:", durationInput))
+            TextInput hoursInput = TextInput.create("hours", TextInputStyle.SHORT)
+                    .setPlaceholder("مثال: 2")
+                    .setValue("0")
+                    .setRequired(true)
                     .build();
-            event.replyModal(modal).queue();
-            return;
-        }
-        
-        if (id.equals("ptdl_cmd")) {
-            TextInput commandInput = TextInput.create("command", TextInputStyle.SHORT)
-                    .setPlaceholder("ex: say hello")
-                    .setMinLength(1)
+            TextInput minsInput = TextInput.create("mins", TextInputStyle.SHORT)
+                    .setPlaceholder("مثال: 30")
+                    .setValue("0")
                     .setRequired(true)
                     .build();
 
-            Modal modal = Modal.create("ptdl_modal", "Send Console Command")
-                    .addComponents(Label.of("Command", commandInput))
+            Modal modal = Modal.create("sched_modal:" + prefix, "جدولة الصيانة")
+                    .addComponents(
+                        net.dv8tion.jda.api.components.label.Label.of("بعد كم يوم؟ (ضع 0 لليوم)", daysInput),
+                        net.dv8tion.jda.api.components.label.Label.of("الساعات", hoursInput),
+                        net.dv8tion.jda.api.components.label.Label.of("الدقائق", minsInput)
+                    )
                     .build();
             
             event.replyModal(modal).queue();
             return;
         }
 
-        if (id.equals("ptdl_stop") || id.equals("ptdl_restart")) {
-            boolean isRestart = id.equals("ptdl_restart");
-            ActionLogService.logMaintenance(event.getJDA(), isRestart ? "🔁 Server Restart Initiated" : "⏹️ Server Stop Initiated",
-                event.getUser().getId(), event.getUser().getName(),
-                isRestart ? "بدأ معالج إعادة تشغيل الخادم (Restart)" : "بدأ معالج إيقاف الخادم (Stop)");
-            MaintenanceState state = new MaintenanceState();
-            state.isRestart = isRestart;
-            userStates.put(event.getUser().getId(), state);
-
-            StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:" + (isRestart ? "restart" : "stop"))
-                    .setPlaceholder("اختر سبب التوقف...")
-                    .addOption("صيانة دورية وتحسينات", "maintenance", "صيانة دورية وتحسينات عامة للخادم")
-                    .addOption("تطوير وتحديث الأنظمة", "dev", "تطوير وتحديث برمجي للأنظمة")
-                    .addOption("إصلاح أخطاء تقنية", "bug", "إصلاح بعض المشاكل والأخطاء التقنية")
-                    .addOption("سبب مخصص...", "custom", "كتابة سبب مخصص يدوياً")
-                    .build();
-
-            StringSelectMenu durationMenu = StringSelectMenu.create("ptdl_duration:" + (isRestart ? "restart" : "stop"))
-                    .setPlaceholder("اختر وقت العودة المتوقع...")
-                    .addOption("15 دقيقة", "15m")
-                    .addOption("30 دقيقة", "30m")
-                    .addOption("ساعة واحدة", "1h")
-                    .addOption("ساعتين", "2h")
-                    .addOption("6 ساعات", "6h")
-                    .addOption("12 ساعة", "12h")
-                    .addOption("يوم كامل", "1d")
-                    .addOption("وقت مخصص...", "custom", "تحديد ساعة أو مدة مخصصة")
-                    .build();
-
-            Button confirmBtn = Button.success("ptdl_confirm:" + (isRestart ? "restart" : "stop"), "تأكيد الإجراء");
-            Button cancelBtn = Button.danger("ptdl_cancel", "إلغاء الإجراء");
-
-            Container container = Container.of(
-                Section.of(
-                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
-                    TextDisplay.of("### 🛠️ معالج بدء الصيانة\n" +
-                                   "يرجى تحديد تفاصيل التوقف والمدة المقدرة بالأسفل لإشعار اللاعبين:")
-                ),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(reasonMenu),
-                ActionRow.of(durationMenu),
-                ActionRow.of(confirmBtn, cancelBtn)
-            );
-            MessageCreateData wizardData = new MessageCreateBuilder()
-                    .setComponents(container)
-                    .useComponentsV2(true)
-                    .build();
-
-            event.reply(wizardData).setEphemeral(true).queue();
+        if (id.startsWith("sched_inst:")) {
+            String prefix = id.substring("sched_inst:".length());
+            MaintenanceState state = userStates.get(event.getUser().getId());
+            if (state == null) {
+                event.reply("حدث خطأ: انتهت صلاحية الجلسة.").setEphemeral(true).queue();
+                return;
+            }
+            state.isScheduled = false;
+            event.deferEdit().queue();
+            showMaintenanceWizard(event.getHook(), prefix);
             return;
         }
 
@@ -452,20 +403,20 @@ public class PanelCommand extends ListenerAdapter {
 
             if ("custom".equals(state.reason) || "custom".equals(state.duration)) {
                 Modal.Builder modalBuilder = Modal.create("ptdl_custom_wizard_modal:" + action, "تفاصيل التوقف المخصصة");
-                List<Label> labels = new ArrayList<>();
+                List<net.dv8tion.jda.api.components.label.Label> labels = new ArrayList<>();
                 if ("custom".equals(state.reason)) {
                     TextInput reasonInput = TextInput.create("custom_reason", TextInputStyle.SHORT)
                             .setPlaceholder("مثال: ترقية الهاردوير للسيرفر")
                             .setRequired(true)
                             .build();
-                    labels.add(Label.of("السبب", reasonInput));
+                    labels.add(net.dv8tion.jda.api.components.label.Label.of("السبب", reasonInput));
                 }
                 if ("custom".equals(state.duration)) {
                     TextInput durationInput = TextInput.create("custom_duration", TextInputStyle.SHORT)
-                            .setPlaceholder("أدخل المدة أو الساعة المحددة")
+                            .setPlaceholder("أدخل المدة (مثال: 30m, 1h)")
                             .setRequired(true)
                             .build();
-                    labels.add(Label.of("الوقت", durationInput));
+                    labels.add(net.dv8tion.jda.api.components.label.Label.of("المدة (د/س/ي)", durationInput));
                 }
                 Modal modal = modalBuilder.addComponents(labels).build();
                 event.replyModal(modal).queue();
@@ -551,6 +502,29 @@ public class PanelCommand extends ListenerAdapter {
     @Override
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         String modalId = event.getModalId();
+        
+        if (modalId.startsWith("sched_modal:")) {
+            String prefix = modalId.substring("sched_modal:".length());
+            MaintenanceState state = userStates.get(event.getUser().getId());
+            if (state == null) {
+                event.reply("حدث خطأ: انتهت صلاحية الجلسة.").setEphemeral(true).queue();
+                return;
+            }
+            try {
+                long days = Long.parseLong(event.getValue("days").getAsString());
+                long hours = Long.parseLong(event.getValue("hours").getAsString());
+                long mins = Long.parseLong(event.getValue("mins").getAsString());
+                state.isScheduled = true;
+                state.scheduledStartTime = System.currentTimeMillis() + (days * 86400000L) + (hours * 3600000L) + (mins * 60000L);
+                
+                event.deferEdit().queue();
+                showMaintenanceWizard(event.getHook(), prefix);
+            } catch (Exception e) {
+                event.reply("حدث خطأ في قراءة الوقت المُدخل، يرجى كتابة أرقام صحيحة.").setEphemeral(true).queue();
+            }
+            return;
+        }
+
         if (modalId.equals("ec_extend_modal")) {
             event.deferReply(true).queue(hook -> {
                 java.util.concurrent.CompletableFuture.runAsync(() -> {
@@ -601,6 +575,49 @@ public class PanelCommand extends ListenerAdapter {
 
             executeMaintenance(event.getJDA(), state, event.getHook(), event.getUser().getId());
         }
+    }
+
+    private void showMaintenanceWizard(net.dv8tion.jda.api.interactions.InteractionHook hook, String prefix) {
+        StringSelectMenu reasonMenu = StringSelectMenu.create("ptdl_reason:" + prefix)
+                .setPlaceholder("اختر سبب التوقف...")
+                .addOption("صيانة دورية وتحسينات", "maintenance", "صيانة دورية وتحسينات عامة للخادم")
+                .addOption("تطوير وتحديث الأنظمة", "dev", "تطوير وتحديث برمجي للأنظمة")
+                .addOption("إصلاح أخطاء تقنية", "bug", "إصلاح بعض المشاكل والأخطاء التقنية")
+                .addOption("سبب مخصص...", "custom", "كتابة سبب مخصص يدوياً")
+                .build();
+
+        StringSelectMenu durationMenu = StringSelectMenu.create("ptdl_duration:" + prefix)
+                .setPlaceholder("اختر وقت العودة المتوقع...")
+                .addOption("15 دقيقة", "15m")
+                .addOption("30 دقيقة", "30m")
+                .addOption("ساعة واحدة", "1h")
+                .addOption("ساعتين", "2h")
+                .addOption("6 ساعات", "6h")
+                .addOption("12 ساعة", "12h")
+                .addOption("يوم كامل", "1d")
+                .addOption("وقت مخصص...", "custom", "تحديد ساعة أو مدة مخصصة")
+                .build();
+
+        Button confirmBtn = Button.success("ptdl_confirm:" + prefix, "تأكيد الإجراء");
+        Button cancelBtn = Button.danger("ptdl_cancel", "إلغاء الإجراء");
+
+        Container container = Container.of(
+            Section.of(
+                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                TextDisplay.of("### 🛠️ معالج بدء الصيانة\n" +
+                               "يرجى تحديد تفاصيل التوقف والمدة المقدرة بالأسفل لإشعار اللاعبين:")
+            ),
+            Separator.createDivider(Separator.Spacing.SMALL),
+            ActionRow.of(reasonMenu),
+            ActionRow.of(durationMenu),
+            ActionRow.of(confirmBtn, cancelBtn)
+        );
+        MessageEditData editData = new MessageEditBuilder()
+                .setComponents(container)
+                .useComponentsV2(true)
+                .build();
+
+        hook.editOriginal(editData).queue();
     }
 
     private Container buildContainer(JsonObject resources, boolean killStateActive) {
@@ -739,58 +756,89 @@ public class PanelCommand extends ListenerAdapter {
         public String channelId;
         public long returnTimestamp;
         public String actualReason;
+        public boolean isScheduled;
+        public long scheduledStartTime;
+        public boolean warned30m;
+        public boolean warned15m;
+        public boolean warned5m;
     }
 
     // MAINTENANCE EXECUTION
     private void executeMaintenance(net.dv8tion.jda.api.JDA jda, MaintenanceState state, net.dv8tion.jda.api.interactions.InteractionHook hook, String userId) {
-        if (!state.isFromEc) {
-            pterodactylService.sendPowerSignal(state.isRestart ? "restart" : "stop");
-            pterodactylService.reconnectConsole();
-            if (state.isRestart) {
-                java.util.concurrent.CompletableFuture.runAsync(() -> {
+        if (state.isScheduled) {
+            long durationMs = parseDurationToMs(state.duration, state.customDurationText);
+            state.returnTimestamp = state.scheduledStartTime + durationMs;
+            state.actualReason = formatReason(state);
+
+            TextChannel channel = jda.getTextChannelById("1487139736748425236");
+            if (channel != null) {
+                Container container = buildScheduledContainer(state);
+                MessageCreateData message = new MessageCreateBuilder()
+                        .setComponents(container)
+                        .useComponentsV2(true)
+                        .build();
+
+                channel.sendMessage(message).useComponentsV2().queue(msg -> {
+                    state.messageId = msg.getId();
+                    state.channelId = msg.getChannel().getId();
+                    saveMaintenanceState(state);
+                    startPreMaintenanceScheduler(jda, state);
+
+                    if (hook != null) {
+                        hook.sendMessage("تمت جدولة الإجراء بنجاح وتم نشر الإشعار في القناة المحددة.").setEphemeral(true).queue();
+                    }
+                }, err -> {
+                    logger.error("Failed to send scheduled maintenance message", err);
+                });
+            }
+            userStates.remove(userId);
+            return;
+        }
+
+        // Instant logic
+        String actionTypeStr = state.isRestart ? "Restart" : "Stop";
+        String mcMessage = "\\n§8[§c!§8] §a§lAction Executed!§r\\n§8» §7Type: §eInstant (" + actionTypeStr + ")\\n§8» §cThe proxy will shut down in a few seconds...\\n";
+        pterodactylService.sendCommand("tellraw @a {\"text\":\"" + mcMessage + "\"}");
+
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try { Thread.sleep(10000); } catch (Exception ignored) {}
+            
+            if (!state.isFromEc) {
+                pterodactylService.sendPowerSignal(state.isRestart ? "restart" : "stop");
+                pterodactylService.reconnectConsole();
+                if (state.isRestart) {
                     for (int i = 0; i < 4; i++) {
                         try { Thread.sleep(2000); } catch (Exception ignored) {}
                         refreshConsoleBufferFromFileSync();
                         updatePanelMessage(jda);
                     }
+                }
+            }
+            long durationMs = parseDurationToMs(state.duration, state.customDurationText);
+            state.returnTimestamp = System.currentTimeMillis() + durationMs;
+            state.actualReason = formatReason(state);
+
+            TextChannel channel = jda.getTextChannelById("1487139736748425236");
+            if (channel != null) {
+                Container container = buildMaintenanceContainer(state, durationMs, false, false);
+                MessageCreateData message = new MessageCreateBuilder()
+                        .setComponents(container)
+                        .useComponentsV2(true)
+                        .build();
+
+                channel.sendMessage(message).useComponentsV2().queue(msg -> {
+                    state.messageId = msg.getId();
+                    state.channelId = msg.getChannel().getId();
+                    saveMaintenanceState(state);
+                    startMaintenanceScheduler(jda, state);
+                    com.highcore.bot.services.ServerStatsService.forceUpdate(jda);
+
+                    channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
+                }, err -> {
+                    logger.error("Failed to send maintenance message", err);
                 });
             }
-        }
-        long durationMs = parseDurationToMs(state.duration, state.customDurationText);
-        state.returnTimestamp = System.currentTimeMillis() + durationMs;
-        state.actualReason = formatReason(state);
-
-        TextChannel channel = jda.getTextChannelById("1487139736748425236");
-        if (channel != null) {
-            Container container = buildMaintenanceContainer(state, durationMs, false, false);
-            MessageCreateData message = new MessageCreateBuilder()
-                    .setComponents(container)
-                    .useComponentsV2(true)
-                    .build();
-
-            channel.sendMessage(message).useComponentsV2().queue(msg -> {
-                state.messageId = msg.getId();
-                state.channelId = msg.getChannel().getId();
-                saveMaintenanceState(state);
-                startMaintenanceScheduler(jda, state);
-                com.highcore.bot.services.ServerStatsService.forceUpdate(jda);
-
-                channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
-
-                if (hook != null) {
-                    hook.sendMessage("تم بدء الإجراء بنجاح وتم نشر الإشعار في القناة المحددة.").setEphemeral(true).queue();
-                }
-            }, err -> {
-                logger.error("Failed to send maintenance message", err);
-                if (hook != null) {
-                    hook.sendMessage("فشل في إرسال رسالة الإشعار إلى القناة.").setEphemeral(true).queue();
-                }
-            });
-        } else {
-            if (hook != null) {
-                hook.sendMessage("لم يتم العثور على القناة المحددة للإشعارات.").setEphemeral(true).queue();
-            }
-        }
+        });
 
         userStates.remove(userId);
     }
@@ -848,24 +896,6 @@ public class PanelCommand extends ListenerAdapter {
             return 30 * 60 * 1000L;
         }
         textToParse = textToParse.trim().toLowerCase();
-        if (textToParse.matches("\\d{1,2}:\\d{2}")) {
-            try {
-                String[] parts = textToParse.split(":");
-                int hour = Integer.parseInt(parts[0]);
-                int minute = Integer.parseInt(parts[1]);
-                java.util.Calendar now = java.util.Calendar.getInstance();
-                java.util.Calendar target = java.util.Calendar.getInstance();
-                target.set(java.util.Calendar.HOUR_OF_DAY, hour);
-                target.set(java.util.Calendar.MINUTE, minute);
-                target.set(java.util.Calendar.SECOND, 0);
-                target.set(java.util.Calendar.MILLISECOND, 0);
-                if (target.before(now)) {
-                    target.add(java.util.Calendar.DAY_OF_MONTH, 1);
-                }
-                return target.getTimeInMillis() - now.getTimeInMillis();
-            } catch (Exception e) {
-            }
-        }
         try {
             long totalMs = 0;
             java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(\\d+)([dhm])");
@@ -884,7 +914,7 @@ public class PanelCommand extends ListenerAdapter {
             if (matched) {
                 return totalMs;
             }
-            return Long.parseLong(textToParse) * 60 * 1000L;
+            return Long.parseLong(textToParse.replaceAll("[^0-9]", "")) * 60 * 1000L;
         } catch (Exception e) {
             return 30 * 60 * 1000L;
         }
@@ -947,6 +977,13 @@ public class PanelCommand extends ListenerAdapter {
             json.addProperty("channelId", state.channelId);
             json.addProperty("returnTimestamp", state.returnTimestamp);
             json.addProperty("actualReason", state.actualReason);
+            
+            json.addProperty("isScheduled", state.isScheduled);
+            json.addProperty("scheduledStartTime", state.scheduledStartTime);
+            json.addProperty("warned30m", state.warned30m);
+            json.addProperty("warned15m", state.warned15m);
+            json.addProperty("warned5m", state.warned5m);
+
             writer.write(json.toString());
         } catch (Exception e) {
         }
@@ -983,7 +1020,18 @@ public class PanelCommand extends ListenerAdapter {
             state.channelId = json.has("channelId") && !json.get("channelId").isJsonNull() ? json.get("channelId").getAsString() : null;
             state.returnTimestamp = json.get("returnTimestamp").getAsLong();
             state.actualReason = json.has("actualReason") && !json.get("actualReason").isJsonNull() ? json.get("actualReason").getAsString() : null;
-            startMaintenanceScheduler(jda, state);
+            
+            state.isScheduled = json.has("isScheduled") && json.get("isScheduled").getAsBoolean();
+            state.scheduledStartTime = json.has("scheduledStartTime") ? json.get("scheduledStartTime").getAsLong() : 0;
+            state.warned30m = json.has("warned30m") && json.get("warned30m").getAsBoolean();
+            state.warned15m = json.has("warned15m") && json.get("warned15m").getAsBoolean();
+            state.warned5m = json.has("warned5m") && json.get("warned5m").getAsBoolean();
+            
+            if (state.isScheduled) {
+                startPreMaintenanceScheduler(jda, state);
+            } else {
+                startMaintenanceScheduler(jda, state);
+            }
         } catch (Exception e) {
         }
     }
@@ -1030,6 +1078,27 @@ public class PanelCommand extends ListenerAdapter {
         );
     }
 
+    private Container buildScheduledContainer(MaintenanceState state) {
+        String reasonType = formatReasonType(state);
+        String reasonStr = formatReason(state);
+        
+        long startSec = state.scheduledStartTime / 1000;
+        long returnSec = state.returnTimestamp / 1000;
+        
+        String bodyText = "تم جدولة إيقاف الخادم لبدء أعمال **" + reasonType + "**.\n" +
+                          "**السبب:** `" + reasonStr + "`\n\n" +
+                          "**موعد بدء الصيانة:** <t:" + startSec + ":F> (<t:" + startSec + ":R>)\n" +
+                          "**موعد العودة المتوقع:** <t:" + returnSec + ":F> (<t:" + returnSec + ":R>)\n\n" +
+                          "تنبيه: <@&1499896841150402692>";
+                          
+        return Container.of(
+            Section.of(
+                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                TextDisplay.of("### 📅 صيانة مجدولة\n" + bodyText)
+            )
+        );
+    }
+
     private MaintenanceState getActiveMaintenanceState() {
         java.io.File file = new java.io.File(STATE_FILE);
         if (!file.exists()) return null;
@@ -1051,9 +1120,78 @@ public class PanelCommand extends ListenerAdapter {
             state.channelId = json.has("channelId") && !json.get("channelId").isJsonNull() ? json.get("channelId").getAsString() : null;
             state.returnTimestamp = json.get("returnTimestamp").getAsLong();
             state.actualReason = json.has("actualReason") && !json.get("actualReason").isJsonNull() ? json.get("actualReason").getAsString() : null;
+            
+            state.isScheduled = json.has("isScheduled") && json.get("isScheduled").getAsBoolean();
+            state.scheduledStartTime = json.has("scheduledStartTime") ? json.get("scheduledStartTime").getAsLong() : 0;
+            state.warned30m = json.has("warned30m") && json.get("warned30m").getAsBoolean();
+            state.warned15m = json.has("warned15m") && json.get("warned15m").getAsBoolean();
+            state.warned5m = json.has("warned5m") && json.get("warned5m").getAsBoolean();
+
             return state;
         } catch (Exception e) {
             return null;
         }
+    }
+    
+    private void startPreMaintenanceScheduler(net.dv8tion.jda.api.JDA jda, MaintenanceState state) {
+        if (preMaintenanceTimer != null) preMaintenanceTimer.cancel();
+        preMaintenanceTimer = new Timer();
+        preMaintenanceTimer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
+                long timeLeft = state.scheduledStartTime - now;
+                
+                if (timeLeft <= 0) {
+                    preMaintenanceTimer.cancel();
+                    preMaintenanceTimer = null;
+                    
+                    String actionVerb = state.isRestart ? "restarting" : "stopping";
+                    pterodactylService.sendCommand("tellraw @a {\"text\":\"\\n§8[§c!§8] §4§lPROXY MAINTENANCE §8[§c!§8]\\n§7The Proxy is " + actionVerb + " §c§lNOW§7.\\n§7Please wrap up your work immediately!\\n\"}");
+                    
+                    if (!state.isFromEc) {
+                        pterodactylService.sendPowerSignal(state.isRestart ? "restart" : "stop");
+                        pterodactylService.reconnectConsole();
+                    }
+                    
+                    long durationMs = parseDurationToMs(state.duration, state.customDurationText);
+                    state.returnTimestamp = System.currentTimeMillis() + durationMs;
+                    
+                    TextChannel channel = jda.getTextChannelById(state.channelId);
+                    if (channel != null && state.messageId != null) {
+                        Container container = buildMaintenanceContainer(state, durationMs, false, false);
+                        MessageEditData edit = new MessageEditBuilder()
+                                .setComponents(container)
+                                .useComponentsV2(true)
+                                .build();
+                        channel.editMessageById(state.messageId, edit).useComponentsV2().queue(msg -> {
+                            channel.sendMessage("<@&1499896841150402692>").queue(ping -> ping.delete().queue());
+                        });
+                    }
+                    
+                    state.isScheduled = false;
+                    saveMaintenanceState(state);
+                    startMaintenanceScheduler(jda, state);
+                    return;
+                }
+                
+                long minsLeft = timeLeft / 60000;
+                String warnVerb = state.isRestart ? "restart" : "stop";
+                
+                if (minsLeft <= 30 && minsLeft > 15 && !state.warned30m) {
+                    state.warned30m = true;
+                    pterodactylService.sendCommand("tellraw @a {\"text\":\"\\n§8[§e!§8] §6§lPROXY MAINTENANCE §8[§e!§8]\\n§7The Proxy will " + warnVerb + " in §e30 minutes§7 for maintenance.\\n§7Please wrap up your work soon.\\n\"}");
+                    saveMaintenanceState(state);
+                } else if (minsLeft <= 15 && minsLeft > 5 && !state.warned15m) {
+                    state.warned15m = true;
+                    pterodactylService.sendCommand("tellraw @a {\"text\":\"\\n§8[§6!§8] §c§lPROXY MAINTENANCE §8[§6!§8]\\n§7The Proxy will " + warnVerb + " in §615 minutes§7 for maintenance!\\n\"}");
+                    saveMaintenanceState(state);
+                } else if (minsLeft <= 5 && minsLeft > 0 && !state.warned5m) {
+                    state.warned5m = true;
+                    pterodactylService.sendCommand("tellraw @a {\"text\":\"\\n§8[§4!§8] §4§lWARNING: PROXY MAINTENANCE §8[§4!§8]\\n§cThe Proxy will " + warnVerb + " in §45 minutes§c!\\n§cPlease disconnect safely as soon as possible.\\n\"}");
+                    saveMaintenanceState(state);
+                }
+            }
+        }, 0, 30000);
     }
 }
