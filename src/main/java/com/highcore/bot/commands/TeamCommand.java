@@ -40,6 +40,7 @@ import java.util.concurrent.*;
 public class TeamCommand extends ListenerAdapter {
 
     private static final Logger logger = LoggerFactory.getLogger(TeamCommand.class);
+    private static final com.highcore.bot.services.PterodactylService ptero = new com.highcore.bot.services.PterodactylService();
 
     private static final String LEADER_ROLE_ID      = "1512457786548682863";
     private static final String CO_LEADER_ROLE_ID   = "1517128529563750411";
@@ -281,6 +282,23 @@ public class TeamCommand extends ListenerAdapter {
                                 + (m4 != null ? "\n▫️ **العضو 4:** " + m4.getAsMention() : "");
                             sendLog(guild, "/team create", event.getUser(), teamName, details, fColor);
                             event.getHook().editOriginal("✅ تم إنشاء فريق **" + teamName + "** بنجاح!").queue();
+
+                            ptero.sendConsoleCommand("teama create " + teamName);
+                            String lMc = getMcName(fLeader.getId());
+                            if (lMc != null) {
+                                ptero.sendConsoleCommand("teama join " + teamName + " " + lMc);
+                                ptero.sendConsoleCommand("teama setowner " + lMc);
+                            }
+                            String m2Mc = getMcName(fMember2.getId());
+                            if (m2Mc != null) ptero.sendConsoleCommand("teama join " + teamName + " " + m2Mc);
+                            if (m3 != null) {
+                                String m3Mc = getMcName(m3.getId());
+                                if (m3Mc != null) ptero.sendConsoleCommand("teama join " + teamName + " " + m3Mc);
+                            }
+                            if (m4 != null) {
+                                String m4Mc = getMcName(m4.getId());
+                                if (m4Mc != null) ptero.sendConsoleCommand("teama join " + teamName + " " + m4Mc);
+                            }
 
                             final int finalDbId = dbId;
                             event.getChannel().sendMessage("📸 يرجى **إرسال صورة شعار التيم** الآن (أو اكتب `skip` للتخطي).").queue(msg -> {
@@ -533,10 +551,14 @@ public class TeamCommand extends ListenerAdapter {
         Guild guild = event.getGuild(); Role coRole = guild.getRoleById(CO_LEADER_ROLE_ID);
         if (td.coLeaderId != null && !td.coLeaderId.isEmpty()) {
             guild.retrieveMemberById(td.coLeaderId).queue(m -> { if (coRole != null) guild.removeRoleFromMember(m, coRole).queue(null, e -> {}); }, e -> {});
+            String oldCo = getMcName(td.coLeaderId);
+            if (oldCo != null) ptero.sendConsoleCommand("teama demote " + oldCo);
         }
         if ("remove_co".equals(selectedId)) { updateCoLeaderInDb(teamId, null); event.reply("✅ تم إزالة الكو-ليدر.").setEphemeral(true).queue(); return; }
         guild.retrieveMemberById(selectedId).queue(m -> { if (coRole != null) guild.addRoleToMember(m, coRole).queue(null, e -> {}); }, e -> {});
         updateCoLeaderInDb(teamId, selectedId);
+        String newCo = getMcName(selectedId);
+        if (newCo != null) ptero.sendConsoleCommand("teama promote " + newCo);
         event.reply("✅ تم تعيين <@" + selectedId + "> كو-ليدر!").setEphemeral(true).queue();
     }
 
@@ -719,6 +741,14 @@ public class TeamCommand extends ListenerAdapter {
             if (allyCh != null) allyCh.sendMessage(new MessageCreateBuilder().setComponents(Container.of(TextDisplay.of(part1), Separator.createDivider(Separator.Spacing.LARGE), TextDisplay.of(part2))).useComponentsV2(true).build()).queue();
             sendToCmdChannel(guild, state.requesterCmdChannelId, "✅ قبل تيم **" + state.targetTeamName + "** التحالف! تم إرسال الإعلان الرسمي.");
             editVoteMessageToResult(guild, state, true);
+            
+            String lMc1 = getMcName(state.firstLeaderId);
+            String lMc2 = getMcName(state.secondLeaderId);
+            if (lMc1 != null && lMc2 != null) {
+                ptero.sendConsoleCommand("execute as " + lMc1 + " run team ally " + state.targetTeamName);
+                ptero.sendConsoleCommand("execute as " + lMc2 + " run team ally " + state.requesterTeamName);
+            }
+
             // منح صلاحية رؤية الكاتيقوري المتبادلة
             grantAllianceCategoryAccess(guild, state);
         } else {
@@ -849,6 +879,9 @@ public class TeamCommand extends ListenerAdapter {
             ps.setString(1, newName); ps.setString(2, fColor); ps.setInt(3, teamId); ps.executeUpdate();
         } catch (Exception e) { logger.error("Error updating team info in DB", e); }
         syncToSupabase(newName, fColor, td.leaderId, td.member2Id, td.member3Id, td.member4Id, "Modified", oldName.equals(newName) ? null : oldName);
+        if (!oldName.equals(newName)) {
+            ptero.sendConsoleCommand("teama name " + oldName + " " + newName);
+        }
         updateAnnouncementEmbed(guild, teamId, newName, extractIdOnly(td.leaderId), extractIdOnly(td.member2Id), extractIdOnly(td.member3Id), extractIdOnly(td.member4Id), fColor);
         sendLog(guild, "Edit Team Info", event.getUser(), newName, "### ✏️ تم تعديل معلومات الفريق\n▫️ **الاسم القديم:** " + td.name + "\n▫️ **الاسم الجديد:** " + newName + "\n▫️ **اللون القديم:** `" + td.color + "`\n▫️ **اللون الجديد:** `" + fColor + "`", fColor);
         event.getHook().editOriginal("✅ تم تعديل معلومات الفريق **" + newName + "** بنجاح!").queue();
@@ -886,6 +919,26 @@ public class TeamCommand extends ListenerAdapter {
              PreparedStatement ps = conn.prepareStatement("UPDATE teams SET leader_id = ?, member2_id = ?, member3_id = ?, member4_id = ?, tag = 'Modified' WHERE id = ?")) {
             ps.setString(1, fLDb); ps.setString(2, fM2Db); ps.setString(3, fM3Db); ps.setString(4, fM4Db); ps.setInt(5, teamId); ps.executeUpdate();
         } catch (Exception e) { logger.error("Error updating team members", e); }
+
+        List<String> oldIds = getTeamMemberIds(td);
+        Set<String> newIds = new HashSet<>();
+        newIds.add(leaderId);
+        if (m2Id != null) newIds.add(m2Id);
+        if (m3Id != null) newIds.add(m3Id);
+        if (m4Id != null) newIds.add(m4Id);
+
+        for (String oldId : oldIds) {
+            if (!newIds.contains(oldId)) {
+                String mc = getMcName(oldId);
+                if (mc != null) ptero.sendConsoleCommand("teama leave " + mc);
+            }
+        }
+        String lMc = getMcName(leaderId);
+        if (lMc != null) { ptero.sendConsoleCommand("teama join " + td.name + " " + lMc); ptero.sendConsoleCommand("teama setowner " + lMc); }
+        if (m2Id != null) { String mc = getMcName(m2Id); if (mc != null) ptero.sendConsoleCommand("teama join " + td.name + " " + mc); }
+        if (m3Id != null) { String mc = getMcName(m3Id); if (mc != null) ptero.sendConsoleCommand("teama join " + td.name + " " + mc); }
+        if (m4Id != null) { String mc = getMcName(m4Id); if (mc != null) ptero.sendConsoleCommand("teama join " + td.name + " " + mc); }
+
         syncToSupabase(td.name, td.color, fLDb, fM2Db, fM3Db, fM4Db, "Modified", null);
         updateAnnouncementEmbed(guild, teamId, td.name, leaderId, m2Id, m3Id, m4Id, td.color);
         sendLog(guild, "Edit Team Members", event.getUser(), td.name, "### 👥 تم تعديل أعضاء الفريق\n▫️ **القائد الجديد:** <@" + leaderId + ">", td.color);
@@ -957,7 +1010,11 @@ public class TeamCommand extends ListenerAdapter {
         // DM للكو-ليدر
         if (td.coLeaderId != null && !td.coLeaderId.isEmpty()) guild.retrieveMemberById(td.coLeaderId).queue(m -> m.getUser().openPrivateChannel().queue(pc -> pc.sendMessage(deleteMsg).queue(null, e -> {}), e -> {}), e -> {});
         sendLog(guild, "Delete Team", event.getUser(), td.name, "### 🗑️ تم حذف الفريق\n▫️ **اسم الفريق:** " + td.name + "\n▫️ **السبب:**\n```text\n" + reason + "\n```\n▫️ **القائد السابق:** <@" + extractIdOnly(td.leaderId) + ">\n▫️ **اللون:** `" + td.color + "`", "#ff0000");
-        deleteDiscordResources(guild, td, () -> { deleteTeamFromDb(teamId, td.name); event.getHook().editOriginal("✅ تم حذف فريق **" + td.name + "** بنجاح! 🗑️").queue(); });
+        deleteDiscordResources(guild, td, () -> { 
+            deleteTeamFromDb(teamId, td.name); 
+            ptero.sendConsoleCommand("teama delete " + td.name);
+            event.getHook().editOriginal("✅ تم حذف فريق **" + td.name + "** بنجاح! 🗑️").queue(); 
+        });
     }
 
     private void syncToSupabase(String name, String color, String leader, String m2, String m3, String m4, String tag, String oldName) {
@@ -1039,6 +1096,18 @@ public class TeamCommand extends ListenerAdapter {
         eb.setDescription("**Action:**\n" + action + "\n\n**User:**\n" + (user != null ? user.getAsMention() + " (" + user.getId() + ")" : "Automated System") + "\n\n**Target:**\n" + target + "\n\n**Details:**\n" + details);
         eb.setColor(color); eb.setTimestamp(java.time.Instant.now());
         logCh.sendMessageEmbeds(eb.build()).queue();
+    }
+
+    private String getMcName(String discordId) {
+        if (discordId == null || discordId.isEmpty()) return null;
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             PreparedStatement ps = conn.prepareStatement("SELECT username FROM `discordsrv__accounts` WHERE discord = ?")) {
+            ps.setString(1, discordId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("username");
+            }
+        } catch (Exception e) { logger.error("Error getting MC name for " + discordId, e); }
+        return null;
     }
 
     private String resolveDisplay(Guild guild, String userId) {

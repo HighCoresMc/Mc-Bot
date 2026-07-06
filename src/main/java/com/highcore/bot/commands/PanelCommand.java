@@ -351,27 +351,14 @@ public class PanelCommand extends ListenerAdapter {
 
         if (id.startsWith("sched_schd:")) {
             String prefix = id.substring("sched_schd:".length());
-            TextInput daysInput = TextInput.create("days", TextInputStyle.SHORT)
-                    .setPlaceholder("0")
-                    .setValue("0")
-                    .setRequired(true)
-                    .build();
-            TextInput hoursInput = TextInput.create("hours", TextInputStyle.SHORT)
-                    .setPlaceholder("مثال: 2")
-                    .setValue("0")
-                    .setRequired(true)
-                    .build();
-            TextInput minsInput = TextInput.create("mins", TextInputStyle.SHORT)
-                    .setPlaceholder("مثال: 30")
-                    .setValue("0")
+            TextInput dateInput = TextInput.create("date", TextInputStyle.SHORT)
+                    .setPlaceholder("مثال: 2026-06-14 20:11")
                     .setRequired(true)
                     .build();
 
             Modal modal = Modal.create("sched_modal:" + prefix, "جدولة الصيانة")
                     .addComponents(
-                        net.dv8tion.jda.api.components.label.Label.of("بعد كم يوم؟ (ضع 0 لليوم)", daysInput),
-                        net.dv8tion.jda.api.components.label.Label.of("الساعات", hoursInput),
-                        net.dv8tion.jda.api.components.label.Label.of("الدقائق", minsInput)
+                        net.dv8tion.jda.api.components.label.Label.of("تاريخ ووقت بدء الصيانة", dateInput)
                     )
                     .build();
             
@@ -511,16 +498,30 @@ public class PanelCommand extends ListenerAdapter {
                 return;
             }
             try {
-                long days = Long.parseLong(event.getValue("days").getAsString());
-                long hours = Long.parseLong(event.getValue("hours").getAsString());
-                long mins = Long.parseLong(event.getValue("mins").getAsString());
+                String dateStr = event.getValue("date").getAsString();
+                
+                // Allow user to use colon instead of space between date and time (e.g. 2026-06-14:20:11)
+                if (dateStr.matches(".*\\d{2}:\\d{2}:\\d{2}.*")) {
+                    dateStr = dateStr.replaceFirst(":(?=\\d{2}:\\d{2})", " ");
+                }
+                
+                if (!com.highcore.bot.utils.TimeUtils.isValidFormat(dateStr)) {
+                    event.reply("صيغة الوقت غير صحيحة! جرب صيغة مثل: 2026-06-14 20:11").setEphemeral(true).queue();
+                    return;
+                }
+                long unixTime = com.highcore.bot.utils.TimeUtils.parseToUnixTimestamp(dateStr);
+                if (unixTime < 0 || unixTime * 1000L < System.currentTimeMillis()) {
+                    event.reply("التاريخ المدخل غير صالح أو في الماضي!").setEphemeral(true).queue();
+                    return;
+                }
+                
                 state.isScheduled = true;
-                state.scheduledStartTime = System.currentTimeMillis() + (days * 86400000L) + (hours * 3600000L) + (mins * 60000L);
+                state.scheduledStartTime = unixTime * 1000L;
                 
                 event.deferEdit().queue();
                 showMaintenanceWizard(event.getHook(), prefix);
             } catch (Exception e) {
-                event.reply("حدث خطأ في قراءة الوقت المُدخل، يرجى كتابة أرقام صحيحة.").setEphemeral(true).queue();
+                event.reply("حدث خطأ في قراءة الوقت المُدخل.").setEphemeral(true).queue();
             }
             return;
         }
