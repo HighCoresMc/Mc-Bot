@@ -284,6 +284,7 @@ public class TeamCommand extends ListenerAdapter {
                             event.getHook().editOriginal("✅ تم إنشاء فريق **" + teamName + "** بنجاح!").queue();
 
                             ptero.sendConsoleCommand("teama create " + teamName);
+                            ptero.sendConsoleCommand("teama color " + teamName + " " + fColor);
                             String lMc = getMcName(fLeader.getId());
                             if (lMc != null) {
                                 ptero.sendConsoleCommand("teama join " + teamName + " " + lMc);
@@ -591,6 +592,9 @@ public class TeamCommand extends ListenerAdapter {
         final String fColor = newColor.startsWith("#") ? newColor : "#" + newColor;
         Guild guild = event.getGuild();
         if (td.roleId != null) { Role role = guild.getRoleById(td.roleId); if (role != null) role.getManager().setColor(color).queue(null, e -> {}); }
+
+        ptero.sendConsoleCommand("teama color " + td.name + " " + fColor);
+
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement("UPDATE teams SET color = ? WHERE id = ?")) {
             ps.setString(1, fColor); ps.setInt(2, teamId); ps.executeUpdate();
@@ -882,6 +886,7 @@ public class TeamCommand extends ListenerAdapter {
         if (!oldName.equals(newName)) {
             ptero.sendConsoleCommand("teama name " + oldName + " " + newName);
         }
+        ptero.sendConsoleCommand("teama color " + newName + " " + fColor);
         updateAnnouncementEmbed(guild, teamId, newName, extractIdOnly(td.leaderId), extractIdOnly(td.member2Id), extractIdOnly(td.member3Id), extractIdOnly(td.member4Id), fColor);
         sendLog(guild, "Edit Team Info", event.getUser(), newName, "### ✏️ تم تعديل معلومات الفريق\n▫️ **الاسم القديم:** " + td.name + "\n▫️ **الاسم الجديد:** " + newName + "\n▫️ **اللون القديم:** `" + td.color + "`\n▫️ **اللون الجديد:** `" + fColor + "`", fColor);
         event.getHook().editOriginal("✅ تم تعديل معلومات الفريق **" + newName + "** بنجاح!").queue();
@@ -1012,7 +1017,7 @@ public class TeamCommand extends ListenerAdapter {
         sendLog(guild, "Delete Team", event.getUser(), td.name, "### 🗑️ تم حذف الفريق\n▫️ **اسم الفريق:** " + td.name + "\n▫️ **السبب:**\n```text\n" + reason + "\n```\n▫️ **القائد السابق:** <@" + extractIdOnly(td.leaderId) + ">\n▫️ **اللون:** `" + td.color + "`", "#ff0000");
         deleteDiscordResources(guild, td, () -> { 
             deleteTeamFromDb(teamId, td.name); 
-            ptero.sendConsoleCommand("teama delete " + td.name);
+            ptero.sendConsoleCommand("teama disband " + td.name);
             event.getHook().editOriginal("✅ تم حذف فريق **" + td.name + "** بنجاح! 🗑️").queue(); 
         });
     }
