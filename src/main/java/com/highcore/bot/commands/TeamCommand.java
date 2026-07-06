@@ -284,7 +284,7 @@ public class TeamCommand extends ListenerAdapter {
                             event.getHook().editOriginal("✅ تم إنشاء فريق **" + teamName + "** بنجاح!").queue();
 
                             ptero.sendConsoleCommand("teama create " + teamName);
-                            ptero.sendConsoleCommand("teama color " + teamName + " " + fColor);
+                            ptero.sendConsoleCommand("teama color " + teamName + " " + getClosestMinecraftColorName(finalColor));
                             String lMc = getMcName(fLeader.getId());
                             if (lMc != null) {
                                 ptero.sendConsoleCommand("teama join " + teamName + " " + lMc);
@@ -593,7 +593,7 @@ public class TeamCommand extends ListenerAdapter {
         Guild guild = event.getGuild();
         if (td.roleId != null) { Role role = guild.getRoleById(td.roleId); if (role != null) role.getManager().setColor(color).queue(null, e -> {}); }
 
-        ptero.sendConsoleCommand("teama color " + td.name + " " + fColor);
+        ptero.sendConsoleCommand("teama color " + td.name + " " + getClosestMinecraftColorName(color));
 
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement("UPDATE teams SET color = ? WHERE id = ?")) {
@@ -886,7 +886,7 @@ public class TeamCommand extends ListenerAdapter {
         if (!oldName.equals(newName)) {
             ptero.sendConsoleCommand("teama name " + oldName + " " + newName);
         }
-        ptero.sendConsoleCommand("teama color " + newName + " " + fColor);
+        ptero.sendConsoleCommand("teama color " + newName + " " + getClosestMinecraftColorName(color));
         updateAnnouncementEmbed(guild, teamId, newName, extractIdOnly(td.leaderId), extractIdOnly(td.member2Id), extractIdOnly(td.member3Id), extractIdOnly(td.member4Id), fColor);
         sendLog(guild, "Edit Team Info", event.getUser(), newName, "### ✏️ تم تعديل معلومات الفريق\n▫️ **الاسم القديم:** " + td.name + "\n▫️ **الاسم الجديد:** " + newName + "\n▫️ **اللون القديم:** `" + td.color + "`\n▫️ **اللون الجديد:** `" + fColor + "`", fColor);
         event.getHook().editOriginal("✅ تم تعديل معلومات الفريق **" + newName + "** بنجاح!").queue();
@@ -1142,6 +1142,44 @@ public class TeamCommand extends ListenerAdapter {
     private TeamData getTeamByLeaderId(String userId) { try (Connection conn = LeonTrotskyBot.getDbManager().getConnection(); PreparedStatement ps = conn.prepareStatement("SELECT * FROM teams WHERE leader_id LIKE ?")) { ps.setString(1, "%" + userId + "%"); ResultSet rs = ps.executeQuery(); if (rs.next()) return TeamData.from(rs); } catch (Exception e) { logger.error("Error getting team by leader id", e); } return null; }
     private TeamData getTeamByCoLeaderId(String userId) { try (Connection conn = LeonTrotskyBot.getDbManager().getConnection(); PreparedStatement ps = conn.prepareStatement("SELECT * FROM teams WHERE co_leader_id = ?")) { ps.setString(1, userId); ResultSet rs = ps.executeQuery(); if (rs.next()) return TeamData.from(rs); } catch (Exception e) { logger.error("Error getting team by co-leader id", e); } return null; }
     private String getAnnouncementMsgId(int teamId) { try (Connection conn = LeonTrotskyBot.getDbManager().getConnection(); PreparedStatement ps = conn.prepareStatement("SELECT announcement_message_id FROM teams WHERE id = ?")) { ps.setInt(1, teamId); ResultSet rs = ps.executeQuery(); if (rs.next()) return rs.getString("announcement_message_id"); } catch (Exception e) { logger.error("Error getting announcement msg id", e); } return null; }
+
+    // ===================================================================
+    // Helpers
+    // ===================================================================
+
+    private String getClosestMinecraftColorName(Color c) {
+        if (c == null) return "WHITE";
+        int r = c.getRed(), g = c.getGreen(), b = c.getBlue();
+        String bestColor = "WHITE";
+        double minDistance = Double.MAX_VALUE;
+        Map<String, int[]> colors = new HashMap<>();
+        colors.put("BLACK", new int[]{0, 0, 0});
+        colors.put("DARK_BLUE", new int[]{0, 0, 170});
+        colors.put("DARK_GREEN", new int[]{0, 170, 0});
+        colors.put("DARK_AQUA", new int[]{0, 170, 170});
+        colors.put("DARK_RED", new int[]{170, 0, 0});
+        colors.put("DARK_PURPLE", new int[]{170, 0, 170});
+        colors.put("GOLD", new int[]{255, 170, 0});
+        colors.put("GRAY", new int[]{170, 170, 170});
+        colors.put("DARK_GRAY", new int[]{85, 85, 85});
+        colors.put("BLUE", new int[]{85, 85, 255});
+        colors.put("GREEN", new int[]{85, 255, 85});
+        colors.put("AQUA", new int[]{85, 255, 255});
+        colors.put("RED", new int[]{255, 85, 85});
+        colors.put("LIGHT_PURPLE", new int[]{255, 85, 255});
+        colors.put("YELLOW", new int[]{255, 255, 85});
+        colors.put("WHITE", new int[]{255, 255, 255});
+        
+        for (Map.Entry<String, int[]> entry : colors.entrySet()) {
+            int[] val = entry.getValue();
+            double distance = Math.pow(r - val[0], 2) + Math.pow(g - val[1], 2) + Math.pow(b - val[2], 2);
+            if (distance < minDistance) {
+                minDistance = distance;
+                bestColor = entry.getKey();
+            }
+        }
+        return bestColor;
+    }
 
     // ===================================================================
     // Data Class
