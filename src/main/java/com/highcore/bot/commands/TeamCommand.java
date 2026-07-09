@@ -1951,18 +1951,53 @@ public class TeamCommand extends ListenerAdapter {
     private String getMcName(String discordId) {
         if (discordId == null || discordId.isEmpty())
             return null;
+        
+        String uuid = null;
+        String mcName = null;
+        
         try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady()
                 ? LeonTrotskyBot.getDbManager().getCmiConnection()
                 : LeonTrotskyBot.getDbManager().getConnection();
                 PreparedStatement ps = conn
-                        .prepareStatement("SELECT username FROM `discordsrv__accounts` WHERE discord = ?")) {
+                        .prepareStatement("SELECT uuid, username FROM `discordsrv__accounts` WHERE discord = ?")) {
             ps.setString(1, discordId);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next())
-                    return rs.getString("username");
+                if (rs.next()) {
+                    uuid = rs.getString("uuid");
+                    mcName = rs.getString("username");
+                } else {
+                    return null;
+                }
             }
         } catch (Exception e) {
             logger.error("Error getting MC name for " + discordId, e);
+        }
+
+        if (mcName != null && !mcName.trim().isEmpty() && !mcName.equalsIgnoreCase("Unknown")) {
+            return mcName;
+        }
+
+        if (uuid != null) {
+            String uuidDash = uuid.trim().toLowerCase();
+            String uuidNoDash = uuidDash.replace("-", "");
+            if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
+                uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
+            }
+            
+            try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady()
+                    ? LeonTrotskyBot.getDbManager().getCmiConnection()
+                    : LeonTrotskyBot.getDbManager().getConnection();
+                 PreparedStatement ps = conn.prepareStatement("SELECT username FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?")) {
+                ps.setString(1, uuidDash);
+                ps.setString(2, uuidNoDash);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getString("username");
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Error getting fallback MC name for UUID " + uuid, e);
+            }
         }
         return null;
     }
