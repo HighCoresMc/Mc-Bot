@@ -67,7 +67,7 @@ public class MinecraftLogListener extends ListenerAdapter {
         if (content == null || content.trim().isEmpty()) return;
 
         // Strip markdown bold/italics markers to ensure raw string comparisons work
-        String clean = content.replace("*", "").replace("_", "").trim();
+        String clean = content.replace("*", "").trim();
 
         // Section: Server lifecycle — clear stale players on stop or start
         if (SERVER_STOP_PATTERN.matcher(clean).find() || clean.toLowerCase().contains("has stopped")) {
@@ -185,7 +185,7 @@ public class MinecraftLogListener extends ListenerAdapter {
                     }
 
                     // Section: Track the timestamp of the last "Server has started" for uptime accuracy
-                    String clean = content.replace("*", "").replace("_", "").trim();
+                    String clean = content.replace("*", "").trim();
                     if (SERVER_START_PATTERN.matcher(clean).find() || clean.toLowerCase().contains("has started")) {
                         onlinePlayers.clear();
                         long startedAt = msg.getTimeCreated().toInstant().toEpochMilli();
