@@ -297,9 +297,7 @@ public class TeamCommand extends ListenerAdapter {
                 + "عدد الأعضاء: `" + getTeamMemberCount(td) + "`\n<divider>"
                 + "**سجل الفريق**\n"
                 + "اللفل: `" + (stats.level == -1 ? "غير متوفر" : stats.level) + "`\n"
-                + "النقاط: `" + (stats.points == -1 ? "غير متوفر" : stats.points) + "`\n"
-                + "الحروب القائمة: `" + (stats.wars == -1 ? "غير متوفر" : stats.wars) + "`\n"
-                + "الخسائر: `" + (stats.deaths == -1 ? "غير متوفر" : stats.deaths) + "`\n<divider>"
+                + "النقاط: `" + (stats.points == -1 ? "غير متوفر" : stats.points) + "`\n<divider>"
                 + "**الأراضي والنفوذ**\n"
                 + "عدد الأراضي المحتلة: `" + (stats.claims == -1 ? "غير متوفر" : stats.claims) + "`\n"
                 + "المولدات النشطة: `" + (stats.generators == -1 ? "غير متوفر" : stats.generators) + "`\n<divider>"
@@ -362,10 +360,23 @@ public class TeamCommand extends ListenerAdapter {
             event.reply("العضو المختار (رقم : " + bannedNum + ") محظور من نظام الاتيام").setEphemeral(true).queue();
             return;
         }
+
         if (teamExistsByName(teamName)) {
             event.reply("❌ يوجد فريق بهذا الاسم بالفعل!").setEphemeral(true).queue();
             return;
         }
+        
+        Member[] membersToCheck = {leader, member2, member3, member4};
+        for (Member m : membersToCheck) {
+            if (m != null) {
+                String existingTeam = getTeamOfPlayer(m.getId());
+                if (existingTeam != null) {
+                    event.reply("❌ اللاعب " + m.getAsMention() + " موجود بالفعل في فريق: **" + existingTeam + "** ولا يمكنه دخول فريق آخر!").setEphemeral(true).queue();
+                    return;
+                }
+            }
+        }
+
 
         String onlineError = checkAllPlayersOnline(leader, member2, member3, member4);
         if (onlineError != null) {
@@ -2152,7 +2163,7 @@ public class TeamCommand extends ListenerAdapter {
         LiveTeamStats stats = new LiveTeamStats();
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             // CoreClaims Claims
-            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) as c FROM claims WHERE team_name = ?")) {
+            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) as c FROM claims WHERE generator_id IN (SELECT id FROM generators WHERE team_name = ?)")) {
                 ps.setString(1, teamName);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next())
@@ -2174,7 +2185,7 @@ public class TeamCommand extends ListenerAdapter {
 
             // BetterTeams (Assuming standard table structure if MySQL is used)
             try (PreparedStatement ps = conn
-                    .prepareStatement("SELECT `score`, `level` FROM `teams` WHERE `name` = ?")) {
+                    .prepareStatement("SELECT `score`, `level` FROM `BetterTeams_Team` WHERE `name` = ?")) {
                 ps.setString(1, teamName);
                 // Note: since bot also has a `teams` table without score, this will fail
                 // silently if columns aren't found.
@@ -2312,6 +2323,19 @@ public class TeamCommand extends ListenerAdapter {
             return t;
         }
     }
+
+    private String getTeamOfPlayer(String discordId) {
+        try (java.sql.Connection conn = com.highcore.bot.LeonTrotskyBot.getDbManager().getConnection();
+             java.sql.PreparedStatement ps = conn.prepareStatement("SELECT name FROM teams WHERE leader_id = ? OR co_leader_id = ? OR member2_id = ? OR member3_id = ? OR member4_id = ?")) {
+            ps.setString(1, discordId);
+            ps.setString(2, discordId);
+            ps.setString(3, discordId);
+            ps.setString(4, discordId);
+            ps.setString(5, discordId);
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) return rs.getString("name");
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+        return null;
+    }
 }
-
-
