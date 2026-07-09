@@ -24,12 +24,12 @@ public class MinecraftLogListener extends ListenerAdapter {
     private static final Pattern SERVER_START_PATTERN = Pattern.compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
 
     // Section: Team Logs
-    private static final Pattern SABOTAGE_PATTERN = Pattern.compile(".*?\\[CoreClaims-Sabotage\\] (.*)");
-    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile(".*?\\[CoreClaims-SabotageSuccess\\] (.*?) (\\d+)");
-    private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile(".*?\\[CoreClaims-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
-    private static final Pattern FUEL_PATTERN = Pattern.compile(".*?\\[CoreClaims-Fuel\\] \\[(.*?)\\] \\d+:(\\d+)");
-    private static final Pattern LEVELUP_PATTERN = Pattern.compile(".*?\\[CoreClaims-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
-    private static final Pattern TEAM_LOG_PATTERN = Pattern.compile(".*?\\[CoreClaims-Log\\] \\[(.*?)\\] (.*?):(.*)");
+    private static final Pattern SABOTAGE_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Sabotage\\] (.*)");
+    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile(".*?\\[ClaimsCore-SabotageSuccess\\] (.*?) (\\d+)");
+    private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile(".*?\\[ClaimsCore-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
+    private static final Pattern FUEL_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Fuel\\] \\[(.*?)\\] \\d+:(\\d+)");
+    private static final Pattern LEVELUP_PATTERN = Pattern.compile(".*?\\[ClaimsCore-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
+    private static final Pattern TEAM_LOG_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Log\\] \\[(.*?)\\] (.*?):(.*)");
 
     public static final String LOG_CHANNEL_ID = "1487148944667578368";
 
@@ -38,7 +38,7 @@ public class MinecraftLogListener extends ListenerAdapter {
         String channelId    = event.getChannel().getId();
         String targetChannel = com.highcore.bot.services.ServerStatsService.getLogChannelId();
 
-        if (channelId.equals(targetChannel)) {
+        if (channelId.equals(targetChannel) || channelId.equals(LOG_CHANNEL_ID)) {
             String content = event.getMessage().getContentRaw();
             if (content.isEmpty() && !event.getMessage().getEmbeds().isEmpty()) {
                 content = extractEmbedText(event.getMessage().getEmbeds().get(0));
@@ -133,7 +133,9 @@ public class MinecraftLogListener extends ListenerAdapter {
         if (fuelMatcher.find()) {
             String teamName = fuelMatcher.group(1).trim();
             String percent = fuelMatcher.group(2).trim();
+            System.out.println("[DEBUG] Matched Fuel: Team=" + teamName + ", Percent=" + percent);
             if (!isInit) {
+                System.out.println("[DEBUG] Sending fuel alert for " + teamName + "...");
                 com.highcore.bot.services.DiscordTeamAlertService.sendFuelAlert(teamName, percent);
             }
             return;
