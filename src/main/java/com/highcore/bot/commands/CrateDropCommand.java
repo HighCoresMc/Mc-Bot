@@ -1692,7 +1692,7 @@ public class CrateDropCommand extends ListenerAdapter {
         String uuidNoDash = uuidDash.replace("-", "");
 
         String mcName = null;
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
             String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE discord = ?";
             try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
                 psName.setString(1, discordId);

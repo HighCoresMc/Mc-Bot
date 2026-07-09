@@ -203,7 +203,7 @@ public class DailyCommand extends ListenerAdapter {
     // DATABASE OPERATIONS
     private Optional<String> getUuidFromDatabase(String discordId) {
         String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, discordId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -237,7 +237,7 @@ public class DailyCommand extends ListenerAdapter {
 
         String mcName = null;
 
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
             String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE discord = ?";
             try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
                 psName.setString(1, discordId);

@@ -64,7 +64,7 @@ public class ProfileCommand extends ListenerAdapter {
 
     private Optional<String> getUuidFromDatabase(String discordId) {
         String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
             ps.setString(1, discordId);
             try (ResultSet rs = ps.executeQuery()) {
@@ -92,7 +92,7 @@ public class ProfileCommand extends ListenerAdapter {
         String mcName = "Unknown";
         boolean dataFound = false;
 
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
             String uuidDash = uuid.trim().toLowerCase();
             if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
                 uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");

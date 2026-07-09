@@ -1105,7 +1105,7 @@ public class TeamCommand extends ListenerAdapter {
 
     private String getMcName(String discordId) {
         if (discordId == null || discordId.isEmpty()) return null;
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT username FROM `discordsrv__accounts` WHERE discord = ?")) {
             ps.setString(1, discordId);
             try (ResultSet rs = ps.executeQuery()) {

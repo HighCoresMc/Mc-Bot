@@ -21,7 +21,7 @@ public class DiscordSRVManager {
      * Get Minecraft UUID by Discord ID from MySQL
      */
     public Optional<String> getUuidByDiscordId(String discordId) {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
             String query = "SELECT uuid FROM discordsrv__accounts WHERE discord = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, discordId);
@@ -41,7 +41,7 @@ public class DiscordSRVManager {
      * Get Discord ID by Minecraft UUID from MySQL
      */
     public Optional<String> getDiscordIdByUuid(String uuid) {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
             String query = "SELECT discord FROM discordsrv__accounts WHERE uuid = ?";
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, uuid);
