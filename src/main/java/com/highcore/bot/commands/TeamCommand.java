@@ -2169,7 +2169,8 @@ public class TeamCommand extends ListenerAdapter {
                     if (rs.next())
                         stats.claims = rs.getInt("c");
                 }
-            } catch (Exception ignore) {
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
             // CoreClaims Generators
@@ -2180,7 +2181,8 @@ public class TeamCommand extends ListenerAdapter {
                     if (rs.next())
                         stats.generators = rs.getInt("c");
                 }
-            } catch (Exception ignore) {
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
             // BetterTeams (Assuming standard table structure if MySQL is used)
