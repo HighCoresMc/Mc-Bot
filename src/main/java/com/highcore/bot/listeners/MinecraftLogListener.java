@@ -24,7 +24,8 @@ public class MinecraftLogListener extends ListenerAdapter {
     private static final Pattern SERVER_START_PATTERN = Pattern.compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
 
     // Section: Team Logs
-    private static final Pattern SABOTAGE_PATTERN = Pattern.compile("(?i)Team (.*?)'s generator is UNDER ATTACK!");
+    private static final Pattern SABOTAGE_PATTERN = Pattern.compile("\\[CoreClaims-Sabotage\\] (.*)");
+    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile("\\[CoreClaims-SabotageSuccess\\] (.*?) (\\d+)");
     private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile("\\[CoreClaims-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
     private static final Pattern FUEL_PATTERN = Pattern.compile("(?i)Generator #\\d+ for team (.*?) has run out of fuel!");
     private static final Pattern LEVELUP_PATTERN = Pattern.compile("\\[CoreClaims-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
@@ -112,6 +113,16 @@ public class MinecraftLogListener extends ListenerAdapter {
             String teamName = saboMatcher.group(1).trim();
             if (!isInit) {
                 com.highcore.bot.services.DiscordTeamAlertService.sendSabotageAlert(teamName);
+            }
+            return;
+        }
+
+        Matcher saboSuccessMatcher = SABOTAGE_SUCCESS_PATTERN.matcher(clean);
+        if (saboSuccessMatcher.find()) {
+            String teamName = saboSuccessMatcher.group(1).trim();
+            String duration = saboSuccessMatcher.group(2).trim();
+            if (!isInit) {
+                com.highcore.bot.services.DiscordTeamAlertService.sendSabotageSuccessAlert(teamName, duration);
             }
             return;
         }

@@ -1,6 +1,8 @@
 package com.highcore.bot.commands;
 
 import com.highcore.bot.LeonTrotskyBot;
+import com.highcore.bot.utils.EmbedUtil;
+import com.highcore.bot.services.TeamLogService;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
@@ -245,8 +247,7 @@ public class TeamCommand extends ListenerAdapter {
         scores.sort((a, b) -> Integer.compare(b.score, a.score));
 
         StringBuilder sb = new StringBuilder();
-        sb.append("## 🏆 قائمة صدارة الفرق (Highcore Teams)\n");
-        sb.append("*يتم احتساب الصدارة بناءً على: النقاط + الأراضي + المولدات + لفل الفريق*\n\n");
+        sb.append("*يتم احتساب الصدارة بناءً على: النقاط + الأراضي + المولدات + لفل الفريق*\n<divider>");
 
         String[] medals = {"🥇", "🥈", "🥉"};
         for (int i = 0; i < scores.size() && i < 10; i++) {
@@ -261,12 +262,10 @@ public class TeamCommand extends ListenerAdapter {
                 sb.append("> ⭐ **اللفل:** `").append(ts.stats.level).append("` | ");
                 sb.append("✨ **النقاط (BetterTeams):** `").append(ts.stats.points == -1 ? 0 : ts.stats.points).append("`\n");
             }
-            sb.append("\n");
+            sb.append("<divider>");
         }
 
-        Container container = Container.of(
-            TextDisplay.of(sb.toString())
-        );
+        Container container = EmbedUtil.createPanel("قائمة صدارة الفرق", sb.toString());
         event.getHook().editOriginalComponents(container).queue();
     }
 
@@ -278,55 +277,52 @@ public class TeamCommand extends ListenerAdapter {
         Member member = event.getMember();
         boolean isLeader = hasLeaderRole(member), isCoLeader = hasCoLeaderRole(member);
         if (!isLeader && !isCoLeader) {
-            event.reply("❌ هذا الأمر خاص بقادة الأتيام فقط.").setEphemeral(true).queue();
+            event.replyComponents(EmbedUtil.createAlert("مرفوض", "هذا الأمر مخصص لقادة الأتيام فقط.")).setEphemeral(true).queue();
             return;
         }
 
         String userId = member.getId();
         TeamData td = isLeader ? getTeamByLeaderId(userId) : getTeamByCoLeaderId(userId);
         if (td == null) {
-            event.reply("❌ لم يتم العثور على تيمك في النظام. تواصل مع الإدارة.").setEphemeral(true).queue();
+            event.replyComponents(EmbedUtil.createAlert("مرفوض", "لم يتم العثور على تيم مسجل باسمك. تواصل مع الإدارة.")).setEphemeral(true).queue();
             return;
         }
 
         LiveTeamStats stats = fetchLiveTeamStats(td.name);
         String coDisplay = (td.coLeaderId != null && !td.coLeaderId.isEmpty()) ? "<@" + td.coLeaderId + ">" : "لا يوجد";
 
-        StringBuilder sb = new StringBuilder("## لوحة تحكم التيم | ")
-                .append(td.name).append("\n\n")
-                .append("**القيادة**\n")
-                .append("القائد: <@").append(extractIdOnly(td.leaderId)).append(">\n")
-                .append("النائب: ").append(coDisplay).append("\n")
-                .append("عدد الأعضاء: `").append(getTeamMemberCount(td)).append("`\n\n")
-                .append("**إحصائيات التيم**\n")
-                .append("اللفل: `").append(stats.level == -1 ? "غير متوفر" : stats.level).append("`\n")
-                .append("النقاط: `").append(stats.points == -1 ? "غير متوفر" : stats.points).append("`\n")
-                .append("الحروب: `").append(stats.wars == -1 ? "غير متوفر" : stats.wars).append("`\n")
-                .append("الوفيات: `").append(stats.deaths == -1 ? "غير متوفر" : stats.deaths).append("`\n\n")
-                .append("**الأراضي (Claims)**\n")
-                .append("المناطق المحتلة: `").append(stats.claims == -1 ? "غير متوفر" : stats.claims).append("`\n")
-                .append("عدد المولدات: `").append(stats.generators == -1 ? "غير متوفر" : stats.generators)
-                .append("`\n\n")
-                .append("**العلاقات**\n")
-                .append("الحلفاء: `").append(stats.allies).append("`\n")
-                .append("الأعداء: `").append(stats.enemies).append("`\n\n")
-                .append("اختر الإجراء المطلوب:");
+        String body = "**معلومات القيادة**\n"
+                + "الرئيس: <@" + extractIdOnly(td.leaderId) + ">\n"
+                + "النائب: " + coDisplay + "\n"
+                + "عدد الأعضاء: `" + getTeamMemberCount(td) + "`\n<divider>"
+                + "**سجل الفريق**\n"
+                + "اللفل: `" + (stats.level == -1 ? "غير متوفر" : stats.level) + "`\n"
+                + "النقاط: `" + (stats.points == -1 ? "غير متوفر" : stats.points) + "`\n"
+                + "الحروب القائمة: `" + (stats.wars == -1 ? "غير متوفر" : stats.wars) + "`\n"
+                + "الخسائر: `" + (stats.deaths == -1 ? "غير متوفر" : stats.deaths) + "`\n<divider>"
+                + "**الأراضي والنفوذ**\n"
+                + "عدد الأراضي المحتلة: `" + (stats.claims == -1 ? "غير متوفر" : stats.claims) + "`\n"
+                + "المولدات النشطة: `" + (stats.generators == -1 ? "غير متوفر" : stats.generators) + "`\n<divider>"
+                + "**العلاقات الدبلوماسية**\n"
+                + "الحلفاء: `" + stats.allies + "`\n"
+                + "الأعداء: `" + stats.enemies + "`\n<divider>"
+                + "حدد الإجراء المطلوب تنفيذه من القائمة أدناه:";
 
         Container container;
         if (isLeader) {
-            container = Container.of(TextDisplay.of(sb.toString()), Separator.createDivider(Separator.Spacing.SMALL),
+            container = EmbedUtil.createPanel("غرفة العمليات المركزية | " + td.name, body,
                     ActionRow.of(
-                            Button.danger("tm_ldr_war_" + td.id, "⚔️ إعلان حرب"),
-                            Button.primary("tm_ldr_ally_" + td.id, "🤝 إعلان تحالف"),
-                            Button.secondary("tm_ldr_coset_" + td.id, "🥈 تعيين كو-ليدر")),
+                            Button.danger("tm_ldr_war_" + td.id, "إعلان حرب"),
+                            Button.primary("tm_ldr_ally_" + td.id, "طلب تحالف"),
+                            Button.secondary("tm_ldr_coset_" + td.id, "تعيين نائب")),
                     ActionRow.of(
-                            Button.secondary("tm_ldr_color_" + td.id, "🎨 تغيير اللون"),
-                            Button.secondary("tm_ldr_members_" + td.id, "👥 تعديل الأعضاء"),
-                            Button.secondary("tm_ldr_name_" + td.id, "✏️ تغيير الاسم")));
+                            Button.secondary("tm_ldr_color_" + td.id, "تغيير اللون"),
+                            Button.secondary("tm_ldr_members_" + td.id, "إدارة الأعضاء"),
+                            Button.secondary("tm_ldr_name_" + td.id, "تغيير الاسم")));
         } else {
-            container = Container.of(TextDisplay.of(sb.toString()), Separator.createDivider(Separator.Spacing.SMALL),
-                    ActionRow.of(Button.danger("tm_ldr_war_" + td.id, "⚔️ إعلان حرب"),
-                            Button.primary("tm_ldr_ally_" + td.id, "🤝 إعلان تحالف")));
+            container = EmbedUtil.createPanel("غرفة العمليات المركزية | " + td.name, body,
+                    ActionRow.of(Button.danger("tm_ldr_war_" + td.id, "إعلان حرب"),
+                            Button.primary("tm_ldr_ally_" + td.id, "طلب تحالف")));
         }
         event.replyComponents(container).useComponentsV2(true).queue();
     }
@@ -414,8 +410,8 @@ public class TeamCommand extends ListenerAdapter {
                         Permission.VOICE_USE_VAD).queue();
 
                 category.createVoiceChannel("🔊・" + teamName + "・voice").queue(vc -> {
-                    category.createTextChannel("💭・" + teamName).queue(tc -> {
-                        category.createTextChannel("📟・" + teamName + "・cmd").queue(cmdCh -> {
+                    category.createTextChannel("💬・" + teamName).queue(tc -> {
+                        category.createTextChannel("⚙️・" + teamName + "・cmd").queue(cmdCh -> {
                             category.createTextChannel("📜・" + teamName + "・log").queue(logCh -> {
 
                                 String lId = formatDbUser(fLeader), m2Id = formatDbUser(fMember2);
@@ -2282,3 +2278,5 @@ public class TeamCommand extends ListenerAdapter {
         }
     }
 }
+
+

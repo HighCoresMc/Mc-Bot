@@ -1,7 +1,9 @@
 package com.highcore.bot.services;
 
 import com.highcore.bot.LeonTrotskyBot;
+import com.highcore.bot.utils.EmbedUtil;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.utils.messages.MessageCreateBuilder;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -24,12 +26,41 @@ public class DiscordTeamAlertService {
                     TextChannel channel = LeonTrotskyBot.getJda().getTextChannelById(textChannelId);
                     if (channel != null) {
                         String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
-                        String message = mention + "🚨 **تحذير خطير!** المولد الخاص بفريقكم يتعرض للاختراق (Sabotage) الآن! القاعدة الخاصة بكم مكشوفة!";
-                        channel.sendMessage(message).queue();
+                        String title = "حالة طوارئ: هجوم على المولد!";
+                        String body = mention + "\n> **المولد الخاص بكم يتعرض لهجوم حالياً (Sabotage)!**\n> يرجى التوجه للدفاع عنه فوراً!";
+                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
-            TeamLogService.logEvent(teamName, "🚨 اختراق للمولد!", "المولد الخاص بالتيم يتعرض للاختراق الآن!", java.awt.Color.RED);
+            TeamLogService.logEvent(teamName, "تنبيه هجوم", "تم رصد محاولة تدمير (Sabotage) لأحد المولدات!", java.awt.Color.RED);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void sendSabotageSuccessAlert(String teamName, String duration) {
+        String query = "SELECT text_channel_id, role_id FROM teams WHERE name = ?";
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            
+            ps.setString(1, teamName);
+            ResultSet rs = ps.executeQuery();
+            
+            if (rs.next()) {
+                String textChannelId = rs.getString("text_channel_id");
+                String roleId = rs.getString("role_id");
+                
+                if (textChannelId != null && !textChannelId.isEmpty()) {
+                    TextChannel channel = LeonTrotskyBot.getJda().getTextChannelById(textChannelId);
+                    if (channel != null) {
+                        String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
+                        String title = "تم اختراق المولد!";
+                        String body = mention + "\n> **تم اختراق المولد بنجاح من قبل الأعداء!**\n> أراضيكم الآن مكشوفة وقابلة للتدمير لمدة `" + duration + "` دقائق!";
+                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
+                    }
+                }
+            }
+            TeamLogService.logEvent(teamName, "تم الاختراق", "تم اختراق المولد وأراضيكم الآن مكشوفة للهجوم!", java.awt.Color.RED);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -51,13 +82,13 @@ public class DiscordTeamAlertService {
                     TextChannel channel = LeonTrotskyBot.getJda().getTextChannelById(textChannelId);
                     if (channel != null) {
                         String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
-                        String message = mention + "🎉 **مبروك!** تم رفع مستوى التيم إلى اللفل **" + newLevel + "**!\n" +
-                                         "🎁 لقد حصلتم على **" + bonusClaims + "** أراضي (Claims) إضافية!";
-                        channel.sendMessage(message).queue();
+                        String title = "ترقية مستوى التيم";
+                        String body = mention + "\n> **تم رفع مستوى التيم إلى اللفل `" + newLevel + "` بنجاح!**\n> حصلتم على **`" + bonusClaims + "`** أراضي إضافية!";
+                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
-            TeamLogService.logEvent(teamName, "⭐ ترقية التيم", "تم رفع مستوى التيم إلى اللفل " + newLevel + " وتمت إضافة " + bonusClaims + " أراضي!", java.awt.Color.CYAN);
+            TeamLogService.logEvent(teamName, "ترقية التيم", "تم رفع المستوى إلى " + newLevel + " مع إضافة " + bonusClaims + " مساحات إضافية.", java.awt.Color.CYAN);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -78,9 +109,7 @@ public class DiscordTeamAlertService {
                 if (textChannelId != null && !textChannelId.isEmpty()) {
                     TextChannel channel = LeonTrotskyBot.getJda().getTextChannelById(textChannelId);
                     if (channel != null) {
-                        String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
-                        String message = mention + "💬 **[لعبة - دردشة الفريق]** " + playerName + ": " + chatMessage;
-                        channel.sendMessage(message).queue();
+                        channel.sendMessage("### **[" + playerName + "]**\n> " + chatMessage).queue();
                     }
                 }
             }
@@ -105,12 +134,13 @@ public class DiscordTeamAlertService {
                     TextChannel channel = LeonTrotskyBot.getJda().getTextChannelById(textChannelId);
                     if (channel != null) {
                         String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
-                        String message = mention + "⚠️ **تنبيه نقص الوقود!** المولد الخاص بفريقكم قد نفذ منه الوقود (Fuel)! الأراضي قد تصبح مكشوفة للاختراق!";
-                        channel.sendMessage(message).queue();
+                        String title = "تحذير: نفاذ طاقة المولد";
+                        String body = mention + "\n> **أحد مولداتكم قد نفذت منه الطاقة (Fuel)!**\n> المولد متوقف حالياً، يرجى تزويده بالطاقة لاستمرار الحماية.";
+                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
-            TeamLogService.logEvent(teamName, "⚠️ نفاد الوقود", "نفذ الوقود من المولد الخاص بالتيم!", java.awt.Color.ORANGE);
+            TeamLogService.logEvent(teamName, "تنبيه طاقة", "نفذت الطاقة من أحد المولدات.", java.awt.Color.ORANGE);
         } catch (Exception e) {
             e.printStackTrace();
         }
