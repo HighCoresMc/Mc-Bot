@@ -240,6 +240,12 @@ public class TeamCommand extends ListenerAdapter {
         }
         if (teamExistsByName(teamName)) { event.reply("❌ يوجد فريق بهذا الاسم بالفعل!").setEphemeral(true).queue(); return; }
 
+        String onlineError = checkAllPlayersOnline(leader, member2, member3, member4);
+        if (onlineError != null) {
+            event.reply("❌ " + onlineError).setEphemeral(true).queue();
+            return;
+        }
+
         Color color;
         try { color = Color.decode(colorCode.startsWith("#") ? colorCode : "#" + colorCode); }
         catch (Exception e) { event.reply("❌ كود اللون غير صحيح! مثال: `#FF5733`").setEphemeral(true).queue(); return; }
@@ -914,6 +920,20 @@ public class TeamCommand extends ListenerAdapter {
         else if (m3M != null && m3M.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 3;
         else if (m4M != null && m4M.getRoles().stream().anyMatch(r -> r.getId().equals(BANNED_ROLE))) bannedNum = 4;
         if (bannedNum != -1) { sendLog(guild, "Team Edit Members (Blocked)", event.getUser(), td.name, "### 🚫 محاولة تعديل بعضو محظور\n▫️ **الرقم المحظور:** " + bannedNum, "#ff0000"); event.getHook().editOriginal("العضو المختار (رقم : " + bannedNum + ") محظور من نظام الاتيام").queue(); return; }
+
+        List<String> oldIds = getTeamMemberIds(td);
+        List<String> actuallyNewIds = new ArrayList<>();
+        if (!oldIds.contains(leaderId)) actuallyNewIds.add(leaderId);
+        if (m2Id != null && !oldIds.contains(m2Id)) actuallyNewIds.add(m2Id);
+        if (m3Id != null && !oldIds.contains(m3Id)) actuallyNewIds.add(m3Id);
+        if (m4Id != null && !oldIds.contains(m4Id)) actuallyNewIds.add(m4Id);
+
+        String onlineError = checkAllIdsOnline(actuallyNewIds.toArray(new String[0]));
+        if (onlineError != null) {
+            event.getHook().editOriginal("❌ " + onlineError).queue();
+            return;
+        }
+
         Role teamRole = td.roleId != null ? guild.getRoleById(td.roleId) : null, leaderRole = guild.getRoleById(LEADER_ROLE_ID);
         removeRolesFromOldMembers(guild, td, teamRole, leaderRole);
         addRoleToMember(guild, leaderId, teamRole); addRoleToMember(guild, leaderId, leaderRole); addRoleToMember(guild, m2Id, teamRole);
@@ -925,7 +945,7 @@ public class TeamCommand extends ListenerAdapter {
             ps.setString(1, fLDb); ps.setString(2, fM2Db); ps.setString(3, fM3Db); ps.setString(4, fM4Db); ps.setInt(5, teamId); ps.executeUpdate();
         } catch (Exception e) { logger.error("Error updating team members", e); }
 
-        List<String> oldIds = getTeamMemberIds(td);
+
         Set<String> newIds = new HashSet<>();
         newIds.add(leaderId);
         if (m2Id != null) newIds.add(m2Id);
@@ -1146,6 +1166,42 @@ public class TeamCommand extends ListenerAdapter {
     // ===================================================================
     // Helpers
     // ===================================================================
+
+    private String checkAllPlayersOnline(Member... members) {
+        for (Member m : members) {
+            if (m == null) continue;
+            String error = checkSingleIdOnline(m.getId(), m.getAsMention());
+            if (error != null) return error;
+        }
+        return null;
+    }
+
+    private String checkAllIdsOnline(String... userIds) {
+        for (String id : userIds) {
+            if (id == null || id.isEmpty()) continue;
+            String error = checkSingleIdOnline(id, "<@" + id + ">");
+            if (error != null) return error;
+        }
+        return null;
+    }
+
+    private String checkSingleIdOnline(String id, String mention) {
+        String mcName = getMcName(id);
+        if (mcName == null) {
+            return mention + " لم يقم بربط حسابه بـ Minecraft (عبر DiscordSRV)! لا يمكن تنفيذ الأمر.";
+        }
+        boolean isOnline = false;
+        for (String p : com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers) {
+            if (p.equalsIgnoreCase(mcName)) {
+                isOnline = true;
+                break;
+            }
+        }
+        if (!isOnline) {
+            return mention + " (`" + mcName + "`) ليس متواجداً داخل السيرفر حالياً! يجب أن يكون الأعضاء الجدد بداخل اللعبة.";
+        }
+        return null;
+    }
 
     private String getClosestMinecraftColorName(Color c) {
         if (c == null) return "WHITE";
