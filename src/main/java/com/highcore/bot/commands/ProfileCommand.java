@@ -67,6 +67,7 @@ public class ProfileCommand extends ListenerAdapter {
         try {
             boolean dataFound = false;
             String uuidDash = uuid.trim().toLowerCase();
+            String uuidNoDash = uuidDash.replace("-", "");
             if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
                 uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
             }
@@ -84,13 +85,14 @@ public class ProfileCommand extends ListenerAdapter {
 
                             String rank = rs.getString("rank");
                             double balance = rs.getDouble("Balance");
-                            long totalPlayTimeSecs = rs.getLong("TotalPlayTime");
+                            long totalPlayTimeSecs = rs.getLong("TotalPlayTime") / 1000;
 
                             int tokens = 0;
                             try (Connection lpConn = LeonTrotskyBot.getDbManager().getConnection()) {
-                                String pointsQuery = "SELECT points FROM player_points WHERE uuid = ?";
+                                String pointsQuery = "SELECT points FROM player_points WHERE uuid = ? OR uuid = ?";
                                 try (PreparedStatement psPoints = lpConn.prepareStatement(pointsQuery)) {
                                     psPoints.setString(1, uuidDash);
+                                    psPoints.setString(2, uuidNoDash);
                                     try (ResultSet rsPoints = psPoints.executeQuery()) {
                                         if (rsPoints.next()) {
                                             tokens = rsPoints.getInt("points");
@@ -102,9 +104,10 @@ public class ProfileCommand extends ListenerAdapter {
                             int kills = 0;
                             int deaths = 0;
                             try (Connection statConn = LeonTrotskyBot.getDbManager().getConnection()) {
-                                String statQuery = "SELECT kills, deaths FROM player_stats WHERE uuid = ?";
+                                String statQuery = "SELECT kills, deaths FROM player_stats WHERE uuid = ? OR uuid = ?";
                                 try (PreparedStatement psStat = statConn.prepareStatement(statQuery)) {
                                     psStat.setString(1, uuidDash);
+                                    psStat.setString(2, uuidNoDash);
                                     try (ResultSet rsStat = psStat.executeQuery()) {
                                         if (rsStat.next()) {
                                             kills = rsStat.getInt("kills");
@@ -250,11 +253,10 @@ public class ProfileCommand extends ListenerAdapter {
 
     private String getMcNameFromDatabase(String uuid, String discordId, String discordName) {
         String uuidDash = uuid.trim().toLowerCase();
+            String uuidNoDash = uuidDash.replace("-", "");
         if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
             uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
         }
-        String uuidNoDash = uuidDash.replace("-", "");
-
         String mcName = null;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
@@ -327,3 +329,4 @@ public class ProfileCommand extends ListenerAdapter {
         }
     }
 }
+
