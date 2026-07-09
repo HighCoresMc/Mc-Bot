@@ -3,41 +3,31 @@ package com.highcore.bot.commands;
 import com.highcore.bot.LeonTrotskyBot;
 import com.highcore.bot.services.ActionLogService;
 import com.highcore.bot.services.PterodactylService;
+import com.highcore.bot.utils.EmbedUtil;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.components.container.Container;
-import net.dv8tion.jda.api.components.section.Section;
-import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
-import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
-import net.dv8tion.jda.api.components.separator.Separator;
-import net.dv8tion.jda.api.utils.messages.MessageEditBuilder;
-import net.dv8tion.jda.api.utils.messages.MessageEditData;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.Timestamp;
 import java.util.Optional;
 
-// DAILY COMMAND IMPLEMENTATION
 public class DailyCommand extends ListenerAdapter {
+
     private final PterodactylService pterodactylService = new PterodactylService();
 
-    // SLASH COMMAND EVENT
     @Override
     public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
         if (!event.getName().equals("daily")) return;
-        ActionLogService.logCommand(event.getJDA(), "/daily", event.getUser().getId(), event.getUser().getName(), "طلب استلام المكافأة اليومية");
-        event.deferReply(true).queue();
+        event.deferReply().queue();
 
         String discordId = event.getUser().getId();
-        Optional<String> uuidOpt = getUuidFromDatabase(discordId);
+        String discordName = event.getUser().getName();
 
+        Optional<String> uuidOpt = getUuidFromDatabase(discordId);
         if (uuidOpt.isEmpty()) {
-            Container errorContainer = Container.of(
-                TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب"),
-                TextDisplay.of("حساب الديسكورد هذا غير مربوط بحساب ماينكرافت داخل قاعدة البيانات.\nيرجى ربط حسابك أولاً باستخدام DiscordSRV داخل اللعبة.")
-            );
+            Container errorContainer = EmbedUtil.createAlert("حساب غير مسجل", "يجب عليك ربط حسابك في الديسكورد بحساب اللعبة لتتمكن من استلام المكافأة اليومية.");
             event.getHook().editOriginalComponents(errorContainer)
                 .setEmbeds(java.util.Collections.emptyList())
                 .useComponentsV2(true)
@@ -46,33 +36,22 @@ public class DailyCommand extends ListenerAdapter {
         }
 
         String uuid = uuidOpt.get();
-        String mcName = getMcNameFromDatabase(uuid, discordId, event.getUser().getName());
-
+        String mcName = getMcNameFromDatabase(uuid, discordId, discordName);
         if (mcName.equals("Unknown")) {
-            Container errorContainer = Container.of(
-                TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب في اللعبة"),
-                TextDisplay.of("حسابك مربوط بالديسكورد، ولكن لم يتم تسجيل اسم اللاعب الخاص بك في السيرفر بعد.\nيرجى دخول السيرفر أولاً ثم المحاولة مجدداً.")
-            );
-            event.getHook().editOriginalComponents(errorContainer)
-                .setEmbeds(java.util.Collections.emptyList())
-                .useComponentsV2(true)
-                .queue();
-            return;
+            mcName = discordName; 
         }
 
-        long now = System.currentTimeMillis();
         int currentStreak = 0;
-        Timestamp lastClaimTime = null;
+        long lastClaimMillis = 0;
 
-        // DATABASE OPERATIONS
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String selectQuery = "SELECT streak, last_claim_time FROM daily_streaks WHERE discord_id = ?";
-            try (PreparedStatement ps = conn.prepareStatement(selectQuery)) {
+            String checkQuery = "SELECT streak, UNIX_TIMESTAMP(last_claim_time) * 1000 AS last_claim_ms FROM daily_streaks WHERE discord_id = ?";
+            try (PreparedStatement ps = conn.prepareStatement(checkQuery)) {
                 ps.setString(1, discordId);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         currentStreak = rs.getInt("streak");
-                        lastClaimTime = rs.getTimestamp("last_claim_time");
+                        lastClaimMillis = rs.getLong("last_claim_ms");
                     }
                 }
             }
@@ -82,80 +61,74 @@ public class DailyCommand extends ListenerAdapter {
             return;
         }
 
-        int newStreak = 1;
-        if (lastClaimTime != null) {
-            long lastClaimMs = lastClaimTime.getTime();
-            long diffMs = now - lastClaimMs;
+        long now = System.currentTimeMillis();
+        long diff = now - lastClaimMillis;
 
-            if (diffMs < 22 * 60 * 60 * 1000L) {
-                long nextClaimTimeMs = lastClaimMs + 22 * 60 * 60 * 1000L;
-                Container cooldownContainer = Container.of(
-                    Section.of(
-                        Thumbnail.fromUrl("https://minotar.net/avatar/" + mcName + "/128"),
-                        TextDisplay.of("## ⏱️ المكافأة اليومية | Cooldown"),
-                        TextDisplay.of("لقد قمت باستلام المكافأة اليومية بالفعل.\n\n" +
-                                       "يمكنك الاستلام مجدداً بعد: <t:" + (nextClaimTimeMs / 1000) + ":R> (<t:" + (nextClaimTimeMs / 1000) + ":t>)")
-                    )
-                );
-                event.getHook().editOriginalComponents(cooldownContainer)
-                    .setEmbeds(java.util.Collections.emptyList())
-                    .useComponentsV2(true)
-                    .queue();
-                return;
-            } else if (diffMs <= 48 * 60 * 60 * 1000L) {
-                newStreak = currentStreak + 1;
-            }
+        if (lastClaimMillis > 0 && diff < 86400000L) {
+            long waitMillis = 86400000L - diff;
+            long waitHours = waitMillis / 3600000L;
+            long waitMins = (waitMillis % 3600000L) / 60000L;
+            
+            Container cooldownContainer = EmbedUtil.createAlert("المكافأة اليومية غير جاهزة", "لقد قمت باستلام المكافأة مؤخراً!\nيمكنك استلامها مرة أخرى بعد `" + waitHours + "` ساعة و `" + waitMins + "` دقيقة.");
+            event.getHook().editOriginalComponents(cooldownContainer)
+                .setEmbeds(java.util.Collections.emptyList())
+                .useComponentsV2(true)
+                .queue();
+            return;
         }
 
-        // REWARDS LOGIC
+        int newStreak = 1;
+        if (lastClaimMillis > 0 && diff <= 172800000L) {
+            newStreak = currentStreak + 1;
+        }
+
         String rewardText = "";
         String cmd = "";
 
         if (newStreak == 1) {
-            rewardText = "100 فلوس CMI 💵";
+            rewardText = "100 رصيد CMI";
             cmd = "cmi money add " + mcName + " 100";
         } else if (newStreak == 2) {
-            rewardText = "150 فلوس CMI 💵";
+            rewardText = "150 رصيد CMI";
             cmd = "cmi money add " + mcName + " 150";
         } else if (newStreak == 3) {
-            rewardText = "200 فلوس CMI 💵";
+            rewardText = "200 رصيد CMI";
             cmd = "cmi money add " + mcName + " 200";
         } else if (newStreak == 4) {
-            rewardText = "250 فلوس CMI 💵";
+            rewardText = "250 رصيد CMI";
             cmd = "cmi money add " + mcName + " 250";
         } else if (newStreak == 5) {
-            rewardText = "300 فلوس CMI 💵";
+            rewardText = "300 رصيد CMI";
             cmd = "cmi money add " + mcName + " 300";
         } else if (newStreak == 6) {
-            rewardText = "350 فلوس CMI 💵";
+            rewardText = "350 رصيد CMI";
             cmd = "cmi money add " + mcName + " 350";
         } else if (newStreak == 7) {
-            rewardText = "200 خبرة (XP) 🧪";
+            rewardText = "200 خبرة (XP)";
             cmd = "cmi exp " + mcName + " add 200";
         } else if (newStreak == 8) {
-            rewardText = "400 فلوس CMI 💵";
+            rewardText = "400 رصيد CMI";
             cmd = "cmi money add " + mcName + " 400";
         } else if (newStreak == 9) {
-            rewardText = "450 فلوس CMI 💵";
+            rewardText = "450 رصيد CMI";
             cmd = "cmi money add " + mcName + " 450";
         } else if (newStreak == 10) {
-            rewardText = "15 Tokens 🌀";
+            rewardText = "15 توكن (Tokens)";
             cmd = "points give " + mcName + " 15";
         } else {
             int cycleIndex = newStreak % 3;
             if (cycleIndex == 1) {
-                rewardText = "500 فلوس CMI 💵";
+                rewardText = "500 رصيد CMI";
                 cmd = "cmi money add " + mcName + " 500";
             } else if (cycleIndex == 2) {
-                rewardText = "200 خبرة (XP) 🧪";
+                rewardText = "200 خبرة (XP)";
                 cmd = "cmi exp " + mcName + " add 200";
             } else {
-                rewardText = "15 Tokens 🌀";
+                rewardText = "15 توكن (Tokens)";
                 cmd = "points give " + mcName + " 15";
             }
         }
 
-        // DATABASE OPERATIONS
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String replaceQuery = "REPLACE INTO daily_streaks (discord_id, mc_uuid, mc_name, streak, last_claim_time, warning_sent) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, FALSE)";
             try (PreparedStatement ps = conn.prepareStatement(replaceQuery)) {
@@ -175,24 +148,19 @@ public class DailyCommand extends ListenerAdapter {
             pterodactylService.sendConsoleCommand(cmd);
         }
 
-        Container successContainer = Container.of(
-            Section.of(
-                Thumbnail.fromUrl("https://minotar.net/avatar/" + mcName + "/128"),
-                TextDisplay.of("## 🎁 المكافأة اليومية | Daily Reward"),
-                TextDisplay.of("### 🎉 تم استلام الجائزة بنجاح!"),
-                TextDisplay.of("**اللاعب:** `" + mcName + "`\n" +
-                               "**الـ Streak الحالي:** `" + newStreak + "` أيام 🔥\n" +
-                               "**الجائزة:** " + rewardText + "\n\n" +
-                               "تذكر استلام جائزتك غداً للحفاظ على سلسلة أيامك المتتالية!")
-            )
-        );
+        String body = "**اللاعب:** `" + mcName + "`\n" +
+                      "**سلسلة الأيام (Streak):** `" + newStreak + "` يوم\n" +
+                      "**المكافأة المكتسبة:** " + rewardText + "\n\n" +
+                      "استمر في استلام الجوائز يومياً لزيادة قيمة المكافأة!";
+                      
+        Container successContainer = EmbedUtil.createProfilePanel("المكافأة اليومية", body, "https://minotar.net/avatar/" + mcName + "/128");
 
-        ActionLogService.logGame(event.getJDA(), "🎁 Daily Reward Claimed",
+        ActionLogService.logGame(event.getJDA(), "استلام الجائزة اليومية",
             event.getUser().getId(), event.getUser().getName(),
             "**اللاعب:** `" + mcName + "`\n" +
-            "**السلسلة (Streak):** `" + newStreak + "` أيام 🔥\n" +
-            "**الجائزة:** " + rewardText + "\n" +
-            "**الأمر المُنفَّذ:** `" + cmd + "`");
+            "**أيام الستريك:** `" + newStreak + "`\n" +
+            "**المكافأة:** " + rewardText + "\n" +
+            "**الأمر المنفذ:** `" + cmd + "`");
 
         event.getHook().editOriginalComponents(successContainer)
             .setEmbeds(java.util.Collections.emptyList())
@@ -200,7 +168,6 @@ public class DailyCommand extends ListenerAdapter {
             .queue();
     }
 
-    // DATABASE OPERATIONS
     private Optional<String> getUuidFromDatabase(String discordId) {
         String query = "SELECT uuid FROM `discordsrv__accounts` WHERE discord = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection();
@@ -227,7 +194,6 @@ public class DailyCommand extends ListenerAdapter {
         return Optional.empty();
     }
 
-    // DATABASE OPERATIONS
     private String getMcNameFromDatabase(String uuid, String discordId, String discordName) {
         String uuidDash = uuid.trim().toLowerCase();
         if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
@@ -276,12 +242,8 @@ public class DailyCommand extends ListenerAdapter {
         return "Unknown";
     }
 
-    // DATABASE OPERATIONS
     private void sendDatabaseError(SlashCommandInteractionEvent event) {
-        Container errorContainer = Container.of(
-            TextDisplay.of("## ⚠️ خطأ في الاتصال بقاعدة البيانات"),
-            TextDisplay.of("حدث خطأ أثناء محاولة الاتصال بقاعدة البيانات لمعالجة المكافأة اليومية.")
-        );
+        Container errorContainer = EmbedUtil.createAlert("خطأ في النظام", "حدث خطأ أثناء الاتصال بقاعدة البيانات. يرجى المحاولة لاحقاً.");
         event.getHook().editOriginalComponents(errorContainer)
             .setEmbeds(java.util.Collections.emptyList())
             .useComponentsV2(true)

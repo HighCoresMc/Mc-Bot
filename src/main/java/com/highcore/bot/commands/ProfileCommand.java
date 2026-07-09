@@ -1,26 +1,19 @@
 package com.highcore.bot.commands;
 
 import com.highcore.bot.LeonTrotskyBot;
-import net.dv8tion.jda.api.EmbedBuilder;
+import com.highcore.bot.utils.EmbedUtil;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
 import net.dv8tion.jda.api.events.interaction.component.ButtonInteractionEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.components.buttons.Button;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.container.Container;
-import net.dv8tion.jda.api.components.section.Section;
-import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
-import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
-import net.dv8tion.jda.api.components.separator.Separator;
 
-import java.awt.Color;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.Optional;
 import com.highcore.bot.services.PterodactylService;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 public class ProfileCommand extends ListenerAdapter {
     private final PterodactylService pterodactylService = new PterodactylService();
@@ -36,30 +29,197 @@ public class ProfileCommand extends ListenerAdapter {
 
         Optional<String> uuidOpt = getUuidFromDatabase(targetUser.getId());
         if (uuidOpt.isEmpty()) {
-            Container errorContainer = Container.of(
-                TextDisplay.of("## ❌ لم يتم العثور على بيانات اللاعب"),
-                TextDisplay.of("حساب الديسكورد هذا غير مربوط بحساب ماينكرافت داخل قاعدة البيانات.")
-            );
+            Container errorContainer = EmbedUtil.createAlert("لم يتم العثور على حساب", "هذا اللاعب غير مسجل أو لم يقم بربط حسابه في خادم الديسكورد.");
             event.getHook().editOriginalComponents(errorContainer)
                 .setEmbeds(java.util.Collections.emptyList())
                 .useComponentsV2(true)
                 .queue();
             return;
         }
+
+        String uuid = uuidOpt.get();
+        String mcName = getMcNameFromDatabase(uuid, targetUser.getId(), targetUser.getName());
+        String backupUsername = mcName.equalsIgnoreCase("Unknown") ? targetUser.getName() : mcName;
         
-        sendProfileEmbed(event.getHook(), uuidOpt.get(), targetUser.getId(), targetUser.getName(), "general");
+        loadAndSendProfile(event.getHook(), uuid, targetUser.getId(), backupUsername, mcName, "general");
     }
 
     @Override
     public void onButtonInteraction(ButtonInteractionEvent event) {
-        String id = event.getComponentId();
-        if (!id.startsWith("prof_")) return;
-        String[] parts = id.split("_");
-        event.deferEdit().queue();
-        
-        String discordId = parts.length > 3 ? parts[3] : "";
-        String effName = parts.length > 4 ? parts[4] : "";
-        sendProfileEmbed(event.getHook(), parts[2], discordId, effName, parts[1]);
+        String componentId = event.getComponentId();
+        if (componentId.startsWith("prof_")) {
+            event.deferEdit().queue();
+            
+            String[] parts = componentId.split("_");
+            if (parts.length >= 5) {
+                String tab = parts[1];
+                String uuid = parts[2];
+                String discordId = parts[3];
+                String backupUsername = parts[4];
+                String mcName = getMcNameFromDatabase(uuid, discordId, backupUsername);
+                
+                loadAndSendProfile(event.getHook(), uuid, discordId, backupUsername, mcName, tab);
+            }
+        }
+    }
+
+    private void loadAndSendProfile(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String discordId, String backupUsername, String mcName, String tab) {
+        try {
+            boolean dataFound = false;
+            String uuidDash = uuid.trim().toLowerCase();
+            if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
+                uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
+            }
+
+            try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
+                String query = "SELECT * FROM CMI_users WHERE player_uuid = ?";
+                try (PreparedStatement ps = conn.prepareStatement(query)) {
+                    ps.setString(1, uuidDash);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            dataFound = true;
+                            if (mcName.equalsIgnoreCase("Unknown")) {
+                                mcName = rs.getString("username");
+                            }
+
+                            String rank = rs.getString("rank");
+                            double balance = rs.getDouble("Balance");
+                            long totalPlayTimeSecs = rs.getLong("TotalPlayTime");
+
+                            int tokens = 0;
+                            try (Connection lpConn = LeonTrotskyBot.getDbManager().getConnection()) {
+                                String pointsQuery = "SELECT points FROM player_points WHERE uuid = ?";
+                                try (PreparedStatement psPoints = lpConn.prepareStatement(pointsQuery)) {
+                                    psPoints.setString(1, uuidDash);
+                                    try (ResultSet rsPoints = psPoints.executeQuery()) {
+                                        if (rsPoints.next()) {
+                                            tokens = rsPoints.getInt("points");
+                                        }
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+
+                            int kills = 0;
+                            int deaths = 0;
+                            try (Connection statConn = LeonTrotskyBot.getDbManager().getConnection()) {
+                                String statQuery = "SELECT kills, deaths FROM player_stats WHERE uuid = ?";
+                                try (PreparedStatement psStat = statConn.prepareStatement(statQuery)) {
+                                    psStat.setString(1, uuidDash);
+                                    try (ResultSet rsStat = psStat.executeQuery()) {
+                                        if (rsStat.next()) {
+                                            kills = rsStat.getInt("kills");
+                                            deaths = rsStat.getInt("deaths");
+                                        }
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+
+                            String skinValue = null;
+                            try (Connection skinConn = LeonTrotskyBot.getDbManager().getConnection()) {
+                                String skinQuery = "SELECT Value FROM Skins WHERE Nick = ?";
+                                try (PreparedStatement psSkin = skinConn.prepareStatement(skinQuery)) {
+                                    psSkin.setString(1, mcName);
+                                    try (ResultSet rsSkin = psSkin.executeQuery()) {
+                                        if (rsSkin.next()) {
+                                            skinValue = rsSkin.getString("Value");
+                                        }
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+
+                            String avatarUrl = getAvatarUrl(skinValue, mcName, uuid);
+                            
+                            ActionRow buttons = ActionRow.of(
+                                Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "عام").withDisabled(tab.equals("general")),
+                                Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "سيرفايفل").withDisabled(tab.equals("surv")),
+                                Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "القتال (PvP)").withDisabled(tab.equals("pvp")),
+                                Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "إضافي").withDisabled(tab.equals("side"))
+                            );
+
+                            Container container = null;
+                            String title = "ملف اللاعب: " + mcName;
+
+                            switch (tab) {
+                                case "general": {
+                                    long days = totalPlayTimeSecs / 86400;
+                                    long hours = (totalPlayTimeSecs % 86400) / 3600;
+                                    long minutes = ((totalPlayTimeSecs % 86400) % 3600) / 60;
+                                    StringBuilder timeStr = new StringBuilder();
+                                    if (days > 0) timeStr.append(days).append(" أيام ");
+                                    if (hours > 0) timeStr.append(hours).append(" ساعات ");
+                                    timeStr.append(minutes).append(" دقائق");
+
+                                    String body = "**الرتبة:** " + (rank != null && !rank.isEmpty() ? rank : "بدون رتبة") + "\n" +
+                                                  "**وقت اللعب:** " + timeStr.toString();
+                                    container = EmbedUtil.createProfilePanel(title, "المعلومات العامة<divider>" + body, avatarUrl, buttons);
+                                    break;
+                                }
+                                case "surv": {
+                                    String body = "**رصيد CMI:** " + String.format("%,.2f", balance) + "$\n" +
+                                                  "**عملات (Tokens):** " + String.format("%,d", tokens);
+                                    container = EmbedUtil.createProfilePanel(title, "إحصائيات السيرفايفل<divider>" + body, avatarUrl, buttons);
+                                    break;
+                                }
+                                case "pvp": {
+                                    double kd = 0.0;
+                                    if (deaths > 0) {
+                                        kd = (double) kills / deaths;
+                                    } else if (kills > 0) {
+                                        kd = kills;
+                                    }
+                                    String body = "**القتلات (Kills):** " + kills + "\n" +
+                                                  "**الوفيات (Deaths):** " + deaths + "\n" +
+                                                  "**معدل (K/D):** " + String.format(java.util.Locale.US, "%.2f", kd);
+                                    container = EmbedUtil.createProfilePanel(title, "إحصائيات القتال (PvP)<divider>" + body, avatarUrl, buttons);
+                                    break;
+                                }
+                                case "side": {
+                                    boolean isOnline = false;
+                                    if (mcName != null && !mcName.trim().isEmpty()) {
+                                        String searchName = mcName.trim();
+                                        isOnline = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.stream()
+                                            .anyMatch(name -> name.equalsIgnoreCase(searchName));
+                                    }
+                                    String body = "**تم إضافته مستقبلاً:** 0\n" +
+                                                  "**حالة الاتصال:** " + (isOnline ? "متصل (Online)" : "غير متصل (Offline)");
+                                    container = EmbedUtil.createProfilePanel(title, "إحصائيات إضافية<divider>" + body, avatarUrl, buttons);
+                                    break;
+                                }
+                            }
+
+                            if (container != null) {
+                                hook.editOriginalComponents(container)
+                                    .setEmbeds(java.util.Collections.emptyList())
+                                    .useComponentsV2(true)
+                                    .queue();
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (!dataFound) {
+                String avatarUrl = getAvatarUrl(null, mcName, uuid);
+                ActionRow disabledButtons = ActionRow.of(
+                    Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "عام").withDisabled(true),
+                    Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "سيرفايفل").withDisabled(true),
+                    Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "القتال (PvP)").withDisabled(true),
+                    Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "إضافي").withDisabled(true)
+                );
+                Container errorContainer = EmbedUtil.createProfilePanel("ملف اللاعب: " + mcName, "لم يتم العثور على بيانات<divider>تعذر العثور على اللاعب في قاعدة بيانات السيرفر، ربما لم يدخل السيرفر بعد.", avatarUrl, disabledButtons);
+                hook.editOriginalComponents(errorContainer)
+                    .setEmbeds(java.util.Collections.emptyList())
+                    .useComponentsV2(true)
+                    .queue();
+            }
+        } catch (Exception E) {
+            E.printStackTrace();
+            Container errorContainer = EmbedUtil.createAlert("خطأ في النظام", "حدث خطأ غير متوقع أثناء محاولة استرجاع البيانات.");
+            hook.editOriginalComponents(errorContainer)
+                .setEmbeds(java.util.Collections.emptyList())
+                .useComponentsV2(true)
+                .queue();
+        }
     }
 
     private Optional<String> getUuidFromDatabase(String discordId) {
@@ -88,290 +248,52 @@ public class ProfileCommand extends ListenerAdapter {
         return Optional.empty();
     }
 
-    private void sendProfileEmbed(net.dv8tion.jda.api.interactions.InteractionHook hook, String uuid, String discordId, String discordName, String type) {
-        String mcName = "Unknown";
-        boolean dataFound = false;
+    private String getMcNameFromDatabase(String uuid, String discordId, String discordName) {
+        String uuidDash = uuid.trim().toLowerCase();
+        if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
+            uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
+        }
+        String uuidNoDash = uuidDash.replace("-", "");
+
+        String mcName = null;
 
         try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
-            String uuidDash = uuid.trim().toLowerCase();
-            if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
-                uuidDash = uuidDash.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
-            }
-            String uuidNoDash = uuidDash.replace("-", "");
-
-            String backupUsername = null;
-            if (discordId != null && !discordId.isEmpty()) {
-                String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE discord = ?";
-                try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
-                    psName.setString(1, discordId);
-                    try (ResultSet rsName = psName.executeQuery()) {
-                        if (rsName.next()) {
-                            backupUsername = rsName.getString("username");
-                        }
+            String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE discord = ?";
+            try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
+                psName.setString(1, discordId);
+                try (ResultSet rsName = psName.executeQuery()) {
+                    if (rsName.next()) {
+                        mcName = rsName.getString("username");
                     }
-                } catch (Exception ignored) {}
+                }
             }
+        } catch (Exception ignored) {}
 
-            if (backupUsername == null) {
-                backupUsername = discordName;
-            }
-            mcName = backupUsername;
+        if (mcName != null && !mcName.isEmpty() && !mcName.equalsIgnoreCase("Unknown")) {
+            return mcName;
+        }
 
-            String query = "SELECT player_uuid, username, Balance, TotalPlayTime, LastLoginTime, LastLogoffTime, `Rank`, Skin FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
-            try (PreparedStatement ps = conn.prepareStatement(query)) {
-                ps.setString(1, uuidDash);
-                ps.setString(2, uuidNoDash);
-                ps.setString(3, backupUsername);
-                ps.setString(4, discordName);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        dataFound = true;
-                        mcName = rs.getString("username");
-                        String skinValue = rs.getString("Skin");
-                        
-                        String cmiUuid = rs.getString("player_uuid");
-                        if (cmiUuid != null && cmiUuid.length() == 32 && !cmiUuid.contains("-")) {
-                            cmiUuid = cmiUuid.replaceFirst("(\\w{8})(\\w{4})(\\w{4})(\\w{4})(\\w{12})", "$1-$2-$3-$4-$5");
-                        } else if (cmiUuid == null) {
-                            cmiUuid = uuidDash;
-                        }
-
-                        Thumbnail avatar = Thumbnail.fromUrl(getAvatarUrl(skinValue, mcName, uuid));
-                        Container container = null;
-
-                        switch (type) {
-                            case "general": {
-                                String rank = rs.getString("Rank");
-                                long playtimeMs = rs.getLong("TotalPlayTime");
-                                long lastLogin = rs.getLong("LastLoginTime");
-                                long lastLogoff = rs.getLong("LastLogoffTime");
-                                
-                                if (lastLogin > lastLogoff) {
-                                    long sessionMs = System.currentTimeMillis() - lastLogin;
-                                    if (sessionMs > 0) {
-                                        playtimeMs += sessionMs;
-                                    }
-                                }
-
-                                long playtimeSeconds = playtimeMs / 1000;
-                                long days = playtimeSeconds / 86400;
-                                long hours = (playtimeSeconds % 86400) / 3600;
-                                long minutes = (playtimeSeconds % 3600) / 60;
-                                
-                                StringBuilder timeStr = new StringBuilder();
-                                if (days > 0) timeStr.append(days).append(" يوم و ");
-                                if (hours > 0) timeStr.append(hours).append(" ساعة و ");
-                                timeStr.append(minutes).append(" دقيقة");
-
-                                container = Container.of(
-                                    Section.of(
-                                        avatar,
-                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
-                                        TextDisplay.of("### 🌐 Information"),
-                                        TextDisplay.of("**الرتبة:** " + (rank != null && !rank.isEmpty() ? rank : "لا توجد") + "\n**وقت اللعب:** " + timeStr.toString())
-                                    ),
-                                    Separator.createDivider(Separator.Spacing.SMALL),
-                                    ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
-                                    )
-                                );
-                                break;
-                            }
-                            case "surv": {
-                                double balance = rs.getDouble("Balance");
-                                int tokens = 0;
-                                String ppQuery = "SELECT points FROM playerpoints_points WHERE uuid = ? OR uuid = ?";
-                                try (PreparedStatement psPP = conn.prepareStatement(ppQuery)) {
-                                    psPP.setString(1, uuidDash);
-                                    psPP.setString(2, uuidNoDash);
-                                    try (ResultSet rsPP = psPP.executeQuery()) {
-                                        if (rsPP.next()) {
-                                            tokens = rsPP.getInt("points");
-                                        } else {
-                                            String ppUserQuery = "SELECT p.points FROM playerpoints_points p JOIN playerpoints_username u ON p.uuid = u.uuid WHERE u.username = ?";
-                                            try (PreparedStatement psUser = conn.prepareStatement(ppUserQuery)) {
-                                                psUser.setString(1, mcName);
-                                                try (ResultSet rsUser = psUser.executeQuery()) {
-                                                    if (rsUser.next()) {
-                                                        tokens = rsUser.getInt("points");
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                } catch (Exception ignored) {}
-
-                                container = Container.of(
-                                    Section.of(
-                                        avatar,
-                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
-                                        TextDisplay.of("### ⚔️ إحصائيات السرفايفل"),
-                                        TextDisplay.of("**رصيد CMI:** " + String.format("%,.2f", balance) + "$\n**Tokens:** " + String.format("%,d", tokens))
-                                    ),
-                                    Separator.createDivider(Separator.Spacing.SMALL),
-                                    ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
-                                    )
-                                );
-                                break;
-                            }
-                            case "pvp": {
-                                int vanillaKills = 0, vanillaDeaths = 0;
-                                int duelsKills = 0, duelsDeaths = 0;
-                                int cmiKills = 0, cmiDeaths = 0;
-
-                                try {
-                                    // 1. Vanilla Stats
-                                    String statsJsonStr = pterodactylService.getFileContents("world/stats/" + cmiUuid + ".json");
-                                    if (statsJsonStr != null && !statsJsonStr.isEmpty()) {
-                                        JsonObject statsJson = JsonParser.parseString(statsJsonStr).getAsJsonObject();
-                                        if (statsJson.has("stats")) {
-                                            JsonObject statsObj = statsJson.getAsJsonObject("stats");
-                                            if (statsObj.has("minecraft:custom")) {
-                                                JsonObject customObj = statsObj.getAsJsonObject("minecraft:custom");
-                                                if (customObj.has("minecraft:player_kills")) {
-                                                    vanillaKills = customObj.get("minecraft:player_kills").getAsInt();
-                                                }
-                                                if (customObj.has("minecraft:deaths")) {
-                                                    vanillaDeaths = customObj.get("minecraft:deaths").getAsInt();
-                                                }
-                                            }
-                                        }
-                                    }
-                                } catch (Exception e) {}
-                                try {
-                                    // 2. Duels Stats
-                                    String[] duelsPaths = {"plugins/Duels/userdata/", "plugins/Duels/UserData/", "plugins/Duels/users/", "plugins/Duels/Users/"};
-                                    for (String path : duelsPaths) {
-                                        String duelsJsonStr = pterodactylService.getFileContents(path + cmiUuid + ".json");
-                                        if (duelsJsonStr != null && !duelsJsonStr.isEmpty()) {
-                                            JsonObject duelsJson = JsonParser.parseString(duelsJsonStr).getAsJsonObject();
-                                            if (duelsJson.has("wins")) duelsKills = Math.max(duelsKills, duelsJson.get("wins").getAsInt());
-                                            else if (duelsJson.has("kills")) duelsKills = Math.max(duelsKills, duelsJson.get("kills").getAsInt());
-                                            
-                                            if (duelsJson.has("losses")) duelsDeaths = Math.max(duelsDeaths, duelsJson.get("losses").getAsInt());
-                                            else if (duelsJson.has("deaths")) duelsDeaths = Math.max(duelsDeaths, duelsJson.get("deaths").getAsInt());
-                                            break; // Found the file, stop searching
-                                        }
-                                    }
-                                } catch (Exception e) {}
-
-                                try {
-                                    // 3. CMI Stats
-                                    String[] cmiPaths = {"plugins/CMI/Users/", "plugins/CMI/users/", "plugins/CMI/userdata/"};
-                                    for (String path : cmiPaths) {
-                                        String cmiYaml = pterodactylService.getFileContents(path + cmiUuid + ".yml");
-                                        if (cmiYaml != null && !cmiYaml.isEmpty()) {
-                                            java.util.regex.Matcher kMatcher = java.util.regex.Pattern.compile("PlayerKills:\\s*(\\d+)").matcher(cmiYaml);
-                                            if (kMatcher.find()) cmiKills = Math.max(cmiKills, Integer.parseInt(kMatcher.group(1)));
-                                            
-                                            java.util.regex.Matcher dMatcher = java.util.regex.Pattern.compile("Deaths:\\s*(\\d+)").matcher(cmiYaml);
-                                            if (dMatcher.find()) cmiDeaths = Math.max(cmiDeaths, Integer.parseInt(dMatcher.group(1)));
-                                            break; // Found the file, stop searching
-                                        }
-                                    }
-                                } catch (Exception e) {}
-
-                                int kills = Math.max(vanillaKills, cmiKills) + duelsKills;
-                                int deaths = Math.max(vanillaDeaths, cmiDeaths) + duelsDeaths;
-                                double kd = 0.0;
-                                if (deaths > 0) {
-                                    kd = (double) kills / deaths;
-                                } else if (kills > 0) {
-                                    kd = kills;
-                                }
-                                container = Container.of(
-                                    Section.of(
-                                        avatar,
-                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
-                                        TextDisplay.of("### 🔫 إحصائيات الـ PvP"),
-                                        TextDisplay.of("**القتلات (Kills):** " + kills + "\n**الوفيات (Deaths):** " + deaths + "\n**نسبة K/D:** " + String.format(java.util.Locale.US, "%.2f", kd))
-                                    ),
-                                    Separator.createDivider(Separator.Spacing.SMALL),
-                                    ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
-                                    )
-                                );
-                                break;
-                            }
-                            case "side": {
-                                boolean isOnline = false;
-                                if (mcName != null && !mcName.trim().isEmpty()) {
-                                    String searchName = mcName.trim();
-                                    isOnline = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.stream()
-                                        .anyMatch(name -> name.equalsIgnoreCase(searchName));
-                                }
-                                container = Container.of(
-                                    Section.of(
-                                        avatar,
-                                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
-                                        TextDisplay.of("### 🌀 الإحصائيات الجانبية"),
-                                        TextDisplay.of("**النقاط الجانبية:** 0\n**الحالة:** " + (isOnline ? "متصل (Online)" : "غير متصل (Offline)"))
-                                    ),
-                                    Separator.createDivider(Separator.Spacing.SMALL),
-                                    ActionRow.of(
-                                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General"),
-                                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival"),
-                                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP"),
-                                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side")
-                                    )
-                                );
-                                break;
-                            }
-                        }
-
-                        if (container != null) {
-                            hook.editOriginalComponents(container)
-                                .setEmbeds(java.util.Collections.emptyList())
-                                .useComponentsV2(true)
-                                .queue();
+        try {
+            Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady()
+                ? LeonTrotskyBot.getDbManager().getCmiConnection()
+                : LeonTrotskyBot.getDbManager().getConnection();
+            try (conn) {
+                String query = "SELECT username FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
+                try (PreparedStatement ps = conn.prepareStatement(query)) {
+                    ps.setString(1, uuidDash);
+                    ps.setString(2, uuidNoDash);
+                    ps.setString(3, discordName);
+                    ps.setString(4, discordName);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            return rs.getString("username");
                         }
                     }
                 }
             }
-            
-            if (!dataFound) {
-                Thumbnail avatar = Thumbnail.fromUrl(getAvatarUrl(null, mcName, uuid));
-                Container errorContainer = Container.of(
-                    Section.of(
-                        avatar,
-                        TextDisplay.of("## 👤 ملف اللاعب: " + mcName),
-                        TextDisplay.of("### ❌ لم يتم العثور على بيانات كافية"),
-                        TextDisplay.of("الحساب مربوط بنجاح بالديسكورد، ولكن لم يتم تسجيل بيانات له داخل CMI بعد.\nيرجى دخول السيرفر لتوليد ملف اللاعب بالكامل.")
-                    ),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    ActionRow.of(
-                        Button.primary("prof_general_" + uuid + "_" + discordId + "_" + backupUsername, "🌐 General").withDisabled(true),
-                        Button.success("prof_surv_" + uuid + "_" + discordId + "_" + backupUsername, "⚔️ Survival").withDisabled(true),
-                        Button.danger("prof_pvp_" + uuid + "_" + discordId + "_" + backupUsername, "🔫 PvP").withDisabled(true),
-                        Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "🌀 Side").withDisabled(true)
-                    )
-                );
-                hook.editOriginalComponents(errorContainer)
-                    .setEmbeds(java.util.Collections.emptyList())
-                    .useComponentsV2(true)
-                    .queue();
-            }
-        } catch (Exception E) {
-            E.printStackTrace();
-            Container errorContainer = Container.of(
-                TextDisplay.of("## ⚠️ خطأ في الاتصال بقاعدة البيانات"),
-                TextDisplay.of("حدث خطأ أثناء محاولة الاتصال بقاعدة البيانات.")
-            );
-            hook.editOriginalComponents(errorContainer)
-                .setEmbeds(java.util.Collections.emptyList())
-                .useComponentsV2(true)
-                .queue();
-        }
+        } catch (Exception ignored) {}
+
+        return "Unknown";
     }
 
     private String getAvatarUrl(String skinValue, String mcName, String uuid) {

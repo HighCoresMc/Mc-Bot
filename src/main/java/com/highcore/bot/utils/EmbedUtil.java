@@ -1,6 +1,5 @@
 package com.highcore.bot.utils;
 
-import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.components.actionrow.ActionRow;
 import net.dv8tion.jda.api.components.container.Container;
 import net.dv8tion.jda.api.components.container.ContainerChildComponent;
@@ -8,6 +7,9 @@ import net.dv8tion.jda.api.components.mediagallery.MediaGallery;
 import net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem;
 import net.dv8tion.jda.api.components.separator.Separator;
 import net.dv8tion.jda.api.components.textdisplay.TextDisplay;
+import net.dv8tion.jda.api.components.section.Section;
+import net.dv8tion.jda.api.components.section.SectionContentComponent;
+import net.dv8tion.jda.api.components.thumbnail.Thumbnail;
 
 import java.awt.Color;
 import java.util.ArrayList;
@@ -66,4 +68,36 @@ public class EmbedUtil {
         layout.add(TextDisplay.of("### " + title + "\n" + body));
         return Container.of(layout);
     }
+
+    public static Container createProfilePanel(String title, String body, String thumbnailUrl, ActionRow... rows) {
+        List<ContainerChildComponent> layout = new ArrayList<>();
+        
+        List<SectionContentComponent> sectionContent = new ArrayList<>();
+        if (title != null && !title.isEmpty()) {
+            sectionContent.add(TextDisplay.of("## " + title));
+        }
+
+        if (body != null && !body.isEmpty()) {
+            String[] parts = body.split("<divider>");
+            for (int i = 0; i < parts.length; i++) {
+                sectionContent.add(TextDisplay.of(parts[i].trim()));
+            }
+        }
+        
+        if (thumbnailUrl != null && !thumbnailUrl.isEmpty()) {
+            layout.add(Section.of(Thumbnail.fromUrl(thumbnailUrl), sectionContent));
+        } else {
+            for (SectionContentComponent comp : sectionContent) { layout.add((ContainerChildComponent) comp); }
+        }
+
+        if (rows != null && rows.length > 0) {
+            layout.add(Separator.createDivider(Separator.Spacing.SMALL));
+            for (ActionRow row : rows) {
+                layout.add(row);
+            }
+        }
+
+        return Container.of(layout);
+    }
 }
+
