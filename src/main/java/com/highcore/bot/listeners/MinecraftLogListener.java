@@ -27,8 +27,9 @@ public class MinecraftLogListener extends ListenerAdapter {
     private static final Pattern SABOTAGE_PATTERN = Pattern.compile("\\[CoreClaims-Sabotage\\] (.*)");
     private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile("\\[CoreClaims-SabotageSuccess\\] (.*?) (\\d+)");
     private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile("\\[CoreClaims-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
-    private static final Pattern FUEL_PATTERN = Pattern.compile("(?i)Generator #\\d+ for team (.*?) has run out of fuel!");
+    private static final Pattern FUEL_PATTERN = Pattern.compile("\\[CoreClaims-Fuel\\] \\[(.*?)\\] \\d+:(\\d+)");
     private static final Pattern LEVELUP_PATTERN = Pattern.compile("\\[CoreClaims-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
+    private static final Pattern TEAM_LOG_PATTERN = Pattern.compile("\\[CoreClaims-Log\\] \\[(.*?)\\] (.*?):(.*)");
 
     public static final String LOG_CHANNEL_ID = "1487148944667578368";
 
@@ -131,8 +132,27 @@ public class MinecraftLogListener extends ListenerAdapter {
         Matcher fuelMatcher = FUEL_PATTERN.matcher(clean);
         if (fuelMatcher.find()) {
             String teamName = fuelMatcher.group(1).trim();
+            String percent = fuelMatcher.group(2).trim();
             if (!isInit) {
-                com.highcore.bot.services.DiscordTeamAlertService.sendFuelAlert(teamName);
+                com.highcore.bot.services.DiscordTeamAlertService.sendFuelAlert(teamName, percent);
+            }
+            return;
+        }
+
+        // Section: Check for Team Logs
+        Matcher teamLogMatcher = TEAM_LOG_PATTERN.matcher(clean);
+        if (teamLogMatcher.find()) {
+            String teamName = teamLogMatcher.group(1).trim();
+            String action = teamLogMatcher.group(2).trim();
+            String details = teamLogMatcher.group(3).trim();
+            if (!isInit) {
+                if (action.equals("COLOR_CHANGE")) {
+                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "تغيير لون التيم", "تم تغيير لون التيم إلى: " + details, java.awt.Color.WHITE);
+                } else if (action.equals("PROMOTE")) {
+                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "ترقية عضو", "تمت ترقية العضو: " + details, java.awt.Color.GREEN);
+                } else if (action.equals("DEMOTE")) {
+                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "تنزيل رتبة عضو", "تم تنزيل رتبة العضو: " + details, java.awt.Color.ORANGE);
+                }
             }
             return;
         }

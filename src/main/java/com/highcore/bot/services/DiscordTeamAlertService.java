@@ -118,7 +118,7 @@ public class DiscordTeamAlertService {
         }
     }
 
-    public static void sendFuelAlert(String teamName) {
+    public static void sendFuelAlert(String teamName, String percent) {
         String query = "SELECT text_channel_id, role_id FROM teams WHERE name = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
@@ -134,9 +134,14 @@ public class DiscordTeamAlertService {
                     TextChannel channel = LeonTrotskyBot.getJda().getTextChannelById(textChannelId);
                     if (channel != null) {
                         String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
-                        String title = "تحذير: نفاذ طاقة المولد";
-                        String body = mention + "\n> **أحد مولداتكم قد نفذت منه الطاقة (Fuel)!**\n> المولد متوقف حالياً، يرجى تزويده بالطاقة لاستمرار الحماية.";
-                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
+                        String title = percent.equals("0") ? "تحذير: نفاذ طاقة المولد!" : "تنبيه: انخفاض طاقة المولد";
+                        String body;
+                        if (percent.equals("0")) {
+                            body = mention + "\n> **أحد مولداتكم قد نفذت منه الطاقة (Fuel) تماماً!**\n> المولد متوقف حالياً، يرجى تزويده بالطاقة لاستمرار الحماية.";
+                        } else {
+                            body = mention + "\n> **طاقة أحد المولدات وصلت إلى " + percent + "% !**\n> يرجى تزويده بالطاقة قبل توقفه.";
+                        }
+                        channel.sendMessage(new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder().setComponents(com.highcore.bot.utils.EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
