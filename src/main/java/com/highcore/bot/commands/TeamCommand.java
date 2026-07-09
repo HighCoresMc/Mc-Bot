@@ -209,12 +209,12 @@ public class TeamCommand extends ListenerAdapter {
         else
             sb.append("*لا توجد فرق بعد.*");
         sb.append("\n\n> لإنشاء فريق جديد استخدم `/team create`\n> للتعديل استخدم `/team edit`");
-        event.replyComponents(Container.of(
+                event.reply(new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder().setComponents(Container.of(
                 TextDisplay.of(sb.toString()), Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(Button.primary("tm_panel_list", "📋 عرض الفرق"),
-                        Button.secondary("tm_panel_edit", "✏️ تعديل فريق"),
-                        Button.danger("tm_panel_delete", "🗑️ حذف فريق"))))
-                .useComponentsV2(true).setEphemeral(true).queue();
+                ActionRow.of(Button.primary("tm_panel_list", "عرض الفرق"),
+                        Button.secondary("tm_panel_edit", "تعديل فريق"),
+                        Button.danger("tm_panel_delete", "حذف فريق"))))
+                .useComponentsV2(true).build()).setEphemeral(true).queue();
     }
 
     // ===================================================================
@@ -277,14 +277,14 @@ public class TeamCommand extends ListenerAdapter {
         Member member = event.getMember();
         boolean isLeader = hasLeaderRole(member), isCoLeader = hasCoLeaderRole(member);
         if (!isLeader && !isCoLeader) {
-            event.replyComponents(EmbedUtil.createAlert("مرفوض", "هذا الأمر مخصص لقادة الأتيام فقط.")).setEphemeral(true).queue();
+            event.reply(new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder().setComponents(EmbedUtil.createAlert("مرفوض", "هذا الأمر مخصص لقادة الأتيام فقط.")).useComponentsV2(true).build()).setEphemeral(true).queue();
             return;
         }
 
         String userId = member.getId();
         TeamData td = isLeader ? getTeamByLeaderId(userId) : getTeamByCoLeaderId(userId);
         if (td == null) {
-            event.replyComponents(EmbedUtil.createAlert("مرفوض", "لم يتم العثور على تيم مسجل باسمك. تواصل مع الإدارة.")).setEphemeral(true).queue();
+            event.reply(new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder().setComponents(EmbedUtil.createAlert("مرفوض", "لم يتم العثور على تيم مسجل باسمك. تواصل مع الإدارة.")).useComponentsV2(true).build()).setEphemeral(true).queue();
             return;
         }
 
