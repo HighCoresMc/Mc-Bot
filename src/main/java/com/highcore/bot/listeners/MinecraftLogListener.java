@@ -24,12 +24,12 @@ public class MinecraftLogListener extends ListenerAdapter {
     private static final Pattern SERVER_START_PATTERN = Pattern.compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
 
     // Section: Team Logs
-    private static final Pattern SABOTAGE_PATTERN = Pattern.compile("\\[CoreClaims-Sabotage\\] (.*)");
-    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile("\\[CoreClaims-SabotageSuccess\\] (.*?) (\\d+)");
-    private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile("\\[CoreClaims-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
-    private static final Pattern FUEL_PATTERN = Pattern.compile("\\[CoreClaims-Fuel\\] \\[(.*?)\\] \\d+:(\\d+)");
-    private static final Pattern LEVELUP_PATTERN = Pattern.compile("\\[CoreClaims-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
-    private static final Pattern TEAM_LOG_PATTERN = Pattern.compile("\\[CoreClaims-Log\\] \\[(.*?)\\] (.*?):(.*)");
+    private static final Pattern SABOTAGE_PATTERN = Pattern.compile(".*?\\[CoreClaims-Sabotage\\] (.*)");
+    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile(".*?\\[CoreClaims-SabotageSuccess\\] (.*?) (\\d+)");
+    private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile(".*?\\[CoreClaims-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
+    private static final Pattern FUEL_PATTERN = Pattern.compile(".*?\\[CoreClaims-Fuel\\] \\[(.*?)\\] \\d+:(\\d+)");
+    private static final Pattern LEVELUP_PATTERN = Pattern.compile(".*?\\[CoreClaims-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
+    private static final Pattern TEAM_LOG_PATTERN = Pattern.compile(".*?\\[CoreClaims-Log\\] \\[(.*?)\\] (.*?):(.*)");
 
     public static final String LOG_CHANNEL_ID = "1487148944667578368";
 
