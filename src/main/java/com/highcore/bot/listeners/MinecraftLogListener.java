@@ -23,6 +23,12 @@ public class MinecraftLogListener extends ListenerAdapter {
     private static final Pattern SERVER_STOP_PATTERN  = Pattern.compile("(?i)(server|السيرفر).*(stopped|shutdown|offline|توقف|أغلق)|(stopped|shutdown).*(server|السيرفر)");
     private static final Pattern SERVER_START_PATTERN = Pattern.compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
 
+    // Section: Team Logs
+    private static final Pattern SABOTAGE_PATTERN = Pattern.compile("(?i)Team (.*?)'s generator is UNDER ATTACK!");
+    private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile("\\[CoreClaims-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
+    private static final Pattern FUEL_PATTERN = Pattern.compile("(?i)Generator #\\d+ for team (.*?) has run out of fuel!");
+    private static final Pattern LEVELUP_PATTERN = Pattern.compile("\\[CoreClaims-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
+
     public static final String LOG_CHANNEL_ID = "1487148944667578368";
 
     @Override
@@ -97,6 +103,50 @@ public class MinecraftLogListener extends ListenerAdapter {
             String username = leaveMatcher.group(1);
             onlinePlayers.remove(username);
             if (!isInit) System.out.println("[MinecraftLogListener] Player LEFT: " + username + " (Current count: " + onlinePlayers.size() + ")");
+            return;
+        }
+
+        // Section: Check for Sabotage
+        Matcher saboMatcher = SABOTAGE_PATTERN.matcher(clean);
+        if (saboMatcher.find()) {
+            String teamName = saboMatcher.group(1).trim();
+            if (!isInit) {
+                com.highcore.bot.services.DiscordTeamAlertService.sendSabotageAlert(teamName);
+            }
+            return;
+        }
+
+        // Section: Check for Fuel Out
+        Matcher fuelMatcher = FUEL_PATTERN.matcher(clean);
+        if (fuelMatcher.find()) {
+            String teamName = fuelMatcher.group(1).trim();
+            if (!isInit) {
+                com.highcore.bot.services.DiscordTeamAlertService.sendFuelAlert(teamName);
+            }
+            return;
+        }
+
+        Matcher levelMatcher = LEVELUP_PATTERN.matcher(clean);
+        if (levelMatcher.find()) {
+            String teamName = levelMatcher.group(1).trim();
+            String newLevel = levelMatcher.group(2).trim();
+            String bonus = levelMatcher.group(3).trim();
+            if (!isInit) {
+                com.highcore.bot.services.DiscordTeamAlertService.sendLevelUpAlert(teamName, newLevel, bonus);
+            }
+            return;
+        }
+
+        // Section: Check for Team Chat
+        Matcher teamChatMatcher = TEAM_CHAT_PATTERN.matcher(clean);
+        if (teamChatMatcher.find()) {
+            String teamName = teamChatMatcher.group(1).trim();
+            String playerName = teamChatMatcher.group(2).trim();
+            String chatMessage = teamChatMatcher.group(3).trim();
+            if (!isInit) {
+                com.highcore.bot.services.DiscordTeamAlertService.sendTeamChat(teamName, playerName, chatMessage);
+            }
+            return;
         }
     }
 

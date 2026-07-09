@@ -133,7 +133,8 @@ public class LeonTrotskyBot {
                                     .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member3", "العضو الثالث (اختياري)", false)
                                     .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member4", "العضو الرابع (اختياري)", false),
                                 new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("edit", "تعديل فريق")
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "team", "اسم الفريق (اختياري)", false)
+                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "team", "اسم الفريق (اختياري)", false),
+                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("top", "قائمة المتصدرين للأتيام")
                             )
             );
 

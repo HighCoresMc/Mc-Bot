@@ -143,6 +143,7 @@ public class DatabaseManager {
             try { stmt.executeUpdate("ALTER TABLE teams ADD COLUMN cmd_channel_id VARCHAR(64)"); } catch (Exception ignored) {}
             try { stmt.executeUpdate("ALTER TABLE teams ADD COLUMN co_leader_id VARCHAR(64)"); } catch (Exception ignored) {}
             try { stmt.executeUpdate("ALTER TABLE teams ADD COLUMN logo_url VARCHAR(255)"); } catch (Exception ignored) {}
+            try { stmt.executeUpdate("ALTER TABLE teams ADD COLUMN log_channel_id VARCHAR(64)"); } catch (Exception ignored) {}
 
             logger.info("Event tables initialized successfully.");
         } catch (SQLException e) {
