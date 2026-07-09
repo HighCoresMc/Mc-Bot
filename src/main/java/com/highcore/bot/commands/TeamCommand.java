@@ -2163,7 +2163,7 @@ public class TeamCommand extends ListenerAdapter {
         LiveTeamStats stats = new LiveTeamStats();
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             // CoreClaims Claims
-            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) as c FROM claims WHERE generator_id IN (SELECT id FROM generators WHERE team_name = ?)")) {
+            try (PreparedStatement ps = conn.prepareStatement("SELECT COUNT(*) as c FROM claims WHERE team_name = ?")) {
                 ps.setString(1, teamName);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next())
