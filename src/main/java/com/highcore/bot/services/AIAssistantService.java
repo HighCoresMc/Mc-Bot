@@ -43,9 +43,9 @@ public class AIAssistantService {
                         JsonObject fileObj = el.getAsJsonObject();
                         if (fileObj.has("attributes")) {
                             JsonObject attr = fileObj.getAsJsonObject("attributes");
-                            String name = attr.get("name").getAsString();
-                            boolean isDir = attr.get("directory").getAsBoolean();
-                            if (isDir || name.endsWith(".jar")) {
+                            String name = attr.has("name") ? attr.get("name").getAsString() : "";
+                            boolean isFile = attr.has("is_file") && attr.get("is_file").getAsBoolean();
+                            if (!isFile || name.endsWith(".jar")) {
                                 pluginNames.add(name.replace(".jar", ""));
                             }
                         }
@@ -108,7 +108,7 @@ public class AIAssistantService {
             safetySettings.add(safetySetting);
             requestBody.add("safetySettings", safetySettings);
 
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + GEMINI_API_KEY;
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_API_KEY;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
