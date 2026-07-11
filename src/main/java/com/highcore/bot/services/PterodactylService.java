@@ -636,4 +636,32 @@ public class PterodactylService {
         rest = rest.replaceAll("\\bDone\\b", "\u001B[1;32mDone\u001B[0m");
         return rest;
     }
+
+    // LIST FILES
+    public JsonArray listFiles(String path) {
+        if (API_KEY == null || SERVER_ID == null) {
+            return null;
+        }
+        try {
+            String encodedPath = java.net.URLEncoder.encode(path, java.nio.charset.StandardCharsets.UTF_8);
+            String url = PANEL_URL + "/api/client/servers/" + SERVER_ID + "/files/list?directory=" + encodedPath;
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .header("Authorization", "Bearer " + API_KEY)
+                    .header("Accept", "application/json")
+                    .timeout(java.time.Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            if (response.statusCode() == 200) {
+                JsonObject json = JsonParser.parseString(response.body()).getAsJsonObject();
+                return json.getAsJsonArray("data");
+            }
+        } catch (Exception e) {
+            logger.error("Failed to list files from Pterodactyl: " + path, e);
+        }
+        return null;
+    }
 }
+

@@ -152,6 +152,12 @@ public class LeonTrotskyBot {
             jda.addEventListener(new com.highcore.bot.commands.DailyCommand());
             jda.addEventListener(new com.highcore.bot.commands.CrateDropCommand());
             jda.addEventListener(new com.highcore.bot.commands.TeamCommand());
+
+            // REGISTER AI ASSISTANT
+            com.highcore.bot.services.PterodactylService pteroServiceForAI = new com.highcore.bot.services.PterodactylService();
+            com.highcore.bot.services.AIAssistantService aiService = new com.highcore.bot.services.AIAssistantService(pteroServiceForAI);
+            jda.addEventListener(new com.highcore.bot.listeners.AIAssistantListener(aiService));
+
             
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");
