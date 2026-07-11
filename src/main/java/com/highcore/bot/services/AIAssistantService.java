@@ -24,11 +24,39 @@ public class AIAssistantService {
             .build();
     private final PterodactylService pteroService;
     private String cachedPluginsContext = "";
+    private String customConfigsContext = "";
 
     // INIT
     public AIAssistantService(PterodactylService pteroService) {
         this.pteroService = pteroService;
         loadPluginsContextAsync();
+        loadCustomConfigsAsync();
+    }
+
+    // LOAD CUSTOM CONFIGS
+    private void loadCustomConfigsAsync() {
+        new Thread(() -> {
+            StringBuilder sb = new StringBuilder();
+            String[] targetFiles = {
+                "plugins/CoreClaims/config.yml",
+                "plugins/CoreClaims/messages.yml",
+                "plugins/BetterTeams/config.yml",
+                "plugins/AthisAirdrops/config.yml"
+            };
+            for (String file : targetFiles) {
+                try {
+                    String content = pteroService.getFileContents(file);
+                    if (content != null && !content.trim().isEmpty()) {
+                        sb.append("FILE: ").append(file).append("\n");
+                        sb.append(content).append("\n---\n");
+                    }
+                } catch (Exception e) {
+                    logger.error("Failed to load custom config: " + file, e);
+                }
+            }
+            customConfigsContext = sb.toString();
+            logger.info("Loaded custom configs context length: " + customConfigsContext.length());
+        }).start();
     }
 
     // LOAD PLUGINS
@@ -64,14 +92,16 @@ public class AIAssistantService {
             String systemInstruction = "You are Leon Trotsky, a legendary helpful AI assistant for the HighCore Minecraft server.\n" +
                     "Your goal is to answer the players' questions using the provided server context and Minecraft Wiki/Fandom knowledge.\n\n" +
                     "SERVER CONTEXT:\n" +
-                    "- Active Plugins: " + cachedPluginsContext + "\n\n" +
+                    "- Active Plugins: " + cachedPluginsContext + "\n" +
+                    "- Custom Plugin Configs/Rules (Claims, Teams, Airdrops, etc.):\n" + customConfigsContext + "\n\n" +
                     "STRICT RULES:\n" +
                     "1. Respond directly, simply, and with no praise, flattery, or wordy pleasantries.\n" +
                     "2. Support all languages. Detect the player's language and reply in the same language.\n" +
-                    "3. Absolutely DO NOT reveal configuration file contents, exact plugin lists (unless explaining a gameplay feature that uses them), database structures, server architecture, or any internal/programmatic details that could help players clone the server or find security exploits.\n" +
-                    "4. Absolutely DO NOT share any other player's private data or database info.\n" +
-                    "5. Absolutely DO NOT help with cheats, hacks, exploits, or malicious activities.\n" +
-                    "6. Act professional, legendary, and straight to the point.";
+                    "3. Absolutely DO NOT reveal configuration file contents verbatim, database structures, server architecture, or any internal/programmatic details.\n" +
+                    "4. Absolutely DO NOT mention or disclose technical plugin names (e.g., 'CoreClaims', 'BetterTeams', 'AthisAirdrops') to the player under any circumstances. Instead, refer to them by their gameplay terms (e.g. 'نظام الحماية' or 'كليمز', 'نظام الفرق', 'الدروبات').\n" +
+                    "5. Absolutely DO NOT share any other player's private data or database info.\n" +
+                    "6. Absolutely DO NOT help with cheats, hacks, exploits, or malicious activities.\n" +
+                    "7. Act professional, legendary, and straight to the point.";
 
             JsonObject requestBody = new JsonObject();
             JsonArray messages = new JsonArray();
