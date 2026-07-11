@@ -20,7 +20,7 @@ public class AIAssistantService {
     private static final Logger logger = LoggerFactory.getLogger(AIAssistantService.class);
     private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(5))
+            .connectTimeout(Duration.ofSeconds(10))
             .build();
     private final PterodactylService pteroService;
     private String cachedPluginsContext = "";
@@ -95,7 +95,7 @@ public class AIAssistantService {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(6))
+                    .timeout(Duration.ofSeconds(12))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                     .build();
 
