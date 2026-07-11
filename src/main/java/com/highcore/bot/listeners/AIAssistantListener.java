@@ -51,11 +51,22 @@ public class AIAssistantListener extends ListenerAdapter {
         }
 
         String threadName = content.length() > 90 ? content.substring(0, 90) + "..." : content;
+        if (threadName.isEmpty() && !event.getMessage().getAttachments().isEmpty()) {
+            threadName = "صورة مرفقة";
+        }
+        
         event.getMessage().createThreadChannel(threadName).queue(thread -> {
             thread.sendTyping().queue();
             new Thread(() -> {
+                List<String> imageUrls = new ArrayList<>();
+                for (Message.Attachment attachment : event.getMessage().getAttachments()) {
+                    if (attachment.isImage()) {
+                        imageUrls.add(attachment.getUrl());
+                    }
+                }
+                
                 List<AIAssistantService.ChatMessage> history = new ArrayList<>();
-                history.add(new AIAssistantService.ChatMessage(content, false));
+                history.add(new AIAssistantService.ChatMessage(content, false, imageUrls));
                 
                 String discordId = event.getAuthor().getId();
                 String discordName = event.getAuthor().getName();
@@ -87,9 +98,22 @@ public class AIAssistantListener extends ListenerAdapter {
                     if (msg.getAuthor().isBot() && !msg.getAuthor().getId().equals(event.getJDA().getSelfUser().getId())) {
                         continue;
                     }
-                    history.add(new AIAssistantService.ChatMessage(msg.getContentRaw(), msg.getAuthor().getId().equals(event.getJDA().getSelfUser().getId())));
+                    List<String> msgImageUrls = new ArrayList<>();
+                    for (Message.Attachment attachment : msg.getAttachments()) {
+                        if (attachment.isImage()) {
+                            msgImageUrls.add(attachment.getUrl());
+                        }
+                    }
+                    history.add(new AIAssistantService.ChatMessage(msg.getContentRaw(), msg.getAuthor().getId().equals(event.getJDA().getSelfUser().getId()), msgImageUrls));
                 }
-                history.add(new AIAssistantService.ChatMessage(event.getMessage().getContentRaw(), false));
+                
+                List<String> currentImageUrls = new ArrayList<>();
+                for (Message.Attachment attachment : event.getMessage().getAttachments()) {
+                    if (attachment.isImage()) {
+                        currentImageUrls.add(attachment.getUrl());
+                    }
+                }
+                history.add(new AIAssistantService.ChatMessage(event.getMessage().getContentRaw(), false, currentImageUrls));
 
                 String discordId = event.getAuthor().getId();
                 String discordName = event.getAuthor().getName();

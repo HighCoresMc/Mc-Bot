@@ -170,7 +170,28 @@ public class AIAssistantService {
             for (ChatMessage msg : history) {
                 JsonObject turn = new JsonObject();
                 turn.addProperty("role", msg.isBot ? "assistant" : "user");
-                turn.addProperty("content", msg.content);
+                
+                if (msg.imageUrls != null && !msg.imageUrls.isEmpty()) {
+                    JsonArray contentArray = new JsonArray();
+                    
+                    JsonObject textObj = new JsonObject();
+                    textObj.addProperty("type", "text");
+                    textObj.addProperty("text", msg.content);
+                    contentArray.add(textObj);
+                    
+                    for (String imgUrl : msg.imageUrls) {
+                        JsonObject imgObj = new JsonObject();
+                        imgObj.addProperty("type", "image_url");
+                        JsonObject urlObj = new JsonObject();
+                        urlObj.addProperty("url", imgUrl);
+                        imgObj.add("image_url", urlObj);
+                        contentArray.add(imgObj);
+                    }
+                    
+                    turn.add("content", contentArray);
+                } else {
+                    turn.addProperty("content", msg.content);
+                }
                 messages.add(turn);
             }
             requestBody.add("messages", messages);
@@ -201,10 +222,16 @@ public class AIAssistantService {
     public static class ChatMessage {
         public final String content;
         public final boolean isBot;
+        public final List<String> imageUrls;
 
         public ChatMessage(String content, boolean isBot) {
+            this(content, isBot, null);
+        }
+
+        public ChatMessage(String content, boolean isBot, List<String> imageUrls) {
             this.content = content;
             this.isBot = isBot;
+            this.imageUrls = imageUrls;
         }
     }
 }
