@@ -20,6 +20,7 @@ public class AIAssistantService {
     private static final Logger logger = LoggerFactory.getLogger(AIAssistantService.class);
     private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private static final String GEMINI_API_KEY = dotenv.get("GEMINI_API_KEY");
+    private static final String GEMINI_MODEL = dotenv.get("GEMINI_MODEL", "gemini-2.0-flash");
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
@@ -108,7 +109,7 @@ public class AIAssistantService {
             safetySettings.add(safetySetting);
             requestBody.add("safetySettings", safetySettings);
 
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + GEMINI_API_KEY;
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent?key=" + GEMINI_API_KEY;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
