@@ -64,6 +64,14 @@ public class AIAssistantListener extends ListenerAdapter {
 
     // HANDLE THREAD MESSAGE
     private void handleThreadMessage(MessageReceivedEvent event, ThreadChannel thread) {
+        Message ref = event.getMessage().getReferencedMessage();
+        boolean isReplyToBot = (ref != null && ref.getAuthor().getId().equals(event.getJDA().getSelfUser().getId()));
+        boolean isMentioned = event.getMessage().getMentions().isMentioned(event.getJDA().getSelfUser());
+        
+        if (!isReplyToBot && !isMentioned) {
+            return;
+        }
+
         thread.sendTyping().queue();
         thread.getHistoryBefore(event.getMessageIdLong(), 20).queue(historyObj -> {
             new Thread(() -> {
