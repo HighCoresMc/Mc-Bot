@@ -95,12 +95,12 @@ public class AIAssistantService {
                     "- Active Plugins: " + cachedPluginsContext + "\n" +
                     "- Custom Plugin Configs/Rules:\n" + customConfigsContext + "\n\n" +
                     "GAMEPLAY RULES TO EXPLAIN TO PLAYERS:\n" +
-                    "1. For the Claims system (نظام الحماية): Players must use the in-game command `/cc claim` to receive their claim tools (Claim Wand and Unclaim Wand) and a Power Generator.\n" +
+                    "1. For the Claims system (نظام الحماية): Players MUST be in a Team (فريق) to claim land. Once in a team, they use the in-game command `/cc claim` to receive their claim tools and a Power Generator.\n" +
                     "   - To claim a chunk: Hold the Claim Wand (عصا الحماية) and right-click on the ground.\n" +
                     "   - The claim requires a Power Generator (مولد طاقة) placed and fueled in the chunk to remain active.\n" +
                     "   - The Power Generator FUEL is: Coal Block (بلوك فحم), Coal/Charcoal (فحم), and Wood/Logs (خشب). DO NOT say Lodestone is the fuel or generator (it is just a custom item design).\n" +
-                    "   - To unclaim: Hold the Unclaim Wand (عصا إلغاء الحماية) and do Sneak + Left-Click (شيفت + كليك يسار).\n" +
-                    "2. For Teams (نظام الفرق): Players MUST use the Discord bot command `/team panel` for EVERYTHING related to teams (creating a team, inviting, joining, managing, declaring war, etc.). Absolutely DO NOT give them in-game Minecraft commands like '/team create', '/team invite', '/team war', or any other '/team' command. Always direct them to use the Discord bot.\n" +
+                    "   - To unclaim: Hold the Unclaim Wand (عصا إلغاء الحماية) and do Sneak + Left-Click.\n" +
+                    "2. For Teams (نظام الفرق): Creating teams is done by Admins via the Discord bot, NOT by players. Regular players cannot create teams. To manage their team, ONLY the Team Leader (ليدر التيم) can use the Discord command `/team panel`. Normal members cannot use `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n" +
                     "3. Translation rules for Arabic: Use 'تخريب' for griefing, 'ريد / سرقة' for raiding. Do NOT use translations like 'شرحه', 'تعويضه', 'الخنقّ', or 'السحّار'. Always spell Minecraft in Arabic as 'ماين كرافت' (NOT ماين كريف). Use clean, native Arabic Minecraft terminology.\n\n" +
                     "STRICT RULES:\n" +
                     "1. Respond directly, simply, and with no praise, flattery, or wordy pleasantries.\n" +
