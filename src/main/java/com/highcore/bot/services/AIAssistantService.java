@@ -19,8 +19,6 @@ import java.util.List;
 public class AIAssistantService {
     private static final Logger logger = LoggerFactory.getLogger(AIAssistantService.class);
     private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
-    private static final String GEMINI_API_KEY = dotenv.get("GEMINI_API_KEY");
-    private static final String GEMINI_MODEL = dotenv.get("GEMINI_MODEL", "gemini-2.0-flash");
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(5))
             .build();
@@ -62,10 +60,6 @@ public class AIAssistantService {
 
     // ASK GEMINI
     public String askGemini(List<ChatMessage> history) {
-        if (GEMINI_API_KEY == null || GEMINI_API_KEY.isEmpty()) {
-            return "AI API key is missing. Contact admin.";
-        }
-
         try {
             String systemInstruction = "You are Leon Trotsky, a legendary helpful AI assistant for the HighCore Minecraft server.\n" +
                     "Your goal is to answer the players' questions using the provided server context and Minecraft Wiki/Fandom knowledge.\n\n" +
@@ -80,36 +74,24 @@ public class AIAssistantService {
                     "6. Act professional, legendary, and straight to the point.";
 
             JsonObject requestBody = new JsonObject();
-            
-            JsonObject systemObj = new JsonObject();
-            JsonObject systemParts = new JsonObject();
-            systemParts.addProperty("text", systemInstruction);
-            JsonArray systemPartsArr = new JsonArray();
-            systemPartsArr.add(systemParts);
-            systemObj.add("parts", systemPartsArr);
-            requestBody.add("systemInstruction", systemObj);
+            JsonArray messages = new JsonArray();
 
-            JsonArray contents = new JsonArray();
+            JsonObject systemMsg = new JsonObject();
+            systemMsg.addProperty("role", "system");
+            systemMsg.addProperty("content", systemInstruction);
+            messages.add(systemMsg);
+
             for (ChatMessage msg : history) {
                 JsonObject turn = new JsonObject();
-                turn.addProperty("role", msg.isBot ? "model" : "user");
-                JsonObject part = new JsonObject();
-                part.addProperty("text", msg.content);
-                JsonArray parts = new JsonArray();
-                parts.add(part);
-                turn.add("parts", parts);
-                contents.add(turn);
+                turn.addProperty("role", msg.isBot ? "assistant" : "user");
+                turn.addProperty("content", msg.content);
+                messages.add(turn);
             }
-            requestBody.add("contents", contents);
+            requestBody.add("messages", messages);
+            requestBody.addProperty("model", "openai");
+            requestBody.addProperty("jsonMode", false);
 
-            JsonObject safetySetting = new JsonObject();
-            safetySetting.addProperty("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT");
-            safetySetting.addProperty("threshold", "BLOCK_NONE");
-            JsonArray safetySettings = new JsonArray();
-            safetySettings.add(safetySetting);
-            requestBody.add("safetySettings", safetySettings);
-
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + GEMINI_MODEL + ":generateContent?key=" + GEMINI_API_KEY;
+            String url = "https://text.pollinations.ai/";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
@@ -119,21 +101,12 @@ public class AIAssistantService {
 
             HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() == 200) {
-                JsonObject resObj = JsonParser.parseString(response.body()).getAsJsonObject();
-                JsonArray candidates = resObj.getAsJsonArray("candidates");
-                if (candidates != null && candidates.size() > 0) {
-                    JsonObject candidate = candidates.get(0).getAsJsonObject();
-                    JsonObject content = candidate.getAsJsonObject("content");
-                    JsonArray parts = content.getAsJsonArray("parts");
-                    if (parts != null && parts.size() > 0) {
-                        return parts.get(0).getAsJsonObject().get("text").getAsString();
-                    }
-                }
+                return response.body();
             } else {
-                logger.error("Gemini API error (Status {}): {}", response.statusCode(), response.body());
+                logger.error("Pollinations AI error (Status {}): {}", response.statusCode(), response.body());
             }
         } catch (Exception e) {
-            logger.error("Error communicating with Gemini API", e);
+            logger.error("Error communicating with Pollinations AI", e);
         }
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
     }
