@@ -56,7 +56,11 @@ public class AIAssistantListener extends ListenerAdapter {
             new Thread(() -> {
                 List<AIAssistantService.ChatMessage> history = new ArrayList<>();
                 history.add(new AIAssistantService.ChatMessage(content, false));
-                String response = aiService.askGemini(history);
+                
+                String discordId = event.getAuthor().getId();
+                String discordName = event.getAuthor().getName();
+                String response = aiService.askGemini(history, discordId, discordName);
+                
                 thread.sendMessage(response).queue();
             }).start();
         }, error -> logger.error("Failed to create thread for AI assistant", error));
@@ -87,7 +91,9 @@ public class AIAssistantListener extends ListenerAdapter {
                 }
                 history.add(new AIAssistantService.ChatMessage(event.getMessage().getContentRaw(), false));
 
-                String response = aiService.askGemini(history);
+                String discordId = event.getAuthor().getId();
+                String discordName = event.getAuthor().getName();
+                String response = aiService.askGemini(history, discordId, discordName);
                 thread.sendMessage(response).queue();
             }).start();
         }, error -> logger.error("Failed to get thread history for AI assistant", error));
