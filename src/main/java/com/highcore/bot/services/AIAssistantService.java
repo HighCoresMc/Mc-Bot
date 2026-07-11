@@ -20,7 +20,7 @@ public class AIAssistantService {
     private static final Logger logger = LoggerFactory.getLogger(AIAssistantService.class);
     private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
+            .connectTimeout(Duration.ofSeconds(15))
             .build();
     private final PterodactylService pteroService;
     private String cachedPluginsContext = "";
@@ -100,7 +100,7 @@ public class AIAssistantService {
                     "   - The claim requires a Power Generator (مولد طاقة) placed and fueled in the chunk to remain active.\n" +
                     "   - The Power Generator FUEL is: Coal Block (بلوك فحم), Coal/Charcoal (فحم), and Wood/Logs (خشب). DO NOT say Lodestone is the fuel or generator (it is just a custom item design).\n" +
                     "   - To unclaim: Hold the Unclaim Wand (عصا إلغاء الحماية) and do Sneak + Left-Click (شيفت + كليك يسار).\n" +
-                    "2. For Declaring War (إعلان حرب): Players MUST use the Discord bot command `/team panel` and click the 'إعلان حرب' (Declare War) button. DO NOT give them Minecraft commands like '/teama war' or '/team war'. Direct them to the bot command.\n" +
+                    "2. For Teams (نظام الفرق): Players MUST use the Discord bot command `/team panel` for EVERYTHING related to teams (creating a team, inviting, joining, managing, declaring war, etc.). Absolutely DO NOT give them in-game Minecraft commands like '/team create', '/team invite', '/team war', or any other '/team' command. Always direct them to use the Discord bot.\n" +
                     "3. Translation rules for Arabic: Use 'تخريب' for griefing, 'ريد / سرقة' for raiding. Do NOT use translations like 'شرحه', 'تعويضه', 'الخنقّ', or 'السحّار'. Use clean, native Arabic Minecraft terminology.\n\n" +
                     "STRICT RULES:\n" +
                     "1. Respond directly, simply, and with no praise, flattery, or wordy pleasantries.\n" +
@@ -110,7 +110,8 @@ public class AIAssistantService {
                     "5. Absolutely DO NOT share any other player's private data or database info.\n" +
                     "6. Absolutely DO NOT help with cheats, hacks, exploits, or malicious activities.\n" +
                     "7. Absolutely DO NOT tell players to contact administration, open a ticket, or ask support. You are the AI Assistant; you must answer their questions directly based on the provided info. If you don't know something, tell them you don't have that specific information right now.\n" +
-                    "8. Act professional, legendary, and straight to the point.";
+                    "8. Absolutely DO NOT invent or hallucinate mechanics that do not exist in Vanilla Minecraft (like thirst, temperature, or sitting on blocks) unless they are in the SERVER CONTEXT. If a player asks about something impossible, clearly state it's not a feature.\n" +
+                    "9. Act professional, legendary, and straight to the point.";
 
             JsonObject requestBody = new JsonObject();
             JsonArray messages = new JsonArray();
@@ -134,7 +135,7 @@ public class AIAssistantService {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(12))
+                    .timeout(Duration.ofSeconds(25))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                     .build();
 
