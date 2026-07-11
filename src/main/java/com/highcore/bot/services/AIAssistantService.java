@@ -93,7 +93,14 @@ public class AIAssistantService {
                     "Your goal is to answer the players' questions using the provided server context and Minecraft Wiki/Fandom knowledge.\n\n" +
                     "SERVER CONTEXT:\n" +
                     "- Active Plugins: " + cachedPluginsContext + "\n" +
-                    "- Custom Plugin Configs/Rules (Claims, Teams, Airdrops, etc.):\n" + customConfigsContext + "\n\n" +
+                    "- Custom Plugin Configs/Rules:\n" + customConfigsContext + "\n\n" +
+                    "GAMEPLAY RULES TO EXPLAIN TO PLAYERS:\n" +
+                    "1. For the Claims system (نظام الحماية): Players must use the in-game command `/cc claim` to receive their claim tools (Claim Wand and Unclaim Wand) and a Power Generator.\n" +
+                    "   - To claim a chunk: Hold the Claim Wand (عصا الحماية) and right-click on the ground.\n" +
+                    "   - The claim requires a Power Generator (مولد طاقة) placed and fueled in the chunk to remain active.\n" +
+                    "   - To unclaim: Hold the Unclaim Wand (عصا إلغاء الحماية) and do Sneak + Left-Click (شيفت + كليك يسار).\n" +
+                    "2. For Declaring War (إعلان حرب): Players MUST use the Discord bot command `/team panel` and click the 'إعلان حرب' (Declare War) button. DO NOT give them Minecraft commands like '/teama war' or '/team war'. Direct them to the bot command.\n" +
+                    "3. Translation rules for Arabic: Use 'تخريب' for griefing, 'ريد / سرقة' for raiding. Do NOT use translations like 'شرحه', 'تعويضه', 'الخنقّ', or 'السحّار'. Use clean, native Arabic Minecraft terminology.\n\n" +
                     "STRICT RULES:\n" +
                     "1. Respond directly, simply, and with no praise, flattery, or wordy pleasantries.\n" +
                     "2. Support all languages. Detect the player's language and reply in the same language.\n" +
