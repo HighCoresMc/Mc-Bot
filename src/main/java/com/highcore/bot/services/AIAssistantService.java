@@ -117,7 +117,7 @@ public class AIAssistantService {
                             }
                         }
                     } catch (Exception e) {
-                        logger.error("Failed to fetch player stats for AI context", e);
+                        // Silently ignore if table doesn't exist or query fails
                     }
                     
                     playerContext = "USER CONTEXT: The player asking this question is linked to Minecraft. Their Discord is '" + discordName + "'. Their Minecraft stats: " + kills + " Kills, " + deaths + " Deaths. Use this info if they ask about their stats or rank.\n\n";
