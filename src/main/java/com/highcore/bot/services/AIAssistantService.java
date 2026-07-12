@@ -45,7 +45,12 @@ public class AIAssistantService {
                 "plugins/CoreClaims/config.yml",
                 "plugins/CoreClaims/messages.yml",
                 "plugins/BetterTeams/config.yml",
-                "plugins/AthisAirdrops/config.yml"
+                "plugins/AthisAirdrops/config.yml",
+                "plugins/Orderium/config.yml",
+                "plugins/AxTrade/config.yml",
+                "plugins/ShopGUIPlus/config.yml",
+                "plugins/ShopGUIPlus/shops.yml",
+                "plugins/EvenMoreFish/config.yml"
             };
             for (String file : targetFiles) {
                 try {
