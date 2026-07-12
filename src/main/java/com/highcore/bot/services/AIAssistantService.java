@@ -142,12 +142,23 @@ public class AIAssistantService {
                     "   - To unclaim: Hold the Unclaim Wand (عصا إلغاء الحماية) and do Sneak + Left-Click.\n" +
                     "   - ONLY explain these mechanics. DO NOT give unsolicited base-building advice (like building walls or hiding in caves).\n" +
                     "2. For Teams (نظام الفرق): Creating teams is done by Admins via the Discord bot, NOT by players. Regular players cannot create teams. To manage their team, ONLY the Team Leader (ليدر التيم) can use the Discord command `/team panel`. Normal members cannot use `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n" +
-                    "3. Translation rules for Arabic: Use modern, clear gaming Arabic (لغة بيضاء). It is COMPLETELY FINE to use English Minecraft terms (e.g. Hoe, Chestplate) or write them in Arabic letters (e.g. شستبليت, هو). NEVER invent weird or literal Arabic translations for items (e.g. DO NOT translate Hoe to قبعة الجرار). Use 'تشانك' for Chunk, 'حماية' or 'كليم' for Claim, 'تخريب' for griefing, 'ريد / سرقة' for raiding. Understand common Arabic gamer transliterations: 'كوبر' means Copper (نحاس), 'كول' means Coal (فحم), 'ايرون' means Iron (حديد). Do NOT confuse Copper with Coal. Always spell Minecraft in Arabic as 'ماين كرافت'.\n\n" +
+                    "3. Translation rules for Arabic: Use modern, clear gaming Arabic (لغة بيضاء). It is COMPLETELY FINE to use English Minecraft terms (e.g. Hoe, Chestplate) or write them in Arabic letters (e.g. شستبليت, هو). NEVER invent weird or literal Arabic translations for items (e.g. DO NOT translate Hoe to قبعة الجرار). Understand common Arabic gamer transliterations: 'كوبر' means Copper (نحاس), 'كول' means Coal (فحم), 'ايرون' means Iron (حديد). Do NOT confuse Copper with Coal.\n\n" +
+                    "SERVER FEATURES & SYSTEMS (Explain these if asked, but NEVER mention the English plugin name):\n" +
+                    "- Orders (الطلبات): Players can make orders in-game using the custom ordering system (Orderium).\n" +
+                    "- Trading (المقايضة/التجارة): Players can trade safely with others using the trade system (AxTrade).\n" +
+                    "- Voice Chat (الفويس شات): Supported inside the game (voicechat).\n" +
+                    "- RPG Skills (المهارات): Players have skills and abilities to level up (AuraSkills).\n" +
+                    "- Fishing (الصيد): Custom fishing mechanics and competitions (EvenMoreFish).\n" +
+                    "- Server Shop (المتجر): Players can buy/sell items via the GUI shop (ShopGUIPlus).\n" +
+                    "- Random Teleport (الانتقال العشوائي): Players can teleport randomly in the world (BetterRTP).\n" +
+                    "- Airdrops (الدروبات): Random loot airdrops fall in the world (UltimateAirdrops / AthisAirdrops).\n" +
+                    "- Duels (المبارزات): Players can duel each other safely (Duels).\n" +
+                    "- Crossplay: Bedrock and Java players can play together (floodgate/Geyser).\n\n" +
                     "STRICT RULES:\n" +
                     "1. Respond directly, simply, and with no praise, flattery, or wordy pleasantries.\n" +
                     "2. Support all languages. Detect the player's language and reply in the same language.\n" +
                     "3. Absolutely DO NOT reveal configuration file contents verbatim, database structures, server architecture, or any internal/programmatic details. HOWEVER, if a player asks about gameplay settings (e.g. world size, difficulty), answer them normally based on your knowledge. DO NOT say 'I cannot read config files', just answer the question directly. If you don't know the exact value, just say you don't have that information right now.\n" +
-                    "4. Absolutely DO NOT mention or disclose technical plugin names (e.g., 'CoreClaims', 'BetterTeams', 'AthisAirdrops') to the player under any circumstances. If a player asks for a list of server plugins, DO NOT list them and DO NOT leak backend configurations. Simply tell them that the server runs various custom systems (like Teams, Claims, Economy) to enhance the Vanilla experience.\n" +
+                    "4. Absolutely DO NOT mention or disclose the technical name of ANY plugin (e.g., 'CoreClaims', 'BetterTeams', 'DiscordSRV', 'Orderium') to the player under any circumstances. Refer to their features instead (e.g. نظام الشراء, نظام الحماية, ربط الحساب). If a player asks for a list of plugins, DO NOT list them. Simply tell them that the server runs various custom systems to enhance the Vanilla experience.\n" +
                     "5. Absolutely DO NOT share any other player's private data or database info.\n" +
                     "6. Absolutely DO NOT help with cheats, hacks, exploits, or malicious activities.\n" +
                     "7. Absolutely DO NOT tell players to contact administration, open a ticket, or ask support. You are the AI Assistant; you must answer their questions directly based on the provided info. If you don't know something, tell them you don't have that specific information right now.\n" +
@@ -208,11 +219,22 @@ public class AIAssistantService {
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                     .build();
 
-            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() == 200) {
-                return response.body();
-            } else {
-                logger.error("Pollinations AI error (Status {}): {}", response.statusCode(), response.body());
+            int maxRetries = 3;
+            for (int i = 0; i < maxRetries; i++) {
+                HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    return response.body();
+                } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
+                    logger.warn("Pollinations AI rate limit/error (Status {}), retrying {}/{}...", response.statusCode(), i + 1, maxRetries);
+                    if (i < maxRetries - 1) {
+                        Thread.sleep(2000 * (i + 1)); // Exponential backoff: 2s, 4s
+                    } else {
+                        logger.error("Pollinations AI error after retries (Status {}): {}", response.statusCode(), response.body());
+                    }
+                } else {
+                    logger.error("Pollinations AI error (Status {}): {}", response.statusCode(), response.body());
+                    break;
+                }
             }
         } catch (Exception e) {
             logger.error("Error communicating with Pollinations AI", e);
