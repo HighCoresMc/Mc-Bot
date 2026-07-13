@@ -22,7 +22,7 @@ import java.util.function.Consumer;
 public class PterodactylService {
     private static final Logger logger = LoggerFactory.getLogger(PterodactylService.class);
     private static final Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
-    private static final String PANEL_URL = dotenv.get("PTERODACTYL_URL", "https://panel.highcores.com");
+    private static final String PANEL_URL = dotenv.get("PTERODACTYL_URL", "https://panel.highcores.co");
     private static final String API_KEY = dotenv.get("PTERODACTYL_API_KEY");
     private static final String SERVER_ID = dotenv.get("PTERODACTYL_SERVER_ID", "190e33f0");
     private static final HttpClient HTTP_CLIENT = HttpClient.newHttpClient();

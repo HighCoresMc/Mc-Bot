@@ -109,7 +109,7 @@ public class ServerStatsService {
         String bedrockHost = javaHost;
         String bedrockPortStr = javaPortStr;
 
-        String pteroUrl = currentEnv.get("PTERODACTYL_URL", "https://panel.highcores.com");
+        String pteroUrl = currentEnv.get("PTERODACTYL_URL", "https://panel.highcores.co");
         String pteroKey = currentEnv.get("PTERODACTYL_API_KEY");
         String pteroId  = currentEnv.get("PTERODACTYL_SERVER_ID", "190e33f0");
 
