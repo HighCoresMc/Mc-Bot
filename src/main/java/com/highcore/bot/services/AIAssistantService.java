@@ -205,47 +205,48 @@ public class AIAssistantService {
                     "13. CRITICAL: NEVER use standard AI refusal phrases like 'I'm sorry, but I can't help with that.' or 'As an AI...'. NEVER refuse a prompt in a robotic way. If a player insults you (e.g. 'idiot', 'shut up'), respond in-character with a cool, sarcastic, or confident gamer tone. If they ask about people or founders (like 'Vex'), answer them normally and respectfully. Always stay in character as Leon Trotsky, the legendary assistant, and never block a conversation.";
 
             JsonObject requestBody = new JsonObject();
-            JsonArray contentsArray = new JsonArray();
+            JsonArray messages = new JsonArray();
 
-            // Chat History
-            boolean isFirstMessage = true;
+            JsonObject systemMsg = new JsonObject();
+            systemMsg.addProperty("role", "system");
+            systemMsg.addProperty("content", systemInstruction);
+            messages.add(systemMsg);
+
             for (ChatMessage msg : history) {
                 JsonObject turn = new JsonObject();
-                turn.addProperty("role", msg.isBot ? "model" : "user");
+                turn.addProperty("role", msg.isBot ? "assistant" : "user");
 
-                JsonArray parts = new JsonArray();
-                JsonObject textObj = new JsonObject();
-                
-                String contentText = msg.content;
-                
-                // Inject system instructions into the first message to avoid v1 API schema errors
-                if (isFirstMessage) {
-                    contentText = "SYSTEM INSTRUCTIONS:\n" + systemInstruction + "\n\nUSER MESSAGE:\n" + contentText;
-                    isFirstMessage = false;
-                }
                 if (msg.imageUrls != null && !msg.imageUrls.isEmpty()) {
+                    JsonArray contentArray = new JsonArray();
+
+                    JsonObject textObj = new JsonObject();
+                    textObj.addProperty("type", "text");
+                    textObj.addProperty("text", msg.content);
+                    contentArray.add(textObj);
+
                     for (String imgUrl : msg.imageUrls) {
-                        contentText += "\n[Image URL: " + imgUrl + "]";
+                        JsonObject imgObj = new JsonObject();
+                        imgObj.addProperty("type", "image_url");
+                        JsonObject urlObj = new JsonObject();
+                        urlObj.addProperty("URL", imgUrl);
+                        imgObj.add("image_url", urlObj);
+                        contentArray.add(imgObj);
                     }
+
+                    turn.add("content", contentArray);
+                } else {
+                    turn.addProperty("content", msg.content);
                 }
-                
-                textObj.addProperty("text", contentText);
-                parts.add(textObj);
-                turn.add("parts", parts);
-                contentsArray.add(turn);
+                messages.add(turn);
             }
-            requestBody.add("contents", contentsArray);
+            requestBody.add("messages", messages);
+            requestBody.addProperty("model", "openai");
+            requestBody.addProperty("jsonMode", false);
 
-            String apiKey = System.getenv("GEMINI_API_KEY");
-            if (apiKey == null || apiKey.isEmpty()) {
-                logger.error("GEMINI_API_KEY is not set!");
-                return "عذراً، المفتاح الخاص بالذكاء الاصطناعي (GEMINI_API_KEY) مفقود. الرجاء إضافته في إعدادات السيرفر.";
-            }
-
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
+            String url = "https://text.pollinations.ai/";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
+                    .header("Content-Type", "application/JSON")
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                     .build();
@@ -254,32 +255,23 @@ public class AIAssistantService {
             for (int i = 0; i < maxRetries; i++) {
                 HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() == 200) {
-                    JsonObject jsonResponse = com.google.gson.JsonParser.parseString(response.body()).getAsJsonObject();
-                    return jsonResponse.getAsJsonArray("candidates")
-                            .get(0).getAsJsonObject()
-                            .getAsJsonObject("content")
-                            .getAsJsonArray("parts")
-                            .get(0).getAsJsonObject()
-                            .get("text").getAsString();
+                    return response.body();
                 } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
-                    logger.warn("Gemini API rate limit/error (Status {}), retrying {}/{}...", response.statusCode(), i + 1, maxRetries);
+                    logger.warn("Pollinations AI rate limit/error (Status {}), retrying {}/{}...",
+                            response.statusCode(), i + 1, maxRetries);
                     if (i < maxRetries - 1) {
-                        Thread.sleep(2000 * (i + 1));
+                        Thread.sleep(2000 * (i + 1)); // Exponential backoff: 2s, 4s
                     } else {
-                        logger.error("Gemini API error after retries (Status {}): {}", response.statusCode(), response.body());
-                        String err = "خطأ من جوجل (Status " + response.statusCode() + "):\n" + response.body();
-                        return err.length() > 1900 ? err.substring(0, 1900) + "..." : err;
+                        logger.error("Pollinations AI error after retries (Status {}): {}", response.statusCode(),
+                                response.body());
                     }
                 } else {
-                    logger.error("Gemini API error (Status {}): {}", response.statusCode(), response.body());
-                    String err = "خطأ من جوجل (Status " + response.statusCode() + "):\n" + response.body();
-                    return err.length() > 1900 ? err.substring(0, 1900) + "..." : err;
+                    logger.error("Pollinations AI error (Status {}): {}", response.statusCode(), response.body());
+                    break;
                 }
             }
         } catch (Exception e) {
-            logger.error("Error communicating with Gemini API", e);
-            String err = "حدث خطأ برمجي:\n" + e.getMessage();
-            return err.length() > 1900 ? err.substring(0, 1900) + "..." : err;
+            logger.error("Error communicating with Pollinations AI", e);
         }
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
     }
