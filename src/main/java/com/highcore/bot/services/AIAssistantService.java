@@ -207,16 +207,8 @@ public class AIAssistantService {
             JsonObject requestBody = new JsonObject();
             JsonArray contentsArray = new JsonArray();
 
-            // System Instruction
-            JsonObject systemInstructionObj = new JsonObject();
-            JsonArray systemParts = new JsonArray();
-            JsonObject systemText = new JsonObject();
-            systemText.addProperty("text", systemInstruction);
-            systemParts.add(systemText);
-            systemInstructionObj.add("parts", systemParts);
-            requestBody.add("systemInstruction", systemInstructionObj);
-
             // Chat History
+            boolean isFirstMessage = true;
             for (ChatMessage msg : history) {
                 JsonObject turn = new JsonObject();
                 turn.addProperty("role", msg.isBot ? "model" : "user");
@@ -225,6 +217,12 @@ public class AIAssistantService {
                 JsonObject textObj = new JsonObject();
                 
                 String contentText = msg.content;
+                
+                // Inject system instructions into the first message to avoid v1 API schema errors
+                if (isFirstMessage) {
+                    contentText = "SYSTEM INSTRUCTIONS:\n" + systemInstruction + "\n\nUSER MESSAGE:\n" + contentText;
+                    isFirstMessage = false;
+                }
                 if (msg.imageUrls != null && !msg.imageUrls.isEmpty()) {
                     for (String imgUrl : msg.imageUrls) {
                         contentText += "\n[Image URL: " + imgUrl + "]";
