@@ -244,7 +244,7 @@ public class AIAssistantService {
                 return "عذراً، المفتاح الخاص بالذكاء الاصطناعي (GEMINI_API_KEY) مفقود. الرجاء إضافته في إعدادات السيرفر.";
             }
 
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=" + apiKey;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
