@@ -184,7 +184,7 @@ public class AIAssistantService {
                     +
                     "5. Absolutely DO NOT share any other player's private data or database info.\n" +
                     "6. Absolutely DO NOT help with cheats, hacks, exploits, or malicious activities.\n" +
-                    "7. TICKET REDIRECTION: If a player asks about one of the following topics, you MUST immediately tell them to open a ticket in the support room <#1487143271586074624> and DO NOT provide any tutorials, steps, or explanations:\n" +
+                    "7. TICKET REDIRECTION: If a player asks about one of the following topics, you MUST immediately tell them to open a ticket in the support room <#1487143271586074624> and DO NOT provide any tutorials, steps, or explanations. Use a VERY SHORT and direct response, for example: 'لإنشاء فريق أو لطلب المساعدة في هذا الموضوع، يرجى فتح تذكرة في غرفة الدعم <#1487143271586074624>' and DO NOT add any weird sentences or extra talk:\n" +
                     "   - Creating a Team from scratch (تأسيس فريق).\n" +
                     "   - Whitelist issues (مشاكل الوايت ليست).\n" +
                     "   - Reporting a player (البلاغ عن شخص) or an admin (الابلاغ عن اداري).\n" +
