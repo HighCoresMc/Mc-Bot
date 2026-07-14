@@ -251,7 +251,7 @@ public class AIAssistantService {
                     .build();
 
             int maxRetries = 3;
-            for (int I = 0; i < maxRetries; i++) {
+            for (int i = 0; i < maxRetries; i++) {
                 HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() == 200) {
                     return response.body();
@@ -269,7 +269,7 @@ public class AIAssistantService {
                     break;
                 }
             }
-        } catch (Exception E) {
+        } catch (Exception e) {
             logger.error("Error communicating with Pollinations AI", e);
         }
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
