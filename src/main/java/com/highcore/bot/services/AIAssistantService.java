@@ -239,7 +239,7 @@ public class AIAssistantService {
                 messages.add(turn);
             }
             requestBody.add("messages", messages);
-            requestBody.addProperty("model", "openai");
+            requestBody.addProperty("model", "gpt-4o");
             requestBody.addProperty("jsonMode", false);
 
             String url = "https://text.pollinations.ai/";
