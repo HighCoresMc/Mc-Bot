@@ -24,7 +24,7 @@ public class DbTest {
             rs = stmt.executeQuery("SELECT * FROM generators");
             count = 0;
             while(rs.next()) {
-                System.out.println("Gen: " + rs.getString("team_name") + " ID: " + rs.getInt("id") + " Active: " + rs.getBoolean("is_active"));
+                System.out.println("Gen: " + rs.getString("team_name") + " ID: " + rs.getInt("ID") + " Active: " + rs.getBoolean("is_active"));
                 count++;
             }
             System.out.println("Total generators: " + count);
@@ -32,3 +32,4 @@ public class DbTest {
         System.exit(0);
     }
 }
+
