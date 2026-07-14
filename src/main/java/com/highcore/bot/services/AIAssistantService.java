@@ -267,16 +267,19 @@ public class AIAssistantService {
                         Thread.sleep(2000 * (i + 1));
                     } else {
                         logger.error("Gemini API error after retries (Status {}): {}", response.statusCode(), response.body());
-                        return "خطأ من جوجل (Status " + response.statusCode() + "):\n" + response.body();
+                        String err = "خطأ من جوجل (Status " + response.statusCode() + "):\n" + response.body();
+                        return err.length() > 1900 ? err.substring(0, 1900) + "..." : err;
                     }
                 } else {
                     logger.error("Gemini API error (Status {}): {}", response.statusCode(), response.body());
-                    return "خطأ من جوجل (Status " + response.statusCode() + "):\n" + response.body();
+                    String err = "خطأ من جوجل (Status " + response.statusCode() + "):\n" + response.body();
+                    return err.length() > 1900 ? err.substring(0, 1900) + "..." : err;
                 }
             }
         } catch (Exception e) {
             logger.error("Error communicating with Gemini API", e);
-            return "حدث خطأ برمجي:\n" + e.getMessage();
+            String err = "حدث خطأ برمجي:\n" + e.getMessage();
+            return err.length() > 1900 ? err.substring(0, 1900) + "..." : err;
         }
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
     }
