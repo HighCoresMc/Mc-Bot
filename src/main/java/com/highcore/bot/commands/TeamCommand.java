@@ -266,7 +266,7 @@ public class TeamCommand extends ListenerAdapter {
         }
 
         Container container = EmbedUtil.createPanel("قائمة صدارة الفرق", sb.toString());
-        event.getHook().editOriginalComponents(container).queue();
+        event.getHook().editOriginalComponents(container).useComponentsV2(true).queue();
     }
 
     // ===================================================================
@@ -1263,8 +1263,7 @@ public class TeamCommand extends ListenerAdapter {
             String lMc1 = getMcName(state.firstLeaderId);
             String lMc2 = getMcName(state.secondLeaderId);
             if (lMc1 != null && lMc2 != null) {
-                ptero.sendConsoleCommand("execute as " + lMc1 + " run team ally " + state.targetTeamName);
-                ptero.sendConsoleCommand("execute as " + lMc2 + " run team ally " + state.requesterTeamName);
+                ptero.sendConsoleCommand("teama ally " + state.requesterTeamName + " " + state.targetTeamName);
             }
             com.highcore.bot.services.TeamLogService.logEvent(state.requesterTeamName, "🤝 تحالف جديد", "تم عقد تحالف رسمي مع تيم " + state.targetTeamName, java.awt.Color.GREEN);
             com.highcore.bot.services.TeamLogService.logEvent(state.targetTeamName, "🤝 تحالف جديد", "تم عقد تحالف رسمي مع تيم " + state.requesterTeamName, java.awt.Color.GREEN);
@@ -1287,25 +1286,15 @@ public class TeamCommand extends ListenerAdapter {
         Role requesterRole = requester.roleId != null ? guild.getRoleById(requester.roleId) : null;
         Role targetRole = target.roleId != null ? guild.getRoleById(target.roleId) : null;
 
-        // كاتيقوري التيم الأول: يمنح للتيم الثاني صلاحية القراءة
-        if (requester.categoryId != null && targetRole != null) {
+        if (requester.categoryId != null && requesterRole != null && targetRole != null) {
             Category cat = guild.getCategoryById(requester.categoryId);
-            if (cat != null)
-                cat.upsertPermissionOverride(targetRole)
-                        .grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY)
-                        .deny(Permission.MESSAGE_SEND, Permission.VOICE_CONNECT)
-                        .queue(null, e -> {
-                        });
-        }
-        // كاتيقوري التيم الثاني: يمنح للتيم الأول صلاحية القراءة
-        if (target.categoryId != null && requesterRole != null) {
-            Category cat = guild.getCategoryById(target.categoryId);
-            if (cat != null)
-                cat.upsertPermissionOverride(requesterRole)
-                        .grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_HISTORY)
-                        .deny(Permission.MESSAGE_SEND, Permission.VOICE_CONNECT)
-                        .queue(null, e -> {
-                        });
+            if (cat != null) {
+                cat.createTextChannel("💬・allince・chat")
+                        .addPermissionOverride(guild.getPublicRole(), 0L, Permission.VIEW_CHANNEL.getRawValue())
+                        .addPermissionOverride(requesterRole, Permission.VIEW_CHANNEL.getRawValue() | Permission.MESSAGE_SEND.getRawValue() | Permission.MESSAGE_HISTORY.getRawValue(), 0L)
+                        .addPermissionOverride(targetRole, Permission.VIEW_CHANNEL.getRawValue() | Permission.MESSAGE_SEND.getRawValue() | Permission.MESSAGE_HISTORY.getRawValue(), 0L)
+                        .queue(null, e -> {});
+            }
         }
     }
 
@@ -1738,6 +1727,42 @@ public class TeamCommand extends ListenerAdapter {
                 annCh.deleteMessageById(td.announcementMessageId).queue(null, e -> {
                 });
         }
+        
+        // Delete alliance messages and shared rooms
+        TextChannel allyCh = guild.getTextChannelById(ALLIANCE_CHANNEL_ID);
+        if (allyCh != null) {
+            allyCh.getIterableHistory().takeAsync(50).thenAccept(messages -> {
+                for (net.dv8tion.jda.api.entities.Message msg : messages) {
+                    if (msg.getAuthor().getId().equals(event.getJDA().getSelfUser().getId()) && !msg.getEmbeds().isEmpty()) {
+                        continue; // skip embeds if they are not alliance. Wait, alliance messages use ComponentsV2.
+                    }
+                    if (msg.getAuthor().getId().equals(event.getJDA().getSelfUser().getId())) {
+                        String raw = msg.getContentRaw();
+                        if (raw.isEmpty() && !msg.getComponents().isEmpty()) {
+                            // Extract text from components or just check if teamName is in the message string representation
+                            if (msg.toString().contains(td.name)) {
+                                msg.delete().queue(null, e -> {});
+                            }
+                        } else if (raw.contains(td.name) && raw.contains("إعلان تحالف رسمي")) {
+                            msg.delete().queue(null, e -> {});
+                        }
+                    }
+                }
+            });
+        }
+        String allyChannelName1 = "💬-allince-chat";
+        String allyChannelName2 = "💬・allince・chat";
+        for (TextChannel ch : guild.getTextChannels()) {
+            if (ch.getName().equals(allyChannelName1) || ch.getName().equals(allyChannelName2)) {
+                // If it's the shared room, delete it. But we should only delete it if the team being deleted had access to it, 
+                // or if it's in their category. Actually, since we delete the category anyway, it's already deleted if it's in their category.
+                // If they are the target team, we can't easily find the other team's category, so we just delete it if they have permissions.
+                net.dv8tion.jda.api.entities.PermissionOverride override = ch.getPermissionOverride(guild.getRoleById(td.roleId));
+                if (override != null || (td.categoryId != null && ch.getParentCategoryId() != null && ch.getParentCategoryId().equals(td.categoryId))) {
+                    ch.delete().queue(null, e -> {});
+                }
+            }
+        }
         String deleteMsg = "تم حذف فريقك **" + td.name + "**\n**السبب:** " + reason;
         // DM للليدر
         if (td.leaderId != null)
@@ -1832,10 +1857,19 @@ public class TeamCommand extends ListenerAdapter {
     }
 
     private void deleteTeamFromDb(int teamId, String teamName) {
-        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
-                PreparedStatement ps = conn.prepareStatement("DELETE FROM teams WHERE id = ?")) {
-            ps.setInt(1, teamId);
-            ps.executeUpdate();
+        try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
+            try (PreparedStatement ps = conn.prepareStatement("DELETE FROM teams WHERE id = ?")) {
+                ps.setInt(1, teamId);
+                ps.executeUpdate();
+            }
+            try (PreparedStatement ps2 = conn.prepareStatement("DELETE FROM claims WHERE team_name = ?")) {
+                ps2.setString(1, teamName);
+                ps2.executeUpdate();
+            }
+            try (PreparedStatement ps3 = conn.prepareStatement("DELETE FROM generators WHERE team_name = ?")) {
+                ps3.setString(1, teamName);
+                ps3.executeUpdate();
+            }
             com.highcore.bot.database.SupabaseManager supa = LeonTrotskyBot.getSupabaseManager();
             if (supa != null)
                 supa.deleteTeam(teamName);

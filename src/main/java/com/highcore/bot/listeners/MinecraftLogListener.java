@@ -24,10 +24,10 @@ public class MinecraftLogListener extends ListenerAdapter {
     private static final Pattern SERVER_START_PATTERN = Pattern.compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
 
     // Section: Team Logs
-    private static final Pattern SABOTAGE_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Sabotage\\] (.*)");
-    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile(".*?\\[ClaimsCore-SabotageSuccess\\] (.*?) (\\d+)");
+    private static final Pattern SABOTAGE_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Sabotage\\] (.*?) (\\d+)");
+    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile(".*?\\[ClaimsCore-SabotageSuccess\\] (.*?) (\\d+) (\\d+)");
     private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile(".*?\\[ClaimsCore-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
-    private static final Pattern FUEL_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Fuel\\] \\[(.*?)\\] \\d+:(\\d+)");
+    private static final Pattern FUEL_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Fuel\\] \\[(.*?)\\] (\\d+):(\\d+)");
     private static final Pattern LEVELUP_PATTERN = Pattern.compile(".*?\\[ClaimsCore-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
     private static final Pattern TEAM_LOG_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Log\\] \\[(.*?)\\] (.*?):(.*)");
 
@@ -109,21 +109,23 @@ public class MinecraftLogListener extends ListenerAdapter {
         }
 
         // Section: Check for Sabotage
-        Matcher saboMatcher = SABOTAGE_PATTERN.matcher(clean);
-        if (saboMatcher.find()) {
-            String teamName = saboMatcher.group(1).trim();
+        Matcher sabotageMatcher = SABOTAGE_PATTERN.matcher(clean);
+        if (sabotageMatcher.find()) {
+            String teamName = sabotageMatcher.group(1).trim();
+            String genId = sabotageMatcher.group(2).trim();
             if (!isInit) {
-                com.highcore.bot.services.DiscordTeamAlertService.sendSabotageAlert(teamName);
+                com.highcore.bot.services.DiscordTeamAlertService.sendSabotageAlert(teamName, genId);
             }
             return;
         }
 
-        Matcher saboSuccessMatcher = SABOTAGE_SUCCESS_PATTERN.matcher(clean);
-        if (saboSuccessMatcher.find()) {
-            String teamName = saboSuccessMatcher.group(1).trim();
-            String duration = saboSuccessMatcher.group(2).trim();
+        Matcher sabotageSuccessMatcher = SABOTAGE_SUCCESS_PATTERN.matcher(clean);
+        if (sabotageSuccessMatcher.find()) {
+            String teamName = sabotageSuccessMatcher.group(1).trim();
+            String genId = sabotageSuccessMatcher.group(2).trim();
+            String duration = sabotageSuccessMatcher.group(3).trim();
             if (!isInit) {
-                com.highcore.bot.services.DiscordTeamAlertService.sendSabotageSuccessAlert(teamName, duration);
+                com.highcore.bot.services.DiscordTeamAlertService.sendSabotageSuccessAlert(teamName, genId, duration);
             }
             return;
         }
@@ -132,11 +134,13 @@ public class MinecraftLogListener extends ListenerAdapter {
         Matcher fuelMatcher = FUEL_PATTERN.matcher(clean);
         if (fuelMatcher.find()) {
             String teamName = fuelMatcher.group(1).trim();
-            String percent = fuelMatcher.group(2).trim();
-            System.out.println("[DEBUG] Matched Fuel: Team=" + teamName + ", Percent=" + percent);
-            if (!isInit) {
+            String genId = fuelMatcher.group(2).trim();
+            String percent = fuelMatcher.group(3).trim();
+            System.out.println("[DEBUG] Matched Fuel: Team=" + teamName + ", Gen=" + genId + ", Percent=" + percent);
+            
+            if (!isInit && (percent.equals("0") || percent.equals("10") || percent.equals("30") || percent.equals("7"))) {
                 System.out.println("[DEBUG] Sending fuel alert for " + teamName + "...");
-                com.highcore.bot.services.DiscordTeamAlertService.sendFuelAlert(teamName, percent);
+                com.highcore.bot.services.DiscordTeamAlertService.sendFuelAlert(teamName, genId, percent);
             }
             return;
         }

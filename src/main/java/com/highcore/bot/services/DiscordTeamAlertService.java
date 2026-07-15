@@ -10,7 +10,7 @@ import java.sql.ResultSet;
 
 public class DiscordTeamAlertService {
 
-    public static void sendSabotageAlert(String teamName) {
+    public static void sendSabotageAlert(String teamName, String genId) {
         String query = "SELECT text_channel_id, role_id FROM teams WHERE name = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
@@ -27,8 +27,8 @@ public class DiscordTeamAlertService {
                     if (channel != null) {
                         String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
                         String title = "حالة طوارئ: هجوم على المولد!";
-                        String body = mention + "\n> **المولد الخاص بكم يتعرض لهجوم حالياً (Sabotage)!**\n> يرجى التوجه للدفاع عنه فوراً!";
-                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
+                        String body = mention + "\n> **المولد رقم `#" + genId + "` الخاص بكم يتعرض لهجوم حالياً (Sabotage)!**\n> يرجى التوجه للدفاع عنه فوراً!";
+                        channel.sendMessage(new MessageCreateBuilder().setContent(mention.isEmpty() ? " " : mention).setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
@@ -38,7 +38,7 @@ public class DiscordTeamAlertService {
         }
     }
 
-    public static void sendSabotageSuccessAlert(String teamName, String duration) {
+    public static void sendSabotageSuccessAlert(String teamName, String genId, String duration) {
         String query = "SELECT text_channel_id, role_id FROM teams WHERE name = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
@@ -55,8 +55,8 @@ public class DiscordTeamAlertService {
                     if (channel != null) {
                         String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
                         String title = "تم اختراق المولد!";
-                        String body = mention + "\n> **تم اختراق المولد بنجاح من قبل الأعداء!**\n> أراضيكم الآن مكشوفة وقابلة للتدمير لمدة `" + duration + "` دقائق!";
-                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
+                        String body = mention + "\n> **تم اختراق المولد رقم `#" + genId + "` بنجاح من قبل الأعداء!**\n> أراضيكم الآن مكشوفة وقابلة للتدمير لمدة `" + duration + "` دقائق!";
+                        channel.sendMessage(new MessageCreateBuilder().setContent(mention.isEmpty() ? " " : mention).setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
@@ -84,7 +84,7 @@ public class DiscordTeamAlertService {
                         String mention = (roleId != null && !roleId.isEmpty()) ? "<@&" + roleId + "> " : "";
                         String title = "ترقية مستوى التيم";
                         String body = mention + "\n> **تم رفع مستوى التيم إلى اللفل `" + newLevel + "` بنجاح!**\n> حصلتم على **`" + bonusClaims + "`** أراضي إضافية!";
-                        channel.sendMessage(new MessageCreateBuilder().setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
+                        channel.sendMessage(new MessageCreateBuilder().setContent(mention.isEmpty() ? " " : mention).setComponents(EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
@@ -118,7 +118,7 @@ public class DiscordTeamAlertService {
         }
     }
 
-    public static void sendFuelAlert(String teamName, String percent) {
+    public static void sendFuelAlert(String teamName, String genId, String percent) {
         String query = "SELECT text_channel_id, role_id FROM teams WHERE name = ?";
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
              PreparedStatement ps = conn.prepareStatement(query)) {
@@ -137,11 +137,11 @@ public class DiscordTeamAlertService {
                         String title = percent.equals("0") ? "تحذير: نفاذ طاقة المولد!" : "تنبيه: انخفاض طاقة المولد";
                         String body;
                         if (percent.equals("0")) {
-                            body = mention + "\n> **أحد مولداتكم قد نفذت منه الطاقة (Fuel) تماماً!**\n> المولد متوقف حالياً، يرجى تزويده بالطاقة لاستمرار الحماية.";
+                            body = mention + "\n> **المولد رقم `#" + genId + "` قد نفذت منه الطاقة (Fuel) تماماً!**\n> المولد متوقف حالياً، يرجى تزويده بالطاقة لاستمرار الحماية.";
                         } else {
-                            body = mention + "\n> **طاقة أحد المولدات وصلت إلى " + percent + "% !**\n> يرجى تزويده بالطاقة قبل توقفه.";
+                            body = mention + "\n> **طاقة المولد رقم `#" + genId + "` وصلت إلى " + percent + "% !**\n> يرجى تزويده بالطاقة قبل توقفه.";
                         }
-                        channel.sendMessage(new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder().setComponents(com.highcore.bot.utils.EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
+                        channel.sendMessage(new net.dv8tion.jda.api.utils.messages.MessageCreateBuilder().setContent(mention.isEmpty() ? " " : mention).setComponents(com.highcore.bot.utils.EmbedUtil.createPanel(title, body)).useComponentsV2(true).build()).queue();
                     }
                 }
             }
