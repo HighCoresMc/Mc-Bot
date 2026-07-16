@@ -163,7 +163,7 @@ public class AIAssistantService {
                     playerContext +
                     "SERVER CONTEXT:\n" +
                     "- Active Plugins: " + cachedPluginsContext + "\n" +
-                    "- Custom Plugin Configs/Rules:\n" + customConfigsContext + "\n\n" +
+                    "- Custom Plugin Configs/Rules:\n" + (customConfigsContext.length() > 8000 ? customConfigsContext.substring(0, 8000) + "\n...[truncated]" : customConfigsContext) + "\n\n" +
                     "GAMEPLAY RULES TO EXPLAIN TO PLAYERS:\n" +
                     "1. For the Claims system (نظام الحماية): Players MUST be in a Team (فريق) to claim land. Once in a team, they use the in-game command `/cc claim` to receive their claim tools and a Power Generator.\n"
                     +
