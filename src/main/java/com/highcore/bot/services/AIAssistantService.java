@@ -99,6 +99,24 @@ public class AIAssistantService {
     // ASK GEMINI
     public String askGemini(List<ChatMessage> history, String discordId, String discordName) {
         try {
+            String roleStatus = "The user DOES NOT HAVE the Whitelist role.";
+            try {
+                for (net.dv8tion.jda.api.entities.Guild guild : LeonTrotskyBot.getJda().getGuilds()) {
+                    net.dv8tion.jda.api.entities.Member member = guild.getMemberById(discordId);
+                    if (member != null) {
+                        for (net.dv8tion.jda.api.entities.Role role : member.getRoles()) {
+                            if (role.getId().equals("1499355941752012900")) {
+                                roleStatus = "The user HAS the Whitelist role.";
+                                break;
+                            }
+                        }
+                        if (roleStatus.contains("HAS")) break;
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("Failed to check whitelist role", e);
+            }
+
             String playerContext = "";
             try {
                 DiscordSRVManager discordSRVManager = new DiscordSRVManager("");
@@ -128,9 +146,9 @@ public class AIAssistantService {
 
                     playerContext = "USER CONTEXT: The player asking this question is linked to Minecraft. Their Discord is '"
                             + discordName + "'. Their Minecraft stats: " + kills + " Kills, " + deaths
-                            + " Deaths. Use this info if they ask about their stats or rank.\n\n";
+                            + " Deaths. Use this info if they ask about their stats or rank. " + roleStatus + "\n\n";
                 } else {
-                    playerContext = "USER CONTEXT: The player asking this question is NOT linked to a Minecraft account via DiscordSRV. Tell them to link their account if they ask about their personal stats.\n\n";
+                    playerContext = "USER CONTEXT: The player asking this question is NOT linked to a Minecraft account via DiscordSRV. Tell them to link their account if they ask about their personal stats. " + roleStatus + "\n\n";
                 }
             } catch (Exception e) {
                 logger.error("Failed to build player context for AI", e);
@@ -158,7 +176,7 @@ public class AIAssistantService {
                     "2. For Teams (نظام الفرق): Creating teams is done by Admins via the Discord bot, NOT by players. Regular players cannot create teams. To manage their team, ONLY the Team Leader (ليدر التيم) can use the Discord command `/team panel`. Normal members cannot use `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n"
                     +
                     "3. Translation and Tone rules for Arabic:\n" +
-                    "   - ALWAYS speak in a natural, friendly, modern gamer tone (لغة بيضاء/لهجة مفهومة). DO NOT speak like a robotic formal dictionary (e.g. DO NOT say 'عذراً للخلط، إن ما يُستحسن فعله هو'). Be casual, cool, and direct.\n"
+                    "   - ALWAYS speak in a completely natural, casual Gulf/Saudi gamer dialect (لهجة خليجية/سعودية عادية جداً). DO NOT speak in formal Arabic (الفصحى) AT ALL. Speak exactly like a normal Arab gamer chatting on Discord (e.g. 'هلا والله'، 'شوف يالغالي'، 'تقدر تسوي كذا'). NEVER use weird poetic or robotic translations.\n"
                     +
                     "   - NEVER translate 'Chestplate' to 'صناديق' (Chests)! A Chestplate is 'درع صدر' or 'شست بليت'. A Chest is 'صندوق'. DO NOT confuse them.\n"
                     +
@@ -222,11 +240,15 @@ public class AIAssistantService {
                     +
                     "14. When a user asks how to join or enter the server (كيف اقدر ادخل السيرفر):\n"
                     +
-                    "    - If they have the Whitelist role (1499355941752012900), tell them to check the room <#1488279212786843850> and follow the steps there to join.\n"
+                    "    - Check the USER CONTEXT to see if they have the Whitelist role.\n"
                     +
-                    "    - If they DO NOT have the Whitelist role (1499355941752012900), tell them to open a Whitelist ticket, write the requirements, wait to receive the role, and then go to room <#1488279212786843850> and follow the steps to enter.\n"
+                    "    - If they HAVE the Whitelist role, tell them to check the room <#1488279212786843850> and follow the steps there to join.\n"
                     +
-                    "    - If they have any problems during the joining process, you must stay with them and help them step-by-step until the end. DO NOT direct them to open a technical support ticket unless they absolutely cannot solve the issue or if there is a server malfunction.";
+                    "    - If they DO NOT HAVE the Whitelist role, tell them to open a Whitelist ticket, write the requirements, wait to receive the role, and then go to room <#1488279212786843850> and follow the steps to enter.\n"
+                    +
+                    "    - If they have any problems during the joining process, you must stay with them and help them step-by-step until the end. DO NOT direct them to open a technical support ticket unless they absolutely cannot solve the issue or if there is a server malfunction.\n"
+                    +
+                    "15. CRITICAL: ABSOLUTELY NO EMOJIS. You must NEVER use any emojis or symbols (like 🎮, 😊, 🚀, etc.) in your messages. Your response must be plain text only.";
 
             JsonObject requestBody = new JsonObject();
             JsonArray messages = new JsonArray();
