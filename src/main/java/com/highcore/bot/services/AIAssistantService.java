@@ -242,9 +242,9 @@ public class AIAssistantService {
                     +
                     "    - Check the USER CONTEXT to see if they have the Whitelist role.\n"
                     +
-                    "    - If they HAVE the Whitelist role, tell them to check the room <#1488279212786843850> and follow the steps there to join.\n"
+                    "    - If they HAVE the Whitelist role, respond naturally in Gulf dialect with something similar to: 'روح لروم <#1488279212786843850> وشوف الخطوات اللي فيها وكذا بتدخل السيرفر.'\n"
                     +
-                    "    - If they DO NOT HAVE the Whitelist role, tell them to open a Whitelist ticket, write the requirements, wait to receive the role, and then go to room <#1488279212786843850> and follow the steps to enter.\n"
+                    "    - If they DO NOT HAVE the Whitelist role, respond naturally in Gulf dialect with something similar to: 'لازم اول تفتح تكت وايتليست في روم <#1487143271586074624> وتكتب المتطلبات. وبتجيك الرتبة، بعدين روح لروم <#1488279212786843850> وشوف الخطوات وادخل.'\n"
                     +
                     "    - If they have any problems during the joining process, you must stay with them and help them step-by-step until the end. DO NOT direct them to open a technical support ticket unless they absolutely cannot solve the issue or if there is a server malfunction.\n"
                     +
