@@ -286,12 +286,33 @@ public class AIAssistantService {
             for (ChatMessage msg : history) {
                 JsonObject turn = new JsonObject();
                 turn.addProperty("role", msg.isBot ? "assistant" : "user");
-                turn.addProperty("content", msg.content != null ? msg.content : "");
+
+                if (msg.imageUrls != null && !msg.imageUrls.isEmpty()) {
+                    JsonArray contentArray = new JsonArray();
+
+                    JsonObject textPart = new JsonObject();
+                    textPart.addProperty("type", "text");
+                    textPart.addProperty("text", msg.content != null ? msg.content : "");
+                    contentArray.add(textPart);
+
+                    for (String imgUrl : msg.imageUrls) {
+                        JsonObject imgPart = new JsonObject();
+                        imgPart.addProperty("type", "image_url");
+                        JsonObject urlObj = new JsonObject();
+                        urlObj.addProperty("url", imgUrl);
+                        imgPart.add("image_url", urlObj);
+                        contentArray.add(imgPart);
+                    }
+                    turn.add("content", contentArray);
+                } else {
+                    turn.addProperty("content", msg.content != null ? msg.content : "");
+                }
                 messages.add(turn);
             }
 
+            boolean hasImages = history.stream().anyMatch(m -> m.imageUrls != null && !m.imageUrls.isEmpty());
             requestBody.add("messages", messages);
-            requestBody.addProperty("model", "llama-3.3-70b-versatile");
+            requestBody.addProperty("model", hasImages ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile");
             requestBody.addProperty("temperature", 0.2);
 
             String url = "https://api.groq.com/openai/v1/chat/completions";
