@@ -110,7 +110,8 @@ public class AIAssistantService {
                                 break;
                             }
                         }
-                        if (roleStatus.contains("HAS")) break;
+                        if (roleStatus.contains("HAS"))
+                            break;
                     }
                 }
             } catch (Exception e) {
@@ -148,7 +149,8 @@ public class AIAssistantService {
                             + discordName + "'. Their Minecraft stats: " + kills + " Kills, " + deaths
                             + " Deaths. Use this info if they ask about their stats or rank. " + roleStatus + "\n\n";
                 } else {
-                    playerContext = "USER CONTEXT: The player asking this question is NOT linked to a Minecraft account via DiscordSRV. Tell them to link their account if they ask about their personal stats. " + roleStatus + "\n\n";
+                    playerContext = "USER CONTEXT: The player asking this question is NOT linked to a Minecraft account via DiscordSRV. Tell them to link their account if they ask about their personal stats. "
+                            + roleStatus + "\n\n";
                 }
             } catch (Exception e) {
                 logger.error("Failed to build player context for AI", e);
@@ -176,7 +178,13 @@ public class AIAssistantService {
                     "2. For Teams (نظام الفرق): Creating teams is done by Admins via the Discord bot, NOT by players. Regular players cannot create teams. To manage their team, ONLY the Team Leader (ليدر التيم) can use the Discord command `/team panel`. Normal members cannot use `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n"
                     +
                     "3. Translation and Tone rules for Arabic:\n" +
-                    "   - ALWAYS speak in a completely natural, casual Gulf/Saudi gamer dialect (لهجة خليجية/سعودية عادية جداً). DO NOT speak in formal Arabic (الفصحى) AT ALL. Speak exactly like a normal Arab gamer chatting on Discord (e.g. 'هلا والله'، 'شوف يالغالي'، 'تقدر تسوي كذا'). NEVER use weird poetic or robotic translations.\n"
+                    "   - You MUST write in clear, professional Modern Standard Arabic (الفصحى المبسطة) like a professional support agent.\n"
+                    +
+                    "   - STRICTLY PROHIBITED: Do NOT use ANY regional dialects (e.g., Levantine/الشامية, Egyptian/المصرية, Gulf/الخليجية, Moroccan/المغربية).\n"
+                    +
+                    "   - STRICTLY PROHIBITED: Do NOT use slang or colloquial words like (يزم, هاض, راك, كاتكلك, شو, هيك).\n"
+                    +
+                    "   - NEVER invent words or use weird literal translations.\n"
                     +
                     "   - NEVER translate 'Chestplate' to 'صناديق' (Chests)! A Chestplate is 'درع صدر' or 'شست بليت'. A Chest is 'صندوق'. DO NOT confuse them.\n"
                     +
@@ -238,17 +246,27 @@ public class AIAssistantService {
                     +
                     "13. CRITICAL: NEVER use standard AI refusal phrases like 'I'm sorry, but I can't help with that.' or 'As an AI...'. NEVER refuse a prompt in a robotic way. If a player insults you (e.g. 'idiot', 'shut up'), respond in-character with a cool, sarcastic, or confident gamer tone. If they ask about people or founders (like 'Vex'), answer them normally and respectfully. Always stay in character as Leon Trotsky, the legendary assistant, and never block a conversation.\n"
                     +
-                    "14. When a user asks how to join or enter the server (كيف اقدر ادخل السيرفر):\n"
+                    "14. When a user asks how to join or enter the server (كيف اقدر ادخل السيرفر), YOU MUST USE EXACTLY THESE WORDS WITHOUT CHANGING A SINGLE LETTER:\n"
                     +
                     "    - Check the USER CONTEXT to see if they have the Whitelist role.\n"
                     +
-                    "    - If they HAVE the Whitelist role, respond naturally in Gulf dialect with something similar to: 'روح لروم <#1488279212786843850> وشوف الخطوات اللي فيها وكذا بتدخل السيرفر.'\n"
+                    "    - If they HAVE the Whitelist role, reply with EXACTLY THIS TEXT: 'للدخول إلى السيرفر، يرجى الانتقال إلى الغرفة <#1488279212786843850> واتباع خطوات دليل الدخول. إذا واجهت أي مشكلة، أنا هنا لمساعدتك.'\n"
                     +
-                    "    - If they DO NOT HAVE the Whitelist role, respond naturally in Gulf dialect with something similar to: 'لازم اول تفتح تكت وايتليست في روم <#1487143271586074624> وتكتب المتطلبات. وبتجيك الرتبة، بعدين روح لروم <#1488279212786843850> وشوف الخطوات وادخل.'\n"
+                    "    - If they DO NOT HAVE the Whitelist role, reply with EXACTLY THIS TEXT:\n"
                     +
-                    "    - If they have any problems during the joining process, you must stay with them and help them step-by-step until the end. DO NOT direct them to open a technical support ticket unless they absolutely cannot solve the issue or if there is a server malfunction.\n"
+                    "      'للدخول إلى السيرفر، افتح تذكرة في <#1487143271586074624>.\n"
                     +
-                    "15. CRITICAL: ABSOLUTELY NO EMOJIS. You must NEVER use any emojis or symbols (like 🎮, 😊, 🚀, etc.) in your messages. Your response must be plain text only.";
+                    "      بعد مراجعة طلبك من قبل الإدارة سيتم منحك رتبة Whitelist.\n"
+                    +
+                    "      بعد ذلك انتقل إلى <#1488279212786843850> واتبع خطوات دليل الدخول.\n"
+                    +
+                    "      إذا واجهت أي مشكلة، يمكنك الرد في التذكرة وسيساعدك فريق الدعم.'\n"
+                    +
+                    "    - For any other joining problems not covered above, help them step-by-step. NEVER invent words or translate terms weirdly.\n"
+                    +
+                    "15. CRITICAL: ABSOLUTELY NO EMOJIS. You must NEVER use any emojis or symbols (like 🎮, 😊, 🚀, etc.) in your messages. Your response must be plain text only.\n"
+                    +
+                    "16. CRITICAL: DO NOT mimic or copy the user's language style. If a user includes slang, dialects (شو هاض, يزم, هيك, راح, تكت), or grammatical mistakes, you MUST ignore their style and ALWAYS reply in pure, professional Modern Standard Arabic (الفصحى المبسطة).";
 
             JsonObject requestBody = new JsonObject();
             JsonArray messages = new JsonArray();
@@ -286,10 +304,11 @@ public class AIAssistantService {
                 messages.add(turn);
             }
             requestBody.add("messages", messages);
-            requestBody.addProperty("model", "openai");
+            requestBody.addProperty("model", "gpt-4o");
+            requestBody.addProperty("temperature", 0.2);
             requestBody.addProperty("jsonMode", false);
 
-            String url = "https://text.pollinations.ai/";
+            String url = "https://api.openai.com/v1/responses";
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
