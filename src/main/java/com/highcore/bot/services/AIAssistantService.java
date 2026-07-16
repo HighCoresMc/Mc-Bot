@@ -268,56 +268,58 @@ public class AIAssistantService {
                     +
                     "16. CRITICAL: DO NOT mimic or copy the user's language style. If a user includes slang, dialects (شو هاض, يزم, هيك, راح, تكت), or grammatical mistakes, you MUST ignore their style and ALWAYS reply in pure, professional Modern Standard Arabic (الفصحى المبسطة).";
 
+            String apiKey = dotenv.get("GEMINI_API_KEY");
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                logger.error("GEMINI_API_KEY is not set in .env file!");
+                return "خطأ: مفتاح API غير موجود في إعدادات البوت (GEMINI_API_KEY).";
+            }
+
+            // Gemini Request Body
             JsonObject requestBody = new JsonObject();
-            JsonArray messages = new JsonArray();
 
-            JsonObject systemMsg = new JsonObject();
-            systemMsg.addProperty("role", "system");
-            systemMsg.addProperty("content", systemInstruction);
-            messages.add(systemMsg);
+            JsonObject systemInstObj = new JsonObject();
+            JsonObject systemPartObj = new JsonObject();
+            systemPartObj.addProperty("text", systemInstruction);
+            JsonArray systemPartsArr = new JsonArray();
+            systemPartsArr.add(systemPartObj);
+            systemInstObj.add("parts", systemPartsArr);
+            requestBody.add("system_instruction", systemInstObj);
 
+            JsonArray contents = new JsonArray();
             for (ChatMessage msg : history) {
                 JsonObject turn = new JsonObject();
-                turn.addProperty("role", msg.isBot ? "assistant" : "user");
+                turn.addProperty("role", msg.isBot ? "model" : "user");
+
+                JsonArray parts = new JsonArray();
+                JsonObject textPart = new JsonObject();
+                textPart.addProperty("text", msg.content != null ? msg.content : "");
+                parts.add(textPart);
 
                 if (msg.imageUrls != null && !msg.imageUrls.isEmpty()) {
-                    JsonArray contentArray = new JsonArray();
-
-                    JsonObject textObj = new JsonObject();
-                    textObj.addProperty("type", "text");
-                    textObj.addProperty("text", msg.content);
-                    contentArray.add(textObj);
-
                     for (String imgUrl : msg.imageUrls) {
-                        JsonObject imgObj = new JsonObject();
-                        imgObj.addProperty("type", "image_url");
-                        JsonObject urlObj = new JsonObject();
-                        urlObj.addProperty("url", imgUrl);
-                        imgObj.add("image_url", urlObj);
-                        contentArray.add(imgObj);
+                        JsonObject imgPart = new JsonObject();
+                        JsonObject inlineData = new JsonObject();
+                        inlineData.addProperty("mime_type", "image/jpeg");
+                        inlineData.addProperty("url", imgUrl);
+                        imgPart.add("inline_data", inlineData);
+                        parts.add(imgPart);
                     }
-
-                    turn.add("content", contentArray);
-                } else {
-                    turn.addProperty("content", msg.content);
                 }
-                messages.add(turn);
-            }
-            requestBody.add("messages", messages);
-            requestBody.addProperty("model", "gpt-4o");
-            requestBody.addProperty("temperature", 0.2);
 
-            String url = "https://api.openai.com/v1/chat/completions";
-            String apiKey = dotenv.get("OPENAI_API_KEY");
-            if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.error("OPENAI_API_KEY is not set in .env file!");
-                return "خطأ: مفتاح API غير موجود في إعدادات البوت (OPENAI_API_KEY).";
+                turn.add("parts", parts);
+                contents.add(turn);
             }
+            requestBody.add("contents", contents);
+
+            JsonObject generationConfig = new JsonObject();
+            generationConfig.addProperty("temperature", 0.2);
+            requestBody.add("generationConfig", generationConfig);
+
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                     .build();
@@ -327,29 +329,33 @@ public class AIAssistantService {
                 HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() == 200) {
                     JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
-                    if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
-                        JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
-                        if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
-                            return choice.getAsJsonObject("message").get("content").getAsString();
+                    if (jsonResponse.has("candidates") && jsonResponse.getAsJsonArray("candidates").size() > 0) {
+                        JsonObject candidate = jsonResponse.getAsJsonArray("candidates").get(0).getAsJsonObject();
+                        if (candidate.has("content")) {
+                            JsonArray respParts = candidate.getAsJsonObject("content").getAsJsonArray("parts");
+                            if (respParts != null && respParts.size() > 0) {
+                                return respParts.get(0).getAsJsonObject().get("text").getAsString();
+                            }
                         }
                     }
-                    return "Error parsing OpenAI response.";
+                    logger.error("Unexpected Gemini response structure: {}", response.body());
+                    return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
                 } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
-                    logger.warn("Pollinations AI rate limit/error (Status {}), retrying {}/{}...",
+                    logger.warn("Gemini API rate limit/error (Status {}), retrying {}/{}...",
                             response.statusCode(), i + 1, maxRetries);
                     if (i < maxRetries - 1) {
-                        Thread.sleep(2000 * (i + 1)); // Exponential backoff: 2s, 4s
+                        Thread.sleep(2000L * (i + 1));
                     } else {
-                        logger.error("Pollinations AI error after retries (Status {}): {}", response.statusCode(),
+                        logger.error("Gemini API error after retries (Status {}): {}", response.statusCode(),
                                 response.body());
                     }
                 } else {
-                    logger.error("Pollinations AI error (Status {}): {}", response.statusCode(), response.body());
+                    logger.error("Gemini API error (Status {}): {}", response.statusCode(), response.body());
                     break;
                 }
             }
         } catch (Exception e) {
-            logger.error("Error communicating with Pollinations AI", e);
+            logger.error("Error communicating with Gemini API", e);
         }
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
     }
