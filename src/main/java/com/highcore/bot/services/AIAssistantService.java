@@ -306,12 +306,18 @@ public class AIAssistantService {
             requestBody.add("messages", messages);
             requestBody.addProperty("model", "gpt-4o");
             requestBody.addProperty("temperature", 0.2);
-            requestBody.addProperty("jsonMode", false);
 
-            String url = "https://api.openai.com/v1/responses";
+            String url = "https://api.openai.com/v1/chat/completions";
+            String apiKey = dotenv.get("OPENAI_API_KEY");
+            if (apiKey == null || apiKey.trim().isEmpty()) {
+                logger.error("OPENAI_API_KEY is not set in .env file!");
+                return "خطأ: مفتاح API غير موجود في إعدادات البوت (OPENAI_API_KEY).";
+            }
+
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                     .build();
@@ -320,7 +326,14 @@ public class AIAssistantService {
             for (int i = 0; i < maxRetries; i++) {
                 HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() == 200) {
-                    return response.body();
+                    JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+                    if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
+                        JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
+                        if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
+                            return choice.getAsJsonObject("message").get("content").getAsString();
+                        }
+                    }
+                    return "Error parsing OpenAI response.";
                 } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
                     logger.warn("Pollinations AI rate limit/error (Status {}), retrying {}/{}...",
                             response.statusCode(), i + 1, maxRetries);
