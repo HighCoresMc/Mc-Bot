@@ -268,58 +268,38 @@ public class AIAssistantService {
                     +
                     "16. CRITICAL: DO NOT mimic or copy the user's language style. If a user includes slang, dialects (شو هاض, يزم, هيك, راح, تكت), or grammatical mistakes, you MUST ignore their style and ALWAYS reply in pure, professional Modern Standard Arabic (الفصحى المبسطة).";
 
-            String apiKey = dotenv.get("GEMINI_API_KEY");
+            String apiKey = dotenv.get("GROQ_API_KEY");
             if (apiKey == null || apiKey.trim().isEmpty()) {
-                logger.error("GEMINI_API_KEY is not set in .env file!");
-                return "خطأ: مفتاح API غير موجود في إعدادات البوت (GEMINI_API_KEY).";
+                logger.error("GROQ_API_KEY is not set in .env file!");
+                return "خطأ: مفتاح API غير موجود في إعدادات البوت (GROQ_API_KEY).";
             }
 
-            // Gemini Request Body
+            // Groq Request Body
             JsonObject requestBody = new JsonObject();
+            JsonArray messages = new JsonArray();
 
-            JsonObject systemInstObj = new JsonObject();
-            JsonObject systemPartObj = new JsonObject();
-            systemPartObj.addProperty("text", systemInstruction);
-            JsonArray systemPartsArr = new JsonArray();
-            systemPartsArr.add(systemPartObj);
-            systemInstObj.add("parts", systemPartsArr);
-            requestBody.add("system_instruction", systemInstObj);
+            JsonObject systemMsg = new JsonObject();
+            systemMsg.addProperty("role", "system");
+            systemMsg.addProperty("content", systemInstruction);
+            messages.add(systemMsg);
 
-            JsonArray contents = new JsonArray();
             for (ChatMessage msg : history) {
                 JsonObject turn = new JsonObject();
-                turn.addProperty("role", msg.isBot ? "model" : "user");
-
-                JsonArray parts = new JsonArray();
-                JsonObject textPart = new JsonObject();
-                textPart.addProperty("text", msg.content != null ? msg.content : "");
-                parts.add(textPart);
-
-                if (msg.imageUrls != null && !msg.imageUrls.isEmpty()) {
-                    for (String imgUrl : msg.imageUrls) {
-                        JsonObject imgPart = new JsonObject();
-                        JsonObject inlineData = new JsonObject();
-                        inlineData.addProperty("mime_type", "image/jpeg");
-                        inlineData.addProperty("url", imgUrl);
-                        imgPart.add("inline_data", inlineData);
-                        parts.add(imgPart);
-                    }
-                }
-
-                turn.add("parts", parts);
-                contents.add(turn);
+                turn.addProperty("role", msg.isBot ? "assistant" : "user");
+                turn.addProperty("content", msg.content != null ? msg.content : "");
+                messages.add(turn);
             }
-            requestBody.add("contents", contents);
 
-            JsonObject generationConfig = new JsonObject();
-            generationConfig.addProperty("temperature", 0.2);
-            requestBody.add("generationConfig", generationConfig);
+            requestBody.add("messages", messages);
+            requestBody.addProperty("model", "llama-3.1-8b-instant");
+            requestBody.addProperty("temperature", 0.2);
 
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + apiKey;
+            String url = "https://api.groq.com/openai/v1/chat/completions";
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .header("Content-Type", "application/json")
+                    .header("Authorization", "Bearer " + apiKey)
                     .timeout(Duration.ofSeconds(60))
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                     .build();
@@ -329,33 +309,30 @@ public class AIAssistantService {
                 HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
                 if (response.statusCode() == 200) {
                     JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
-                    if (jsonResponse.has("candidates") && jsonResponse.getAsJsonArray("candidates").size() > 0) {
-                        JsonObject candidate = jsonResponse.getAsJsonArray("candidates").get(0).getAsJsonObject();
-                        if (candidate.has("content")) {
-                            JsonArray respParts = candidate.getAsJsonObject("content").getAsJsonArray("parts");
-                            if (respParts != null && respParts.size() > 0) {
-                                return respParts.get(0).getAsJsonObject().get("text").getAsString();
-                            }
+                    if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
+                        JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
+                        if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
+                            return choice.getAsJsonObject("message").get("content").getAsString();
                         }
                     }
-                    logger.error("Unexpected Gemini response structure: {}", response.body());
+                    logger.error("Unexpected Groq response structure: {}", response.body());
                     return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
                 } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
-                    logger.warn("Gemini API rate limit/error (Status {}), retrying {}/{}...",
+                    logger.warn("Groq API rate limit/error (Status {}), retrying {}/{}...",
                             response.statusCode(), i + 1, maxRetries);
                     if (i < maxRetries - 1) {
                         Thread.sleep(2000L * (i + 1));
                     } else {
-                        logger.error("Gemini API error after retries (Status {}): {}", response.statusCode(),
+                        logger.error("Groq API error after retries (Status {}): {}", response.statusCode(),
                                 response.body());
                     }
                 } else {
-                    logger.error("Gemini API error (Status {}): {}", response.statusCode(), response.body());
+                    logger.error("Groq API error (Status {}): {}", response.statusCode(), response.body());
                     break;
                 }
             }
         } catch (Exception e) {
-            logger.error("Error communicating with Gemini API", e);
+            logger.error("Error communicating with Groq API", e);
         }
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
     }
