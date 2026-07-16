@@ -291,7 +291,7 @@ public class AIAssistantService {
             }
 
             requestBody.add("messages", messages);
-            requestBody.addProperty("model", "llama-3.1-8b-instant");
+            requestBody.addProperty("model", "llama-3.3-70b-versatile");
             requestBody.addProperty("temperature", 0.2);
 
             String url = "https://api.groq.com/openai/v1/chat/completions";
