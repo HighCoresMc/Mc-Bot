@@ -266,7 +266,9 @@ public class AIAssistantService {
                     +
                     "15. CRITICAL: ABSOLUTELY NO EMOJIS. You must NEVER use any emojis or symbols (like 🎮, 😊, 🚀, etc.) in your messages. Your response must be plain text only.\n"
                     +
-                    "16. CRITICAL: DO NOT mimic or copy the user's language style. If a user includes slang, dialects (شو هاض, يزم, هيك, راح, تكت), or grammatical mistakes, you MUST ignore their style and ALWAYS reply in pure, professional Modern Standard Arabic (الفصحى المبسطة).";
+                    "16. CRITICAL: DO NOT mimic or copy the user's language style. If a user includes slang, dialects (شو هاض, يزم, هيك, راح, تكت), or grammatical mistakes, you MUST ignore their style and ALWAYS reply in pure, professional Modern Standard Arabic (الفصحى المبسطة).\n"
+                    +
+                    "17. If a player is kicked with a message related to a prohibited client or mod (e.g. 'The use of prohibited clients is strictly forbidden'), instruct them to: remove the mod or client, reset/reinstall their Minecraft client to a clean official version, then try to join the server again. Do NOT direct them to open a support ticket for this case.";
 
             String apiKey = dotenv.get("GROQ_API_KEY");
             if (apiKey == null || apiKey.trim().isEmpty()) {
