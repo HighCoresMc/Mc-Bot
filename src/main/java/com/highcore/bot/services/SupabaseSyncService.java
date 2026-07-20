@@ -668,7 +668,7 @@ public class SupabaseSyncService {
             if (lt.announcementMessageId != null) {
                 TextChannel annCh = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID);
                 if (annCh != null) {
-                    Container container = com.highcore.bot.commands.TeamCommand.buildAnnouncementContainer(st.name, leaderId, member2Id, member3Id, member4Id, st.color, true);
+                    Container container = com.highcore.bot.commands.TeamCommand.buildAnnouncementContainer(st.name, leaderId, member2Id, member3Id, member4Id, st.color, true, null);
                     MessageEditBuilder meb = new MessageEditBuilder().setComponents(container).useComponentsV2(true);
                     annCh.editMessageById(lt.announcementMessageId, meb.build()).complete();
                 }
@@ -724,7 +724,7 @@ public class SupabaseSyncService {
         TextChannel ch = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID);
         if (ch == null) return;
 
-        Container container = com.highcore.bot.commands.TeamCommand.buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, false);
+        Container container = com.highcore.bot.commands.TeamCommand.buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, false, null);
 
         ch.sendMessage(new MessageCreateBuilder().setComponents(container).useComponentsV2(true).build())
                 .queue(msg -> {

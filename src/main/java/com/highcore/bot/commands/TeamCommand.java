@@ -53,17 +53,30 @@ public class TeamCommand extends ListenerAdapter {
 
     private static ScheduledExecutorService tagScheduler;
 
-    // Pending logos: adminUserId -> PendingTeamLogo
-    private static final Map<String, PendingTeamLogo> pendingLogos = new ConcurrentHashMap<>();
+    // Pending creations: adminUserId -> PendingTeamCreation
+    private static final Map<String, PendingTeamCreation> pendingCreations = new ConcurrentHashMap<>();
+    // Pending logo updates: userId -> PendingTeamLogoUpdate
+    private static final Map<String, PendingTeamLogoUpdate> pendingLogoUpdates = new ConcurrentHashMap<>();
     // Alliance votes: voteId -> AllianceVoteState
     private static final Map<String, AllianceVoteState> allianceVotes = new ConcurrentHashMap<>();
 
-    // Logo session
-    private static class PendingTeamLogo {
+    // Creation session
+    private static class PendingTeamCreation {
+        String teamName, colorCode;
+        Member leader, member2, member3, member4;
+        String channelId;
+
+        PendingTeamCreation(String tn, String c, Member l, Member m2, Member m3, Member m4, String ch) {
+            teamName = tn; colorCode = c; leader = l; member2 = m2; member3 = m3; member4 = m4; channelId = ch;
+        }
+    }
+
+    // Logo update session
+    private static class PendingTeamLogoUpdate {
         int teamDbId;
         String channelId;
 
-        PendingTeamLogo(int id, String ch) {
+        PendingTeamLogoUpdate(int id, String ch) {
             teamDbId = id;
             channelId = ch;
         }
@@ -398,94 +411,16 @@ public class TeamCommand extends ListenerAdapter {
         final Member m3 = member3, m4 = member4, fLeader = leader, fMember2 = member2;
         final String fColor = colorCode.startsWith("#") ? colorCode : "#" + colorCode;
 
-        guild.createRole().setName(teamName).setColor(finalColor).queue(teamRole -> {
-            Role leaderRole = guild.getRoleById(LEADER_ROLE_ID);
-            if (leaderRole != null)
-                guild.addRoleToMember(fLeader, leaderRole).queue(null, e -> {
-                });
-            guild.addRoleToMember(fLeader, teamRole).queue(null, e -> {
-            });
-            guild.addRoleToMember(fMember2, teamRole).queue(null, e -> {
-            });
-            if (m3 != null)
-                guild.addRoleToMember(m3, teamRole).queue(null, e -> {
-                });
-            if (m4 != null)
-                guild.addRoleToMember(m4, teamRole).queue(null, e -> {
-                });
-
-            guild.createCategory("<— " + teamName + " —>").queue(category -> {
-                category.upsertPermissionOverride(guild.getPublicRole()).deny(Permission.VIEW_CHANNEL).queue();
-                category.upsertPermissionOverride(teamRole).grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND,
-                        Permission.MESSAGE_HISTORY, Permission.VOICE_CONNECT, Permission.VOICE_SPEAK,
-                        Permission.VOICE_USE_VAD).queue();
-
-                category.createVoiceChannel("🔊・" + teamName + "・voice").queue(vc -> {
-                    category.createTextChannel("💬・" + teamName).queue(tc -> {
-                        category.createTextChannel("⚙️・" + teamName + "・cmd").queue(cmdCh -> {
-                            category.createTextChannel("📜・" + teamName + "・log").queue(logCh -> {
-
-                                String lId = formatDbUser(fLeader), m2Id = formatDbUser(fMember2);
-                                String m3Id = m3 != null ? formatDbUser(m3) : null,
-                                        m4Id = m4 != null ? formatDbUser(m4) : null;
-
-                                int dbId = saveTeamToDb(teamName, fColor, teamRole.getId(), category.getId(),
-                                        vc.getId(), tc.getId(), cmdCh.getId(), logCh.getId(), lId, m2Id, m3Id, m4Id);
-
-                            sendAnnouncementAndSave(guild, teamName, fLeader.getId(), fMember2.getId(),
-                                    m3 != null ? m3.getId() : null, m4 != null ? m4.getId() : null, fColor, dbId,
-                                    false);
-
-                            String details = "### ✅ تم إنشاء فريق جديد\n▫️ **اسم الفريق:** " + teamName
-                                    + "\n▫️ **اللون:** `" + fColor + "`\n▫️ **القائد:** " + fLeader.getAsMention()
-                                    + "\n▫️ **العضو 2:** " + fMember2.getAsMention()
-                                    + (m3 != null ? "\n▫️ **العضو 3:** " + m3.getAsMention() : "")
-                                    + (m4 != null ? "\n▫️ **العضو 4:** " + m4.getAsMention() : "");
-                            sendLog(guild, "/team create", event.getUser(), teamName, details, fColor);
-                            event.getHook().editOriginal("✅ تم إنشاء فريق **" + teamName + "** بنجاح!").queue();
-
-                            ptero.sendConsoleCommand("teama create " + teamName);
-                            ptero.sendConsoleCommand(
-                                    "teama color " + teamName + " " + getClosestMinecraftColorName(finalColor));
-                            String lMc = getMcName(fLeader.getId());
-                            if (lMc != null) {
-                                ptero.sendConsoleCommand("teama join " + teamName + " " + lMc);
-                                ptero.sendConsoleCommand("teama setowner " + lMc);
-                            }
-                            String m2Mc = getMcName(fMember2.getId());
-                            if (m2Mc != null)
-                                ptero.sendConsoleCommand("teama join " + teamName + " " + m2Mc);
-                            if (m3 != null) {
-                                String m3Mc = getMcName(m3.getId());
-                                if (m3Mc != null)
-                                    ptero.sendConsoleCommand("teama join " + teamName + " " + m3Mc);
-                            }
-                            if (m4 != null) {
-                                String m4Mc = getMcName(m4.getId());
-                                if (m4Mc != null)
-                                    ptero.sendConsoleCommand("teama join " + teamName + " " + m4Mc);
-                            }
-
-                            final int finalDbId = dbId;
-                            event.getChannel()
-                                    .sendMessage("📸 يرجى **إرسال صورة شعار التيم** الآن (أو اكتب `skip` للتخطي).")
-                                    .queue(msg -> {
-                                        if (finalDbId > 0)
-                                            pendingLogos.put(event.getUser().getId(),
-                                                    new PendingTeamLogo(finalDbId, event.getChannel().getId()));
-                                        });
-                            });
-                        });
-                    });
-                });
-            });
-        });
+        event.getHook().editOriginal("📸 يرجى **إرسال صورة شعار التيم** في القناة الآن (أو اكتب `skip` للتخطي).").queue();
+        event.getChannel().sendMessage("📸 **[إنشاء تيم: " + teamName + "]** أرسل صورة الشعار أو اكتب `skip` للتخطي.").queue();
+        pendingCreations.put(event.getUser().getId(),
+                new PendingTeamCreation(teamName, fColor, fLeader, fMember2, m3, m4, event.getChannel().getId()));
     }
 
     private int saveTeamToDb(String name, String color, String roleId, String catId, String voiceId,
-            String textId, String cmdId, String logId, String lId, String m2, String m3, String m4) {
+            String textId, String cmdId, String logId, String lId, String m2, String m3, String m4, String logoUrl) {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-            String sql = "INSERT INTO teams (name, color, role_id, category_id, voice_channel_id, text_channel_id, cmd_channel_id, log_channel_id, leader_id, member2_id, member3_id, member4_id, tag) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New Born')";
+            String sql = "INSERT INTO teams (name, color, role_id, category_id, voice_channel_id, text_channel_id, cmd_channel_id, log_channel_id, leader_id, member2_id, member3_id, member4_id, tag, logo_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New Born', ?)";
             try (PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setString(1, name);
                 ps.setString(2, color);
@@ -499,6 +434,7 @@ public class TeamCommand extends ListenerAdapter {
                 ps.setString(10, m2);
                 ps.setString(11, m3);
                 ps.setString(12, m4);
+                ps.setString(13, logoUrl);
                 ps.executeUpdate();
                 ResultSet rs = ps.getGeneratedKeys();
                 if (rs.next()) {
@@ -522,29 +458,152 @@ public class TeamCommand extends ListenerAdapter {
         if (event.getAuthor().isBot())
             return;
         String userId = event.getAuthor().getId();
-        PendingTeamLogo pending = pendingLogos.get(userId);
+
+        // Logo update (from panel button)
+        PendingTeamLogoUpdate pendingUpdate = pendingLogoUpdates.get(userId);
+        if (pendingUpdate != null && event.getChannel().getId().equals(pendingUpdate.channelId)) {
+            if (!event.getMessage().getAttachments().isEmpty()) {
+                net.dv8tion.jda.api.entities.Message.Attachment att = event.getMessage().getAttachments().get(0);
+                if (!att.isImage()) {
+                    event.getChannel().sendMessage("الملف ليس صورة! أرسل صورة صحيحة أو اكتب `cancel`.").queue();
+                    return;
+                }
+                pendingLogoUpdates.remove(userId);
+                String logoUrl = att.getUrl();
+                saveLogoToDb(pendingUpdate.teamDbId, logoUrl);
+                TeamData td = getTeamById(pendingUpdate.teamDbId);
+                if (td != null) {
+                    Guild guild = event.getGuild();
+                    if (guild.getFeatures().contains("ROLE_ICONS") && td.roleId != null) {
+                        Role r = guild.getRoleById(td.roleId);
+                        if (r != null) {
+                            try {
+                                r.getManager().setIcon(net.dv8tion.jda.api.entities.Icon.from(
+                                        new java.net.URL(logoUrl).openStream())).queue(null, e -> {});
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                    updateAnnouncementEmbed(guild, td.id, td.name, extractIdOnly(td.leaderId),
+                            extractIdOnly(td.member2Id), extractIdOnly(td.member3Id),
+                            extractIdOnly(td.member4Id), td.color);
+                }
+                event.getChannel().sendMessage("✅ تم تغيير شعار التيم بنجاح!").queue();
+            } else if (event.getMessage().getContentRaw().equalsIgnoreCase("cancel")) {
+                pendingLogoUpdates.remove(userId);
+                event.getChannel().sendMessage("تم إلغاء تغيير الشعار.").queue();
+            } else {
+                event.getChannel().sendMessage("أرسل صورة أو اكتب `cancel`.").queue();
+            }
+            return;
+        }
+
+        // Creation session (logo after team create)
+        PendingTeamCreation pending = pendingCreations.get(userId);
         if (pending == null || !event.getChannel().getId().equals(pending.channelId))
             return;
 
+        String logoUrl = null;
         if (!event.getMessage().getAttachments().isEmpty()) {
             net.dv8tion.jda.api.entities.Message.Attachment att = event.getMessage().getAttachments().get(0);
             if (!att.isImage()) {
                 event.getChannel().sendMessage("الملف ليس صورة! أرسل صورة صحيحة أو اكتب `skip`.").queue();
                 return;
             }
-            pendingLogos.remove(userId);
-            event.getMessage().delete().queue(null, e -> {
-            });
-            saveLogoToDb(pending.teamDbId, att.getUrl());
-            event.getChannel().sendMessage("✅ تم حفظ شعار التيم!").queue();
+            logoUrl = att.getUrl();
         } else if (event.getMessage().getContentRaw().equalsIgnoreCase("skip")) {
-            pendingLogos.remove(userId);
-            event.getMessage().delete().queue(null, e -> {
-            });
-            event.getChannel().sendMessage("تم تخطي الشعار.").queue();
+            // proceed with null logo
         } else {
             event.getChannel().sendMessage("أرسل صورة أو اكتب `skip`.").queue();
+            return;
         }
+
+        pendingCreations.remove(userId);
+        final String finalLogoUrl = logoUrl;
+        event.getChannel().sendMessage("⏳ جاري إنشاء الفريق...").queue();
+
+        Guild guild = event.getGuild();
+        Color finalColor;
+        try {
+            finalColor = Color.decode(pending.colorCode.startsWith("#") ? pending.colorCode : "#" + pending.colorCode);
+        } catch (Exception e) {
+            event.getChannel().sendMessage("❌ كود اللون غير صحيح.").queue();
+            return;
+        }
+
+        final Member fLeader = pending.leader, fMember2 = pending.member2;
+        final Member m3 = pending.member3, m4 = pending.member4;
+        final String teamName = pending.teamName, fColor = pending.colorCode;
+
+        guild.createRole().setName(teamName).setColor(finalColor).queue(teamRole -> {
+            if (finalLogoUrl != null && guild.getFeatures().contains("ROLE_ICONS")) {
+                try {
+                    teamRole.getManager().setIcon(net.dv8tion.jda.api.entities.Icon.from(
+                            new java.net.URL(finalLogoUrl).openStream())).queue(null, e -> {});
+                } catch (Exception ignored) {}
+            }
+
+            Role leaderRole = guild.getRoleById(LEADER_ROLE_ID);
+            if (leaderRole != null)
+                guild.addRoleToMember(fLeader, leaderRole).queue(null, e -> {});
+            guild.addRoleToMember(fLeader, teamRole).queue(null, e -> {});
+            guild.addRoleToMember(fMember2, teamRole).queue(null, e -> {});
+            if (m3 != null) guild.addRoleToMember(m3, teamRole).queue(null, e -> {});
+            if (m4 != null) guild.addRoleToMember(m4, teamRole).queue(null, e -> {});
+
+            guild.createCategory("<— " + teamName + " —>").queue(category -> {
+                category.upsertPermissionOverride(guild.getPublicRole()).deny(Permission.VIEW_CHANNEL).queue();
+                category.upsertPermissionOverride(teamRole).grant(Permission.VIEW_CHANNEL, Permission.MESSAGE_SEND,
+                        Permission.MESSAGE_HISTORY, Permission.VOICE_CONNECT, Permission.VOICE_SPEAK,
+                        Permission.VOICE_USE_VAD).queue();
+
+                category.createVoiceChannel("🔊・" + teamName + "・voice").queue(vc -> {
+                    category.createTextChannel("💬・" + teamName).queue(tc -> {
+                        category.createTextChannel("⚙️・" + teamName + "・cmd").queue(cmdCh -> {
+                            category.createTextChannel("📜・" + teamName + "・log").queue(logCh -> {
+
+                                String lId = formatDbUser(fLeader), m2Id = formatDbUser(fMember2);
+                                String m3Id = m3 != null ? formatDbUser(m3) : null;
+                                String m4Id = m4 != null ? formatDbUser(m4) : null;
+
+                                int dbId = saveTeamToDb(teamName, fColor, teamRole.getId(), category.getId(),
+                                        vc.getId(), tc.getId(), cmdCh.getId(), logCh.getId(),
+                                        lId, m2Id, m3Id, m4Id, finalLogoUrl);
+
+                                sendAnnouncementAndSave(guild, teamName, fLeader.getId(), fMember2.getId(),
+                                        m3 != null ? m3.getId() : null, m4 != null ? m4.getId() : null,
+                                        fColor, dbId, false, finalLogoUrl);
+
+                                String details = "### ✅ تم إنشاء فريق جديد\n▫️ **اسم الفريق:** " + teamName
+                                        + "\n▫️ **اللون:** `" + fColor + "`\n▫️ **القائد:** " + fLeader.getAsMention()
+                                        + "\n▫️ **العضو 2:** " + fMember2.getAsMention()
+                                        + (m3 != null ? "\n▫️ **العضو 3:** " + m3.getAsMention() : "")
+                                        + (m4 != null ? "\n▫️ **العضو 4:** " + m4.getAsMention() : "");
+                                sendLog(guild, "/team create", null, teamName, details, fColor);
+                                event.getChannel().sendMessage("✅ تم إنشاء فريق **" + teamName + "** بنجاح! 🎉").queue();
+
+                                ptero.sendConsoleCommand("teama create " + teamName);
+                                ptero.sendConsoleCommand("teama color " + teamName + " " + getClosestMinecraftColorName(finalColor));
+                                String lMc = getMcName(fLeader.getId());
+                                if (lMc != null) {
+                                    ptero.sendConsoleCommand("teama join " + teamName + " " + lMc);
+                                    ptero.sendConsoleCommand("teama setowner " + lMc);
+                                }
+                                String m2Mc = getMcName(fMember2.getId());
+                                if (m2Mc != null) ptero.sendConsoleCommand("teama join " + teamName + " " + m2Mc);
+                                if (m3 != null) {
+                                    String m3Mc = getMcName(m3.getId());
+                                    if (m3Mc != null) ptero.sendConsoleCommand("teama join " + teamName + " " + m3Mc);
+                                }
+                                if (m4 != null) {
+                                    String m4Mc = getMcName(m4.getId());
+                                    if (m4Mc != null) ptero.sendConsoleCommand("teama join " + teamName + " " + m4Mc);
+                                }
+                            });
+                        });
+                    });
+                });
+            });
+        });
     }
 
     private void saveLogoToDb(int teamId, String url) {
@@ -587,32 +646,44 @@ public class TeamCommand extends ListenerAdapter {
     }
 
     private void replyWithTeamManageEmbed(SlashCommandInteractionEvent event, TeamData td) {
-        event.replyComponents(Container.of(TextDisplay.of(buildTeamInfoText(event.getGuild(), td)),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(Button.primary("tm_edit_" + td.id, "✏️ تعديل المعلومات"),
-                        Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء"))))
+        event.replyEmbeds(buildTeamInfoEmbed(event.getGuild(), td))
+                .setComponents(Container.of(
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        ActionRow.of(Button.primary("tm_edit_" + td.id, "✏️ تعديل المعلومات"),
+                                Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء"))))
                 .useComponentsV2(true).setEphemeral(true).queue();
     }
 
     private void replyWithTeamManageEmbed(ButtonInteractionEvent event, TeamData td) {
-        event.replyComponents(Container.of(TextDisplay.of(buildTeamInfoText(event.getGuild(), td)),
-                Separator.createDivider(Separator.Spacing.SMALL),
-                ActionRow.of(Button.primary("tm_edit_" + td.id, "✏️ تعديل المعلومات"),
-                        Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء"))))
+        event.replyEmbeds(buildTeamInfoEmbed(event.getGuild(), td))
+                .setComponents(Container.of(
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        ActionRow.of(Button.primary("tm_edit_" + td.id, "✏️ تعديل المعلومات"),
+                                Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء"))))
                 .useComponentsV2(true).setEphemeral(true).queue();
     }
 
-    private String buildTeamInfoText(Guild guild, TeamData td) {
-        StringBuilder sb = new StringBuilder("## 🏆 ").append(td.name).append("\n\n🎨 **Color:** `").append(td.color)
-                .append("`\n");
-        sb.append("**Leader:** ").append(resolveDisplay(guild, extractIdOnly(td.leaderId))).append("\n");
-        sb.append("**Member 2:** ").append(resolveDisplay(guild, extractIdOnly(td.member2Id))).append("\n");
+    private net.dv8tion.jda.api.entities.MessageEmbed buildTeamInfoEmbed(Guild guild, TeamData td) {
+        net.dv8tion.jda.api.EmbedBuilder eb = new net.dv8tion.jda.api.EmbedBuilder();
+        eb.setTitle("🛡️ فريق: " + td.name);
+        try {
+            eb.setColor(java.awt.Color.decode(td.color.startsWith("#") ? td.color : "#" + td.color));
+        } catch (Exception ignored) {}
+
+        eb.addField("👑 القائد", resolveDisplay(guild, extractIdOnly(td.leaderId)), true);
+        eb.addField("👤 العضو الثاني", resolveDisplay(guild, extractIdOnly(td.member2Id)), true);
         if (td.member3Id != null && !td.member3Id.isEmpty())
-            sb.append("**Member 3:** ").append(resolveDisplay(guild, extractIdOnly(td.member3Id))).append("\n");
+            eb.addField("👤 العضو الثالث", resolveDisplay(guild, extractIdOnly(td.member3Id)), true);
         if (td.member4Id != null && !td.member4Id.isEmpty())
-            sb.append("**Member 4:** ").append(resolveDisplay(guild, extractIdOnly(td.member4Id))).append("\n");
-        sb.append("\n🏷️ **Tag:** ").append(tagEmoji(td.tag)).append(" `").append(td.tag).append("`");
-        return sb.toString();
+            eb.addField("👤 العضو الرابع", resolveDisplay(guild, extractIdOnly(td.member4Id)), true);
+        eb.addField("🎨 اللون", "`" + td.color + "`", true);
+        eb.addField("🏷️ التاق", tagEmoji(td.tag) + " `" + td.tag + "`", true);
+
+        if (td.logoUrl != null && !td.logoUrl.isEmpty()) {
+            eb.setThumbnail(td.logoUrl);
+            eb.setAuthor(td.name, null, td.logoUrl);
+        }
+        return eb.build();
     }
 
     // ===================================================================
@@ -697,6 +768,19 @@ public class TeamCommand extends ListenerAdapter {
                 return;
             }
             handleColorChangeButton(event, Integer.parseInt(id.replace("tm_ldr_color_", "")));
+        } else if (id.startsWith("tm_ldr_logo_")) {
+            if (!isLeader) {
+                event.reply("❌ فقط الليدر يمكنه تغيير الشعار.").setEphemeral(true).queue();
+                return;
+            }
+            int teamId = Integer.parseInt(id.replace("tm_ldr_logo_", ""));
+            TeamData td = getTeamById(teamId);
+            if (td == null) {
+                event.reply("❌ الفريق غير موجود.").setEphemeral(true).queue();
+                return;
+            }
+            pendingLogoUpdates.put(member.getId(), new PendingTeamLogoUpdate(teamId, event.getChannel().getId()));
+            event.reply("📸 أرسل صورة الشعار الجديد في هذه القناة الآن (أو اكتب `cancel` للإلغاء).").setEphemeral(true).queue();
         } else if (id.startsWith("tm_ldr_members_")) {
             if (!isLeader) {
                 event.reply("❌ فقط الليدر يمكنه تعديل الأعضاء.").setEphemeral(true).queue();
@@ -1391,14 +1475,14 @@ public class TeamCommand extends ListenerAdapter {
                             Button.secondary("tm_cancel", "❌ إلغاء"))))
                     .useComponentsV2(true).setEphemeral(true).queue();
         } else if (id.equals("tm_select_edit")) {
-            event.replyComponents(Container.of(TextDisplay.of(buildTeamInfoText(event.getGuild(), td)),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    ActionRow.of(Button.primary("tm_edit_" + td.id, "✏️ تعديل المعلومات"),
-                            Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء"))))
+            event.replyEmbeds(buildTeamInfoEmbed(event.getGuild(), td))
+                    .setComponents(Container.of(
+                            Separator.createDivider(Separator.Spacing.SMALL),
+                            ActionRow.of(Button.primary("tm_edit_" + td.id, "✏️ تعديل المعلومات"),
+                                    Button.secondary("tm_edit_members_" + td.id, "👥 تعديل الأعضاء"))))
                     .useComponentsV2(true).setEphemeral(true).queue();
         } else if (id.equals("tm_select_view")) {
-            event.replyComponents(Container.of(TextDisplay.of(buildTeamInfoText(event.getGuild(), td))))
-                    .useComponentsV2(true).setEphemeral(true).queue();
+            event.replyEmbeds(buildTeamInfoEmbed(event.getGuild(), td)).setEphemeral(true).queue();
         }
     }
 
@@ -1629,12 +1713,12 @@ public class TeamCommand extends ListenerAdapter {
     // ===================================================================
 
     private void sendAnnouncementAndSave(Guild guild, String teamName, String leaderId, String m2Id, String m3Id,
-            String m4Id, String colorCode, int teamDbId, boolean isEdit) {
+            String m4Id, String colorCode, int teamDbId, boolean isEdit, String logoUrl) {
         TextChannel ch = guild.getTextChannelById(ANNOUNCE_CHANNEL_ID);
         if (ch == null)
             return;
         ch.sendMessage(new MessageCreateBuilder()
-                .setComponents(buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, isEdit))
+                .setComponents(buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, isEdit, logoUrl))
                 .useComponentsV2(true).build()).queue(msg -> {
                     try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
                             PreparedStatement ps = conn
@@ -1656,14 +1740,16 @@ public class TeamCommand extends ListenerAdapter {
         String msgId = getAnnouncementMsgId(teamId);
         if (msgId == null)
             return;
+        TeamData td = getTeamById(teamId);
+        String logoUrl = td != null ? td.logoUrl : null;
         ch.editMessageById(msgId, new MessageEditBuilder()
-                .setComponents(buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, true))
+                .setComponents(buildAnnouncementContainer(teamName, leaderId, m2Id, m3Id, m4Id, colorCode, true, logoUrl))
                 .useComponentsV2(true).build())
                 .queue(null, e -> logger.error("Failed to update announcement for team {}", teamName));
     }
 
     public static Container buildAnnouncementContainer(String teamName, String leaderId, String m2Id, String m3Id,
-            String m4Id, String colorCode, boolean isEdit) {
+            String m4Id, String colorCode, boolean isEdit, String logoUrl) {
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
         String cleanName = teamName.replaceAll("[^A-Za-z0-9]", "");
         String regId = "REG-" + (cleanName.isEmpty() ? "TEAM"
@@ -1682,8 +1768,18 @@ public class TeamCommand extends ListenerAdapter {
                 "> **تاريخ التأسيس:** " + date + "\n> **لون التيم:** `" + colorCode + "`";
         String part2 = "*يحق للتيم عقد التحالفات، وإدارة أعضائه، والمشاركة في الحروب والفعاليات الرسمية.*\n\n__مرحبًا بتيم **"
                 + teamName + "** بين أتيام السيرفر.__\n\n`رقم التسجيل: " + regId + "`";
-        return Container.of(TextDisplay.of(part1), Separator.createDivider(Separator.Spacing.LARGE),
-                TextDisplay.of(part2));
+
+        java.util.List<net.dv8tion.jda.api.components.container.ContainerChildComponent> layout = new java.util.ArrayList<>();
+        if (logoUrl != null && !logoUrl.isEmpty()) {
+            layout.add(net.dv8tion.jda.api.components.section.Section.of(
+                    net.dv8tion.jda.api.components.thumbnail.Thumbnail.fromUrl(logoUrl),
+                    java.util.Arrays.asList(TextDisplay.of(part1))));
+        } else {
+            layout.add(TextDisplay.of(part1));
+        }
+        layout.add(Separator.createDivider(Separator.Spacing.LARGE));
+        layout.add(TextDisplay.of(part2));
+        return Container.of(layout);
     }
 
     public static String extractIdOnlyGlobal(String dbValue) {
