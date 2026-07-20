@@ -188,4 +188,3 @@ public class LeonTrotskyBot {
         return jda;
     }
 }
-
