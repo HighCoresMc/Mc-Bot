@@ -49,7 +49,7 @@ public class LeonTrotskyBot {
                 dotenv.get("MYSQLPASSWORD", dotenv.get("DB_PASSWORD", ""))
             );
             dbManager.initializeEventTables();
-        } catch (Exception E) {
+        } catch (Exception e) {
             logger.error("Failed to connect to MySQL database!", e);
         }
 
@@ -73,7 +73,7 @@ public class LeonTrotskyBot {
                     dotenv.get("CMI_DB_USER", "root"),
                     dotenv.get("CMI_DB_PASS", "")
                 );
-            } catch (Exception E) {
+            } catch (Exception e) {
                 logger.error("Failed to connect to CMI MySQL database!", e);
             }
         } else {
@@ -166,7 +166,7 @@ public class LeonTrotskyBot {
                 if (jda != null) jda.shutdown();
             }));
             
-        } catch (Exception E) {
+        } catch (Exception e) {
             logger.error("Failed to start JDA", e);
             System.exit(1);
         }
