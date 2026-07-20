@@ -85,7 +85,7 @@ public class LeonTrotskyBot {
             jda = JDABuilder.createDefault(token)
                     .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGES, GatewayIntent.GUILD_MEMBERS)
                     .setStatus(net.dv8tion.jda.api.OnlineStatus.IDLE)
-                    .setActivity(Activity.playing("HighCore MC"))
+                    .setActivity(Activity.playing("HighCoreMC | Events"))
                     .build();
             
             jda.awaitReady();
