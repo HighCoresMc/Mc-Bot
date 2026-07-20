@@ -49,7 +49,7 @@ public class LeonTrotskyBot {
                 dotenv.get("MYSQLPASSWORD", dotenv.get("DB_PASSWORD", ""))
             );
             dbManager.initializeEventTables();
-        } catch (Exception e) {
+        } catch (Exception E) {
             logger.error("Failed to connect to MySQL database!", e);
         }
 
@@ -73,7 +73,7 @@ public class LeonTrotskyBot {
                     dotenv.get("CMI_DB_USER", "root"),
                     dotenv.get("CMI_DB_PASS", "")
                 );
-            } catch (Exception e) {
+            } catch (Exception E) {
                 logger.error("Failed to connect to CMI MySQL database!", e);
             }
         } else {
