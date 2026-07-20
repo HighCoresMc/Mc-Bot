@@ -42,12 +42,11 @@ public class LeonTrotskyBot {
         dbManager = new DatabaseManager();
         try {
             dbManager.setupPool(
-                dotenv.get("MYSQLHOST", dotenv.get("DB_HOST", "localhost")),
-                dotenv.get("MYSQLPORT", dotenv.get("DB_PORT", "3306")),
-                dotenv.get("MYSQL_DATABASE", dotenv.get("DB_NAME", "minecraft")),
-                dotenv.get("MYSQLUSER", dotenv.get("DB_USER", "root")),
-                dotenv.get("MYSQLPASSWORD", dotenv.get("DB_PASSWORD", ""))
-            );
+                    dotenv.get("MYSQLHOST", dotenv.get("DB_HOST", "localhost")),
+                    dotenv.get("MYSQLPORT", dotenv.get("DB_PORT", "3306")),
+                    dotenv.get("MYSQL_DATABASE", dotenv.get("DB_NAME", "minecraft")),
+                    dotenv.get("MYSQLUSER", dotenv.get("DB_USER", "root")),
+                    dotenv.get("MYSQLPASSWORD", dotenv.get("DB_PASSWORD", "")));
             dbManager.initializeEventTables();
         } catch (Exception e) {
             logger.error("Failed to connect to MySQL database!", e);
@@ -67,12 +66,11 @@ public class LeonTrotskyBot {
         if (!cmiHost.isEmpty()) {
             try {
                 dbManager.setupCmiPool(
-                    cmiHost,
-                    dotenv.get("CMI_DB_PORT", "3306"),
-                    dotenv.get("CMI_DB_NAME", "minecraft"),
-                    dotenv.get("CMI_DB_USER", "root"),
-                    dotenv.get("CMI_DB_PASS", "")
-                );
+                        cmiHost,
+                        dotenv.get("CMI_DB_PORT", "3306"),
+                        dotenv.get("CMI_DB_NAME", "minecraft"),
+                        dotenv.get("CMI_DB_USER", "root"),
+                        dotenv.get("CMI_DB_PASS", ""));
             } catch (Exception e) {
                 logger.error("Failed to connect to CMI MySQL database!", e);
             }
@@ -83,11 +81,12 @@ public class LeonTrotskyBot {
         // Initialize JDA
         try {
             jda = JDABuilder.createDefault(token)
-                    .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGES, GatewayIntent.GUILD_MEMBERS)
+                    .enableIntents(GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MESSAGES,
+                            GatewayIntent.GUILD_MEMBERS)
                     .setStatus(net.dv8tion.jda.api.OnlineStatus.IDLE)
-                    .setActivity(Activity.playing("HighCoreMC | Events"))
+                    .setActivity(Activity.playing("HighCoreMC | MineCraft"))
                     .build();
-            
+
             jda.awaitReady();
             logger.info("Leon Trotsky Bot is ready and connected to Discord!");
             logger.info("Bot is currently in {} guilds.", jda.getGuilds().size());
@@ -114,37 +113,55 @@ public class LeonTrotskyBot {
 
             // Register Global Slash Commands
             var globalCommands = java.util.List.of(
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("profile", "عرض الملف الشخصي والإحصائيات الخاصة باللاعب")
-                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user", "تحديد اللاعب المراد عرض ملفه الشخصي", false),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("stats", "عرض حالة الخادم والإحصائيات المباشرة"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("panel", "التحكم الكامل بالخادم وإدارة النظام"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec", "إنهاء حالة الصيانة أو التوقف الحالية"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands
+                            .slash("profile", "عرض الملف الشخصي والإحصائيات الخاصة باللاعب")
+                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER, "user",
+                                    "تحديد اللاعب المراد عرض ملفه الشخصي", false),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("stats",
+                            "عرض حالة الخادم والإحصائيات المباشرة"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("panel",
+                            "التحكم الكامل بالخادم وإدارة النظام"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("ec",
+                            "إنهاء حالة الصيانة أو التوقف الحالية"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("event", "لوحة تحكم الفعاليات"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("daily", "استلام المكافأة اليومية الخاصة بك"),
-                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("drop", "لوحة تحكم نظام الدروبات العشوائية"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("daily",
+                            "استلام المكافأة اليومية الخاصة بك"),
+                    net.dv8tion.jda.api.interactions.commands.build.Commands.slash("drop",
+                            "لوحة تحكم نظام الدروبات العشوائية"),
                     net.dv8tion.jda.api.interactions.commands.build.Commands.slash("team", "نظام إدارة الفرق")
                             .addSubcommands(
-                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("view", "لوحة تحكم الفرق"),
-                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("panel", "بنل قيادة التيم الخاص بك"),
-                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("create", "إنشاء فريق جديد")
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "name",    "اسم الفريق", true)
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "color",   "كود اللون (مثال: #FF5733)", true)
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "leader",  "قائد الفريق", true)
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member2", "العضو الثاني", true)
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member3", "العضو الثالث (اختياري)", false)
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,   "member4", "العضو الرابع (اختياري)", false),
-                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("edit", "تعديل فريق")
-                                    .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING, "team", "اسم الفريق (اختياري)", false),
-                                new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("top", "قائمة المتصدرين للأتيام")
-                            )
-            );
+                                    new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("view",
+                                            "لوحة تحكم الفرق"),
+                                    new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("panel",
+                                            "بنل قيادة التيم الخاص بك"),
+                                    new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("create",
+                                            "إنشاء فريق جديد")
+                                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING,
+                                                    "name", "اسم الفريق", true)
+                                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING,
+                                                    "color", "كود اللون (مثال: #FF5733)", true)
+                                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,
+                                                    "leader", "قائد الفريق", true)
+                                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,
+                                                    "member2", "العضو الثاني", true)
+                                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,
+                                                    "member3", "العضو الثالث (اختياري)", false)
+                                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.USER,
+                                                    "member4", "العضو الرابع (اختياري)", false),
+                                    new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("edit",
+                                            "تعديل فريق")
+                                            .addOption(net.dv8tion.jda.api.interactions.commands.OptionType.STRING,
+                                                    "team", "اسم الفريق (اختياري)", false),
+                                    new net.dv8tion.jda.api.interactions.commands.build.SubcommandData("top",
+                                            "قائمة المتصدرين للأتيام")));
 
-            jda.updateCommands().addCommands(globalCommands).queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
+            jda.updateCommands().addCommands(globalCommands)
+                    .queue(cmds -> logger.info("Successfully registered {} global commands", cmds.size()));
 
             for (net.dv8tion.jda.api.entities.Guild guild : jda.getGuilds()) {
                 guild.updateCommands().queue();
             }
-            
+
             jda.addEventListener(new ProfileCommand());
             jda.addEventListener(new StatsCommand());
             jda.addEventListener(new PanelCommand(jda));
@@ -156,16 +173,18 @@ public class LeonTrotskyBot {
 
             // REGISTER AI ASSISTANT
             com.highcore.bot.services.PterodactylService pteroServiceForAI = new com.highcore.bot.services.PterodactylService();
-            com.highcore.bot.services.AIAssistantService aiService = new com.highcore.bot.services.AIAssistantService(pteroServiceForAI);
+            com.highcore.bot.services.AIAssistantService aiService = new com.highcore.bot.services.AIAssistantService(
+                    pteroServiceForAI);
             jda.addEventListener(new com.highcore.bot.listeners.AIAssistantListener(aiService));
 
-            
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 logger.info("Shutting down...");
-                if (dbManager != null) dbManager.close();
-                if (jda != null) jda.shutdown();
+                if (dbManager != null)
+                    dbManager.close();
+                if (jda != null)
+                    jda.shutdown();
             }));
-            
+
         } catch (Exception e) {
             logger.error("Failed to start JDA", e);
             System.exit(1);
@@ -179,7 +198,7 @@ public class LeonTrotskyBot {
     public static SupabaseManager getSupabaseManager() {
         return supabaseManager;
     }
-    
+
     public static DiscordSRVManager getDiscordSRVManager() {
         return discordSRVManager;
     }
