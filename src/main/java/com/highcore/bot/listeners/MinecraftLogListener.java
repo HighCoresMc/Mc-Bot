@@ -15,27 +15,36 @@ import java.util.regex.Pattern;
 public class MinecraftLogListener extends ListenerAdapter {
     public static final Set<String> onlinePlayers = ConcurrentHashMap.newKeySet();
 
-    // RegEx patterns to extract Minecraft usernames safely (standard MC username: 3-16 chars, alphanumeric/underscores)
-    private static final Pattern JOIN_PATTERN  = Pattern.compile("(?i)\\b([a-zA-Z0-9_]{3,16})\\b.*(?:joined|connected|دخل|انضم)");
-    private static final Pattern LEAVE_PATTERN = Pattern.compile("(?i)\\b([a-zA-Z0-9_]{3,16})\\b.*(?:left|disconnected|lost connection|خرج|غادر)");
+    // RegEx patterns to extract Minecraft usernames safely (standard MC username:
+    // 3-16 chars, alphanumeric/underscores)
+    private static final Pattern JOIN_PATTERN = Pattern
+            .compile("(?i)\\b([a-zA-Z0-9_]{3,16})\\b.*(?:joined|connected|دخل|انضم)");
+    private static final Pattern LEAVE_PATTERN = Pattern
+            .compile("(?i)\\b([a-zA-Z0-9_]{3,16})\\b.*(?:left|disconnected|lost connection|خرج|غادر)");
 
-    // Section: Server lifecycle patterns — used to clear stale player set on stop/start
-    private static final Pattern SERVER_STOP_PATTERN  = Pattern.compile("(?i)(server|السيرفر).*(stopped|shutdown|offline|توقف|أغلق)|(stopped|shutdown).*(server|السيرفر)");
-    private static final Pattern SERVER_START_PATTERN = Pattern.compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
+    // Section: Server lifecycle patterns — used to clear stale player set on
+    // stop/start
+    private static final Pattern SERVER_STOP_PATTERN = Pattern
+            .compile("(?i)(server|السيرفر).*(stopped|shutdown|offline|توقف|أغلق)|(stopped|shutdown).*(server|السيرفر)");
+    private static final Pattern SERVER_START_PATTERN = Pattern
+            .compile("(?i)(server|السيرفر).*(started|online|running|شغّل|بدأ)|(started|running).*(server|السيرفر)");
 
     // Section: Team Logs
     private static final Pattern SABOTAGE_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Sabotage\\] (.*?) (\\d+)");
-    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern.compile(".*?\\[ClaimsCore-SabotageSuccess\\] (.*?) (\\d+) (\\d+)");
-    private static final Pattern TEAM_CHAT_PATTERN = Pattern.compile(".*?\\[ClaimsCore-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
+    private static final Pattern SABOTAGE_SUCCESS_PATTERN = Pattern
+            .compile(".*?\\[ClaimsCore-SabotageSuccess\\] (.*?) (\\d+) (\\d+)");
+    private static final Pattern TEAM_CHAT_PATTERN = Pattern
+            .compile(".*?\\[ClaimsCore-TeamChat\\] \\[(.*?)\\] (.*?): (.*)");
     private static final Pattern FUEL_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Fuel\\] \\[(.*?)\\] (\\d+):(\\d+)");
-    private static final Pattern LEVELUP_PATTERN = Pattern.compile(".*?\\[ClaimsCore-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
+    private static final Pattern LEVELUP_PATTERN = Pattern
+            .compile(".*?\\[ClaimsCore-LevelUp\\] \\[(.*?)\\] (\\d+):(\\d+)");
     private static final Pattern TEAM_LOG_PATTERN = Pattern.compile(".*?\\[ClaimsCore-Log\\] \\[(.*?)\\] (.*?):(.*)");
 
     public static final String LOG_CHANNEL_ID = "1487148944667578368";
 
     @Override
     public void onMessageReceived(MessageReceivedEvent event) {
-        String channelId    = event.getChannel().getId();
+        String channelId = event.getChannel().getId();
         String targetChannel = com.highcore.bot.services.ServerStatsService.getLogChannelId();
 
         if (channelId.equals(targetChannel) || channelId.equals(LOG_CHANNEL_ID)) {
@@ -50,7 +59,8 @@ public class MinecraftLogListener extends ListenerAdapter {
     }
 
     private static String extractEmbedText(MessageEmbed embed) {
-        if (embed == null) return "";
+        if (embed == null)
+            return "";
         StringBuilder sb = new StringBuilder();
         if (embed.getAuthor() != null && embed.getAuthor().getName() != null) {
             sb.append(embed.getAuthor().getName()).append(" ");
@@ -65,7 +75,8 @@ public class MinecraftLogListener extends ListenerAdapter {
     }
 
     public static void handleLogMessage(String content, boolean isInit) {
-        if (content == null || content.trim().isEmpty()) return;
+        if (content == null || content.trim().isEmpty())
+            return;
 
         // Strip markdown bold/italics markers to ensure raw string comparisons work
         String clean = content.replace("*", "").trim();
@@ -93,7 +104,8 @@ public class MinecraftLogListener extends ListenerAdapter {
             String username = joinMatcher.group(1);
             onlinePlayers.add(username);
             if (!isInit) {
-                System.out.println("[MinecraftLogListener] Player JOINED: " + username + " (Current count: " + onlinePlayers.size() + ")");
+                System.out.println("[MinecraftLogListener] Player JOINED: " + username + " (Current count: "
+                        + onlinePlayers.size() + ")");
                 // Section: Increment persistent login counter on every confirmed join
                 com.highcore.bot.services.ServerStatsService.incrementTotalLogins();
             }
@@ -104,7 +116,9 @@ public class MinecraftLogListener extends ListenerAdapter {
         if (leaveMatcher.find()) {
             String username = leaveMatcher.group(1);
             onlinePlayers.remove(username);
-            if (!isInit) System.out.println("[MinecraftLogListener] Player LEFT: " + username + " (Current count: " + onlinePlayers.size() + ")");
+            if (!isInit)
+                System.out.println("[MinecraftLogListener] Player LEFT: " + username + " (Current count: "
+                        + onlinePlayers.size() + ")");
             return;
         }
 
@@ -137,8 +151,9 @@ public class MinecraftLogListener extends ListenerAdapter {
             String genId = fuelMatcher.group(2).trim();
             String percent = fuelMatcher.group(3).trim();
             System.out.println("[DEBUG] Matched Fuel: Team=" + teamName + ", Gen=" + genId + ", Percent=" + percent);
-            
-            if (!isInit && (percent.equals("0") || percent.equals("10") || percent.equals("30") || percent.equals("7"))) {
+
+            if (!isInit
+                    && (percent.equals("0") || percent.equals("10") || percent.equals("30") || percent.equals("7"))) {
                 System.out.println("[DEBUG] Sending fuel alert for " + teamName + "...");
                 com.highcore.bot.services.DiscordTeamAlertService.sendFuelAlert(teamName, genId, percent);
             }
@@ -153,11 +168,14 @@ public class MinecraftLogListener extends ListenerAdapter {
             String details = teamLogMatcher.group(3).trim();
             if (!isInit) {
                 if (action.equals("COLOR_CHANGE")) {
-                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "تغيير لون التيم", "تم تغيير لون التيم إلى: " + details, java.awt.Color.WHITE);
+                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "تغيير لون التيم",
+                            "تم تغيير لون التيم إلى: " + details, java.awt.Color.WHITE);
                 } else if (action.equals("PROMOTE")) {
-                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "ترقية عضو", "تمت ترقية العضو: " + details, java.awt.Color.GREEN);
+                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "ترقية عضو",
+                            "تمت ترقية العضو: " + details, java.awt.Color.GREEN);
                 } else if (action.equals("DEMOTE")) {
-                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "تنزيل رتبة عضو", "تم تنزيل رتبة العضو: " + details, java.awt.Color.ORANGE);
+                    com.highcore.bot.services.TeamLogService.logEvent(teamName, "تنزيل رتبة عضو",
+                            "تم تنزيل رتبة العضو: " + details, java.awt.Color.ORANGE);
                 }
             }
             return;
@@ -188,8 +206,10 @@ public class MinecraftLogListener extends ListenerAdapter {
     }
 
     /**
-     * Scans the log channel history on startup to reconstruct the set of online players.
-     * Respects server stop/start events — only players from the latest server session are counted.
+     * Scans the log channel history on startup to reconstruct the set of online
+     * players.
+     * Respects server stop/start events — only players from the latest server
+     * session are counted.
      */
     public static void initializeOnlinePlayers(JDA jda) {
         onlinePlayers.clear();
@@ -210,7 +230,8 @@ public class MinecraftLogListener extends ListenerAdapter {
                         content = content + " " + extractEmbedText(msg.getEmbeds().get(0));
                     }
 
-                    // Section: Track the timestamp of the last "Server has started" for uptime accuracy
+                    // Section: Track the timestamp of the last "Server has started" for uptime
+                    // accuracy
                     String clean = content.replace("*", "").trim();
                     if (SERVER_START_PATTERN.matcher(clean).find() || clean.toLowerCase().contains("has started")) {
                         onlinePlayers.clear();
@@ -226,7 +247,8 @@ public class MinecraftLogListener extends ListenerAdapter {
 
                     handleLogMessage(content, true);
                 }
-                System.out.println("[MinecraftLogListener] Reconstructed set: " + onlinePlayers + " (" + onlinePlayers.size() + " online)");
+                System.out.println("[MinecraftLogListener] Reconstructed set: " + onlinePlayers + " ("
+                        + onlinePlayers.size() + " online)");
             });
         } else {
             System.out.println("[MinecraftLogListener] Log channel not found by ID: " + targetChannelId);

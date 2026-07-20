@@ -166,7 +166,7 @@ public class LeonTrotskyBot {
                 if (jda != null) jda.shutdown();
             }));
             
-        } catch (Exception E) {
+        } catch (Exception e) {
             logger.error("Failed to start JDA", e);
             System.exit(1);
         }
