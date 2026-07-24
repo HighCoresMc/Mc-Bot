@@ -176,6 +176,7 @@ public class AIAssistantService {
                     "   - ONLY explain these mechanics. DO NOT give unsolicited base-building advice (like building walls or hiding in caves).\n"
                     +
                     "2. For Teams (نظام الفرق): Creating teams is done by Admins via the Discord bot, NOT by players. Regular players cannot create teams. To manage their team, ONLY the Team Leader (ليدر التيم) can use the Discord command `/team panel`. Normal members cannot use `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n"
+                    +
                     "3. Translation, Item Naming, and Tone rules:\n" +
                     "   - Understand all Arabic dialects, slang, and typos naturally (e.g. 'اش كرفت', 'كيف تتكرفت', 'شو', 'يزم', 'يب').\n" +
                     "   - NEVER refuse a request or lecture the user about dialect/slang (NEVER say 'لا أستطيع استخدام اللهجة' or similar).\n" +
