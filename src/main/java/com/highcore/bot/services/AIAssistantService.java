@@ -311,6 +311,8 @@ public class AIAssistantService {
             } else {
                 modelChain = new String[] {
                         "llama-3.3-70b-versatile",
+                        "mixtral-8x7b-32768",
+                        "gemma2-9b-it",
                         "llama-3.1-8b-instant"
                 };
             }
@@ -449,42 +451,51 @@ public class AIAssistantService {
 
             String url = "https://api.groq.com/openai/v1/chat/completions";
 
-            for (String activeKey : apiKeys) {
-                String cleanKey = activeKey.trim();
-                if (cleanKey.isEmpty())
-                    continue;
+            String[] semanticModels = { "llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768" };
 
-                String targetModel = "llama-3.1-8b-instant";
-                JsonObject requestBody = new JsonObject();
-                requestBody.add("messages", messages);
-                requestBody.addProperty("model", targetModel);
-                requestBody.addProperty("temperature", 0.0);
+            for (String targetModel : semanticModels) {
+                for (String activeKey : apiKeys) {
+                    String cleanKey = activeKey.trim();
+                    if (cleanKey.isEmpty())
+                        continue;
 
-                try {
-                    HttpRequest request = HttpRequest.newBuilder()
-                            .uri(URI.create(url))
-                            .header("Content-Type", "application/json")
-                            .header("Authorization", "Bearer " + cleanKey)
-                            .timeout(Duration.ofSeconds(15))
-                            .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-                            .build();
+                    JsonObject requestBody = new JsonObject();
+                    requestBody.add("messages", messages);
+                    requestBody.addProperty("model", targetModel);
+                    requestBody.addProperty("temperature", 0.0);
 
-                    HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-                    if (response.statusCode() == 200) {
-                        JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
-                        if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
-                            JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
-                            if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
-                                String contentStr = choice.getAsJsonObject("message").get("content").getAsString().trim();
-                                String matchedId = contentStr.replaceAll("[^0-9]", "").trim();
-                                if (matchedId.length() >= 17 && matchedId.length() <= 20) {
-                                    return matchedId;
+                    try {
+                        HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(url))
+                                .header("Content-Type", "application/json")
+                                .header("Authorization", "Bearer " + cleanKey)
+                                .timeout(Duration.ofSeconds(15))
+                                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                                .build();
+
+                        HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                        if (response.statusCode() == 200) {
+                            JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+                            if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
+                                JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
+                                if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
+                                    String contentStr = choice.getAsJsonObject("message").get("content").getAsString().trim();
+                                    String matchedId = contentStr.replaceAll("[^0-9]", "").trim();
+                                    if (matchedId.length() >= 17 && matchedId.length() <= 20) {
+                                        return matchedId;
+                                    }
                                 }
                             }
+                        } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
+                            logger.warn(
+                                    "Groq API rate limit (Status 429) on semantic model {} using key ending in ...{}, trying next key/model...",
+                                    targetModel,
+                                    cleanKey.length() > 6 ? cleanKey.substring(cleanKey.length() - 6) : cleanKey);
+                            Thread.sleep(500L);
                         }
+                    } catch (Exception e) {
+                        logger.error("Error sending semantic match request with model " + targetModel, e);
                     }
-                } catch (Exception e) {
-                    logger.error("Error sending semantic match request", e);
                 }
             }
         } catch (Exception e) {
