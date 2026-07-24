@@ -54,7 +54,7 @@ public class AIAssistantListener extends ListenerAdapter {
         new Thread(() -> {
             try {
                 String content = event.getMessage().getContentRaw();
-                if (content.trim().isEmpty()) {
+                if (content.trim().isEmpty() || !isQuery(content)) {
                     return;
                 }
 
@@ -318,5 +318,55 @@ public class AIAssistantListener extends ListenerAdapter {
             .replaceAll("[؟\\?\\!\\.\\,\\-\\_]", " ")
             .replaceAll("\\s+", " ")
             .trim();
+    }
+
+    // IS QUERY
+    private boolean isQuery(String message) {
+        if (message == null) return false;
+        String clean = message.trim().toLowerCase();
+        if (clean.isEmpty()) return false;
+
+        String[] words = clean.split("\\s+");
+        if (words.length == 0) return false;
+
+        if (words.length <= 2) {
+            boolean hasQuestionMark = clean.contains("؟") || clean.contains("?");
+            boolean hasQuestionWord = false;
+            String[] questionKeywords = {
+                "كيف", "شلون", "وش", "ايش", "ماذا", "هل", "ابي", "ابغى", "وين", "من", "كم", "كيفية", "طريقة", "طريقه", "كيفيه", "craft", "how", "where", "what", "who", "why"
+            };
+            for (String kw : questionKeywords) {
+                if (clean.contains(kw)) {
+                    hasQuestionWord = true;
+                    break;
+                }
+            }
+            if (!hasQuestionMark && !hasQuestionWord) {
+                return false;
+            }
+        }
+
+        String[] ignoredWords = {
+            "شكرا", "شكرًا", "يسلمو", "تمام", "اوكي", "ok", "حلو", "كفو", "يب", "نعم", "لا", "هلا", "منور", "طيب", "اخيرا", "اخيراا", "finally", "thanks", "thank"
+        };
+        boolean allIgnored = true;
+        for (String w : words) {
+            boolean isIgnored = false;
+            for (String iw : ignoredWords) {
+                if (w.replaceAll("[؟\\?\\!\\.\\,\\-\\_]", "").equals(iw)) {
+                    isIgnored = true;
+                    break;
+                }
+            }
+            if (!isIgnored) {
+                allIgnored = false;
+                break;
+            }
+        }
+        if (allIgnored) {
+            return false;
+        }
+
+        return true;
     }
 }
