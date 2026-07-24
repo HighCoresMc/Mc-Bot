@@ -206,6 +206,11 @@ public class AIAssistantListener extends ListenerAdapter {
             return;
         }
 
+        String content = event.getMessage().getContentRaw();
+        if (!isQuery(content)) {
+            return;
+        }
+
         thread.sendTyping().queue();
         thread.getHistoryBefore(event.getMessageIdLong(), 20).queue(historyObj -> {
             new Thread(() -> {

@@ -508,8 +508,14 @@ public class AIAssistantService {
     private String translateArabicItemsToEnglish(String text) {
         if (text == null) return null;
         String res = text;
-        res = res.replaceAll("(?i)شريحة أماسيت|شريحة جمشت|شريحة جمشتية|بلورة جمشت|شريحة أمتيست", "Amethyst Shard");
-        res = res.replaceAll("(?i)ملقوع نحاس|ملقوعات نحاس|سبيكة نحاس|سبائك نحاس|سبيكه نحاس|نحاس", "Copper Ingot");
+
+        // Clean up Cyrillic / Russian typos
+        res = res.replaceAll("(?i)مين\\s*كراфт|مين\\s*كرافت|مينكرافت|ماينكرافت|ماين كرافت|مين كرافت", "Minecraft");
+        res = res.replaceAll("(?i)фт", "فت");
+        res = res.replaceAll("(?i)крафт", "craft");
+
+        res = res.replaceAll("(?i)شريحة أماسيت|شريحة جمشت|شريحة جمشتية|بلورة جمشت|شريحة أمتيست|أماسيت|جمشت", "Amethyst Shard");
+        res = res.replaceAll("(?i)ملقوع نحاس|ملقوعات نحاس|سبيكة نحاس|سبائك نحاس|سبيكه نحاس|نحاس|نحتاس", "Copper Ingot");
         res = res.replaceAll("(?i)ملقوع حديد|سبيكة حديد|سبائك حديد|سبيكه حديد|حديد", "Iron Ingot");
         res = res.replaceAll("(?i)ملقوع ذهب|سبيكة ذهب|سبائك ذهب|سبيكه ذهب|ذهب", "Gold Ingot");
         res = res.replaceAll("(?i)ملقوع نذرآيت|سبيكة نذرآيت|سبيكة نذرايت|سبائك نذرايت|سبيكه نذرايت", "Netherite Ingot");
@@ -530,6 +536,10 @@ public class AIAssistantService {
         res = res.replaceAll("(?i)زجاج|بلوك زجاج|قزاز", "Glass");
         res = res.replaceAll("(?i)رمل|تراب رملي", "Sand");
         res = res.replaceAll("(?i)طاولة صناعة|طاولة الصناعة|طاولة كرافتنج|طاوله صناعه|طاولة الحرف", "Crafting Table");
+
+        // Clean up any duplicate parenthesized English names like "Amethyst Shard (Amethyst Shard)" -> "Amethyst Shard"
+        res = res.replaceAll("(?i)\\b([a-zA-Z\\s]+)\\s*\\(\\s*\\1\\s*\\)", "$1");
+
         return res;
     }
 
