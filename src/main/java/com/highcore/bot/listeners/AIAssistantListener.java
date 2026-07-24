@@ -5,6 +5,7 @@ import com.highcore.bot.services.AIAssistantService;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.channel.ChannelType;
 import net.dv8tion.jda.api.entities.channel.concrete.ThreadChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import org.slf4j.Logger;
@@ -77,7 +78,7 @@ public class AIAssistantListener extends ListenerAdapter {
     // RUN SMART SEARCH
     private void runSmartSearch(MessageReceivedEvent event) {
         String content = event.getMessage().getContentRaw();
-        List<AIAssistantService.ThreadInfo> threads = getAllThreadsFromDatabase();
+        List<AIAssistantService.ThreadInfo> threads = getAllThreads(event.getGuild());
 
         // Local match check first (case-insensitive, normalized Arabic)
         String localMatchId = findLocalMatch(content, threads);
@@ -260,6 +261,35 @@ public class AIAssistantListener extends ListenerAdapter {
         } catch (Exception e) {
             logger.error("Failed to save thread to database", e);
         }
+    }
+
+    // GET ALL THREADS (DATABASE + DISCORD ACTIVE THREADS)
+    private List<AIAssistantService.ThreadInfo> getAllThreads(net.dv8tion.jda.api.entities.Guild guild) {
+        List<AIAssistantService.ThreadInfo> threads = getAllThreadsFromDatabase();
+        try {
+            TextChannel channel = guild.getTextChannelById(TARGET_CHANNEL_ID);
+            if (channel != null) {
+                for (ThreadChannel tc : channel.getThreadChannels()) {
+                    boolean exists = false;
+                    for (AIAssistantService.ThreadInfo t : threads) {
+                        if (t.id.equals(tc.getId())) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        threads.add(new AIAssistantService.ThreadInfo(
+                                tc.getId(),
+                                tc.getName(),
+                                tc.getName()
+                        ));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Failed to load active threads from JDA", e);
+        }
+        return threads;
     }
 
     // GET ALL THREADS FROM DATABASE
