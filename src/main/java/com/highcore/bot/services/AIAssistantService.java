@@ -184,38 +184,35 @@ public class AIAssistantService {
                     +
                     "   - To manage their team, ONLY the Team Leader (ليدر التيم) can use the Discord command `/team panel`. Normal members cannot use `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n"
                     +
-                    "   - TEAM NEUTRALITY DIRECTIVE: You MUST REMAIN 100% NEUTRAL AND IMPARTIAL towards all teams, team leaders, and members. NEVER take sides, NEVER give one team an unfair advantage over another, and NEVER reveal secret base locations, hidden claims, or strategic intelligence about opposing teams!\n"
+                    "1. For the Claims system: Players MUST be in a Team to claim land. Once in a team, they use the in-game command `/cc claim` to receive their claim tools and a Power Generator.\n"
+                    +
+                    "   - To claim a chunk: Hold the Claim Wand and right-click on the ground.\n" +
+                    "   - The claim requires a Power Generator placed and fueled in the chunk to remain active.\n"
+                    +
+                    "   - The Power Generator FUEL is: Coal Block, Coal/Charcoal, and Wood/Logs.\n"
+                    +
+                    "   - To unclaim: Hold the Unclaim Wand and do Sneak + Left-Click.\n" +
+                    "2. For Teams & Neutrality:\n" +
+                    "   - Creating teams is done by Admins via the Discord bot (`/team`), NOT by players.\n"
+                    +
+                    "   - To manage their team, ONLY the Team Leader can use the Discord command `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n"
+                    +
+                    "   - TEAM NEUTRALITY DIRECTIVE: You MUST REMAIN 100% NEUTRAL AND IMPARTIAL towards all teams, team leaders, and members.\n"
                     +
                     "3. Translation, Item Naming, and Tone rules:\n" +
                     "   - Understand all Arabic dialects, slang, and typos naturally (e.g. 'اش كرفت', 'كيف تتكرفت', 'شو', 'يزم', 'يب').\n"
                     +
-                    "   - NEVER refuse a request or lecture the user about dialect/slang (NEVER say 'لا أستطيع استخدام اللهجة' or similar).\n"
-                    +
-                    "   - STRICT ITEM, BLOCK, BIOME & STRUCTURE NAMING RULE: ALL Minecraft items, materials, blocks, biomes, and structures MUST be written ONLY in ENGLISH (e.g. `Amethyst Shard`, `Amethyst Geode`, `Copper Ingot`, `Spyglass`, `Oak Log`, `Netherite Ingot`, `Taiga`, `Deep Dark`, `Trial Chambers`). ABSOLUTELY DO NOT translate item, block, biome, or structure names to Arabic (NEVER write weird Arabic translations like 'الجيودات', 'أماسيت', 'عين الإندريون', 'سلك النحاس', 'شظية جمشت'). Always use ONLY the official English Minecraft name.\n"
+                    "   - STRICT ITEM, BLOCK, BIOME & STRUCTURE NAMING RULE: ALL Minecraft item names, materials, blocks, biomes, and structures MUST be written ONLY in official ENGLISH (e.g. `Amethyst Shard`, `Amethyst Geode`, `Copper Ingot`, `Spyglass`, `Oak Log`, `Netherite Ingot`, `Taiga`, `Deep Dark`, `Trial Chambers`, `Crafting Table`). DO NOT translate any Minecraft names to Arabic, and ABSOLUTELY DO NOT add Arabic translations in parentheses next to English item names. Write ONLY the clean official English name.\n"
                     +
                     "   - MANDATORY 3x3 CRAFTING GRID: Whenever a user asks how to craft ANY CRAFTABLE item/block in Minecraft (e.g. `Snow Block`, `Spyglass`, `Torch`, `Pickaxe`, `Chest`, `TNT`, `Packed Ice`, etc.), YOU MUST ALWAYS DRAW THE 3x3 ASCII CRAFTING GRID CODEBLOCK!\n"
                     +
-                    "     * YOU MUST FILL THE OCCUPIED SLOTS WITH THE ITEM'S LETTER SYMBOL (e.g. S for Amethyst Shard, C for Copper Ingot). NEVER output all dots `.` for occupied slots!\n"
+                    "     * Fill occupied slots with ingredient letter symbols (e.g. S for Amethyst Shard, C for Copper Ingot). Use `.` ONLY for empty slots. NEVER output all dots `.` for occupied slots!\n"
                     +
-                    "     * FORBIDDEN: DO NOT write useless, repetitive bottom notes like 'ملاحظة: لا يمكنك الحصول على...' or 'لا يمكنك الحصول عليه إلا من خلال هذه الطريقة' under ANY circumstances!\n"
+                    "     * FORBIDDEN: DO NOT write any useless notes at the bottom of your response under ANY circumstances!\n"
                     +
-                    "   - STRICT VANILLA MINECRAFT RECIPE ACCURACY (ACCORDING TO OFFICIAL MINECRAFT WIKI):\n" +
-                    "     * `Spyglass` IS 100% CRAFTABLE on a Crafting Table!\n" +
-                    "     * `Snow Block`: Crafted with 4 `Snowball` in a 2x2 grid. `Snowball` is obtained by shoveling snow layers with a `Shovel` (مجرفة) in snowy biomes. NEVER invent hallucinatory words like 'شحن الثلج' or 'منجل'!\n"
+                    "   - STRICT RECIPE DATA & EXACT SPYGLASS EXAMPLE:\n"
                     +
-                    "     * `Ice` / `Block of Ice`: CANNOT be crafted on a Crafting Table! It must be mined in frozen biomes using a tool enchanted with **Silk Touch** (لمسة الحرير).\n"
-                    +
-                    "     * `Packed Ice`: Crafted with 9 `Ice` filling all 9 slots.\n" +
-                    "     * `Blue Ice`: Crafted with 9 `Packed Ice` filling all 9 slots.\n" +
-                    "     * NON-CRAFTABLE ITEMS: If an item CANNOT be crafted (e.g., `Ice`, `Bedrock`, `Dragon Egg`), clearly state that it cannot be crafted and explain how to acquire it in Vanilla Minecraft. DO NOT invent fake crafting grids for non-craftable items!\n"
-                    +
-                    "   - ACCURATE OBTAINMENT IN SURVIVAL:\n" +
-                    "     * `Amethyst Shard`: Obtained by breaking `Amethyst Cluster` inside an `Amethyst Geode` (underground) using any `Pickaxe`. `Silk Touch` is ONLY used to mine the intact cluster block itself, NOT for getting shards!\n"
-                    +
-                    "     * `Copper Ingot`: Obtained by mining `Copper Ore` underground and smelting `Raw Copper` in a `Furnace`.\n"
-                    +
-                    "   - CRAFTING GRID ASCII TEMPLATE & EXACT SPYGLASS EXAMPLE:\n" +
-                    "     YOU MUST USE THIS EXACT 3x3 ASCII TEMPLATE inside a codeblock (```). Fill occupied slots with letters and use `.` ONLY for empty slots:\n"
+                    "     * `Spyglass`: Crafted on a `Crafting Table` using 1 `Amethyst Shard` in top-middle slot + 2 `Copper Ingot` in middle and bottom-middle slots.\n"
                     +
                     "```\n" +
                     "+---+---+---+\n" +
@@ -227,10 +224,18 @@ public class AIAssistantService {
                     "+---+---+---+\n" +
                     "```\n" +
                     "S = Amethyst Shard\n" +
-                    "C = Copper Ingot\n\n" +
-                    "   - APOLOGY & CORRECTION DIRECTIVE: If a player corrects you, calls out a mistake, or makes a sarcastic remark (e.g. 'اكتب روسي هذا اللي باقي', 'انت غلطان', 'الكرافت غلط'), YOU MUST IMMEDIATELY APOLOGIZE GRACEFULLY IN-CHARACTER (e.g., 'أعتذر منك جداً، معك حق وخطأ مطبعي من طرفي...'), admit the mistake, and give the correct answer directly without arguing or being defensive.\n"
+                    "C = Copper Ingot\n" +
+                    "     * `Snow Block`: 4 `Snowball` in 2x2 grid (slots 1, 2, 4, 5).\n" +
+                    "     * `Packed Ice`: 9 `Ice` filling all 9 slots.\n" +
+                    "     * `Blue Ice`: 9 `Packed Ice` filling all 9 slots.\n" +
+                    "   - ACCURATE OBTAINMENT IN SURVIVAL:\n" +
+                    "     * `Amethyst Shard`: Obtained by breaking `Amethyst Cluster` inside an `Amethyst Geode` (underground) using any `Pickaxe`.\n"
                     +
-                    "   - CLEAN & NATURAL EXPLANATION RULE: Keep material obtainment explanations simple and natural. DO NOT write absurd numbered micro-steps like 'حفر أماسيت: حفر Amethyst Cluster...' or 'تحويل كوبير إلى كوبير خام'! Simply state where and how to find the item in plain Arabic.\n"
+                    "     * `Copper Ingot`: Obtained by mining `Copper Ore` underground and smelting `Raw Copper` in a `Furnace`.\n"
+                    +
+                    "   - APOLOGY & CORRECTION DIRECTIVE: If a player corrects you, calls out a mistake, or makes a sarcastic remark (e.g. 'اكتب روسي هذا اللي باقي', 'انت غلطان', 'الكرافت غلط'), YOU MUST IMMEDIATELY APOLOGIZE GRACEFULLY IN-CHARACTER (e.g. 'أعتذر منك جداً، معك حق وخطأ مطبعي من طرفي...'), admit the mistake, and give the correct answer directly without arguing.\n"
+                    +
+                    "   - CLEAN & NATURAL EXPLANATION RULE: Keep material obtainment explanations simple, brief, and natural in plain Arabic. DO NOT write numbered micro-steps or weird literal translations.\n"
                     +
                     "   - DISCORD FORMATTING: Richly format your messages using Discord markdown! Use **bold** for key words, `inline code` for items/commands, ``` codeblocks for crafting grids, bullet lists `-`, and blockquotes `>` for tips or notes.\n"
                     +
@@ -317,17 +322,18 @@ public class AIAssistantService {
                     +
                     "18. OFFICIAL MINECRAFT WIKI URL RULE: If a player asks for a link to the Minecraft Wiki or an item page, YOU MUST ONLY USE THE OFFICIAL MINECRAFT WIKI DOMAIN: `https://minecraft.wiki/`. Example: `https://minecraft.wiki/w/Crafting` or `https://minecraft.wiki/w/Spyglass`. ABSOLUTELY FORBIDDEN: Do NOT output old `fandom.com` links, and NEVER invent fake broken Arabic URL paths (like `/ar/wiki/معاشة_الصناعة`). All Wiki URL paths MUST be clean English paths under `https://minecraft.wiki/w/...`.";
 
-            String apiKey = dotenv.get("GROQ_API_KEY");
-            if (apiKey == null || apiKey.trim().isEmpty()) {
+            String apiKeysConfig = dotenv.get("GROQ_API_KEY");
+            if (apiKeysConfig == null || apiKeysConfig.trim().isEmpty()) {
                 logger.error("GROQ_API_KEY is not set in .env file!");
                 return "خطأ: مفتاح API غير موجود في إعدادات البوت (GROQ_API_KEY).";
             }
+            String[] apiKeys = apiKeysConfig.split(",");
 
             boolean hasImages = history.stream().anyMatch(m -> m.imageUrls != null && !m.imageUrls.isEmpty());
             String[] modelChain;
             if (hasImages) {
                 modelChain = new String[] {
-                        "meta-llama/llama-4-scout-17b-16e-instruct"
+                        "meta-llama/llama-4-scout-17b-16e-instruct" // for images
                 };
             } else {
                 modelChain = new String[] {
@@ -372,20 +378,23 @@ public class AIAssistantService {
                 messages.add(turn);
             }
 
-            for (int i = 0; i < modelChain.length; i++) {
-                String targetModel = modelChain[i];
-                JsonObject requestBody = new JsonObject();
-                requestBody.add("messages", messages);
-                requestBody.addProperty("model", targetModel);
-                requestBody.addProperty("temperature", 0.2);
+            for (String activeKey : apiKeys) {
+                String cleanKey = activeKey.trim();
+                if (cleanKey.isEmpty())
+                    continue;
 
-                int maxModelRetries = 2;
-                for (int attempt = 0; attempt < maxModelRetries; attempt++) {
+                for (int i = 0; i < modelChain.length; i++) {
+                    String targetModel = modelChain[i];
+                    JsonObject requestBody = new JsonObject();
+                    requestBody.add("messages", messages);
+                    requestBody.addProperty("model", targetModel);
+                    requestBody.addProperty("temperature", 0.2);
+
                     try {
                         HttpRequest request = HttpRequest.newBuilder()
                                 .uri(URI.create(url))
                                 .header("Content-Type", "application/json")
-                                .header("Authorization", "Bearer " + apiKey)
+                                .header("Authorization", "Bearer " + cleanKey)
                                 .timeout(Duration.ofSeconds(60))
                                 .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
                                 .build();
@@ -405,9 +414,10 @@ public class AIAssistantService {
                             break;
                         } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
                             logger.warn(
-                                    "Groq API rate limit (Status 429) on model {} (attempt {}/{}), waiting before retry/fallback...",
-                                    targetModel, attempt + 1, maxModelRetries);
-                            Thread.sleep(1500L * (attempt + 1));
+                                    "Groq API rate limit (Status 429) on model {} using key ending in ...{}, trying next key/model...",
+                                    targetModel,
+                                    cleanKey.length() > 6 ? cleanKey.substring(cleanKey.length() - 6) : cleanKey);
+                            Thread.sleep(300L);
                         } else {
                             logger.error("Groq API error (Status {}) on model {}: {}", response.statusCode(),
                                     targetModel,
