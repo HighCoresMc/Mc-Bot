@@ -436,6 +436,106 @@ public class AIAssistantService {
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
     }
 
+    // CHECK SEMANTIC MATCH
+    public String checkSemanticMatch(String newQuestion, List<ThreadInfo> threads) {
+        if (threads == null || threads.isEmpty()) {
+            return "NO";
+        }
+
+        try {
+            String apiKeysConfig = dotenv.get("GROQ_API_KEY");
+            if (apiKeysConfig == null || apiKeysConfig.trim().isEmpty()) {
+                logger.error("GROQ_API_KEY is not set in .env file!");
+                return "NO";
+            }
+            String[] apiKeys = apiKeysConfig.split(",");
+
+            StringBuilder threadsList = new StringBuilder();
+            for (ThreadInfo thread : threads) {
+                threadsList.append("ID: ").append(thread.id)
+                           .append(" | Title: ").append(thread.name)
+                           .append(" | Question: ").append(thread.originalQuestion)
+                           .append("\n");
+            }
+
+            String systemInstruction = "You are a precise semantic matching system for a Minecraft support channel.\n" +
+                    "Analyze the user's new question and determine if it has the SAME intent, meaning, or asks the same question as one of the existing threads listed below, even if they use different words, synonyms, or Arabic dialects (e.g., matching 'كيف اسوي منظار' with 'كيف اكرفت spyglass ؟' because 'منظار' and 'spyglass' are the same, and 'اسوي' and 'اكرفت' both mean craft/make).\n\n" +
+                    "Strictest Rules:\n" +
+                    "- If a match is found, reply ONLY with the Thread ID of the matching thread (e.g., '123456789').\n" +
+                    "- If NO match is found, reply ONLY with 'NO'.\n" +
+                    "- DO NOT explain your reasoning, do not write anything else.\n\n" +
+                    "Existing Threads:\n" + threadsList.toString();
+
+            JsonArray messages = new JsonArray();
+            JsonObject systemMsg = new JsonObject();
+            systemMsg.addProperty("role", "system");
+            systemMsg.addProperty("content", systemInstruction);
+            messages.add(systemMsg);
+
+            JsonObject userMsg = new JsonObject();
+            userMsg.addProperty("role", "user");
+            userMsg.addProperty("content", "User's New Question: " + newQuestion);
+            messages.add(userMsg);
+
+            String url = "https://api.groq.com/openai/v1/chat/completions";
+
+            for (String activeKey : apiKeys) {
+                String cleanKey = activeKey.trim();
+                if (cleanKey.isEmpty())
+                    continue;
+
+                String targetModel = "llama-3.1-8b-instant";
+                JsonObject requestBody = new JsonObject();
+                requestBody.add("messages", messages);
+                requestBody.addProperty("model", targetModel);
+                requestBody.addProperty("temperature", 0.0);
+
+                try {
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .header("Content-Type", "application/json")
+                            .header("Authorization", "Bearer " + cleanKey)
+                            .timeout(Duration.ofSeconds(15))
+                            .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                            .build();
+
+                    HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (response.statusCode() == 200) {
+                        JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+                        if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
+                            JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
+                            if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
+                                String contentStr = choice.getAsJsonObject("message").get("content").getAsString().trim();
+                                String matchedId = contentStr.replaceAll("[^0-9]", "").trim();
+                                if (matchedId.length() >= 17 && matchedId.length() <= 20) {
+                                    return matchedId;
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("Error sending semantic match request", e);
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Error in checkSemanticMatch", e);
+        }
+        return "NO";
+    }
+
+    // THREAD INFO CLASS
+    public static class ThreadInfo {
+        public final String id;
+        public final String name;
+        public final String originalQuestion;
+
+        public ThreadInfo(String id, String name, String originalQuestion) {
+            this.id = id;
+            this.name = name;
+            this.originalQuestion = originalQuestion;
+        }
+    }
+
     // CHAT MESSAGE CLASS
     public static class ChatMessage {
         public final String content;

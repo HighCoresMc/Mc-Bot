@@ -145,6 +145,15 @@ public class DatabaseManager {
             try { stmt.executeUpdate("ALTER TABLE teams ADD COLUMN logo_url VARCHAR(255)"); } catch (Exception ignored) {}
             try { stmt.executeUpdate("ALTER TABLE teams ADD COLUMN log_channel_id VARCHAR(64)"); } catch (Exception ignored) {}
 
+            // AI THREADS
+            String createAiThreadsTable = "CREATE TABLE IF NOT EXISTS ai_threads (" +
+                    "thread_id VARCHAR(64) PRIMARY KEY, " +
+                    "thread_name VARCHAR(255) NOT NULL, " +
+                    "original_question TEXT NOT NULL, " +
+                    "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                    ")";
+            stmt.executeUpdate(createAiThreadsTable);
+
             logger.info("Event tables initialized successfully.");
         } catch (SQLException e) {
             logger.error("Failed to initialize event tables!", e);
