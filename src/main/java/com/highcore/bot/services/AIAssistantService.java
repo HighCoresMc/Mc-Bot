@@ -202,7 +202,7 @@ public class AIAssistantService {
                     "3. Translation, Item Naming, and Tone rules:\n" +
                     "   - Understand all Arabic dialects, slang, and typos naturally (e.g. 'اش كرفت', 'كيف تتكرفت', 'شو', 'يزم', 'يب').\n"
                     +
-                    "   - STRICT ITEM, BLOCK, BIOME & STRUCTURE NAMING RULE: ALL Minecraft item names, materials, blocks, biomes, and structures MUST be written ONLY in official ENGLISH (e.g. `Amethyst Shard`, `Amethyst Geode`, `Copper Ingot`, `Spyglass`, `Oak Log`, `Netherite Ingot`, `Taiga`, `Deep Dark`, `Trial Chambers`, `Crafting Table`). DO NOT translate any Minecraft names to Arabic, and ABSOLUTELY DO NOT add Arabic translations in parentheses next to English item names. Write ONLY the clean official English name.\n"
+                    "   - STRICT ITEM, BLOCK, BIOME & STRUCTURE NAMING RULE: ALL Minecraft item names, materials, ingredients, blocks, biomes, and structures MUST be written ONLY in official ENGLISH in all responses, legends, and bullet points (e.g. `Amethyst Shard`, `Copper Ingot`, `Spyglass`, `A = Amethyst Shard`, `C = Copper Ingot`). ABSOLUTELY FORBIDDEN: DO NOT write Arabic translations for any item names in the legend (NEVER write 'شريحة ألماس' or 'ملقوعات نحاس' or 'شريحة أماسيت'). Write ONLY the official English Minecraft item name everywhere.\n"
                     +
                     "   - MANDATORY 3x3 CRAFTING GRID: Whenever a user asks how to craft ANY CRAFTABLE item/block in Minecraft (e.g. `Snow Block`, `Spyglass`, `Torch`, `Pickaxe`, `Chest`, `TNT`, `Packed Ice`, etc.), YOU MUST ALWAYS DRAW THE 3x3 ASCII CRAFTING GRID CODEBLOCK!\n"
                     +
