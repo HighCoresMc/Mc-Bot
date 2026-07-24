@@ -498,9 +498,9 @@ public class AIAssistantService {
         if (text == null) return null;
         String res = text;
         res = res.replaceAll("(?i)شريحة أماسيت|شريحة جمشت|شريحة جمشتية|بلورة جمشت|شريحة أمتيست", "Amethyst Shard");
-        res = res.replaceAll("(?i)ملقوع نحاس|ملقوعات نحاس|سبيكة نحاس|سبائك نحاس|سبيكه نحاس", "Copper Ingot");
-        res = res.replaceAll("(?i)ملقوع حديد|سبيكة حديد|سبائك حديد|سبيكه حديد", "Iron Ingot");
-        res = res.replaceAll("(?i)ملقوع ذهب|سبيكة ذهب|سبائك ذهب|سبيكه ذهب", "Gold Ingot");
+        res = res.replaceAll("(?i)ملقوع نحاس|ملقوعات نحاس|سبيكة نحاس|سبائك نحاس|سبيكه نحاس|نحاس", "Copper Ingot");
+        res = res.replaceAll("(?i)ملقوع حديد|سبيكة حديد|سبائك حديد|سبيكه حديد|حديد", "Iron Ingot");
+        res = res.replaceAll("(?i)ملقوع ذهب|سبيكة ذهب|سبائك ذهب|سبيكه ذهب|ذهب", "Gold Ingot");
         res = res.replaceAll("(?i)ملقوع نذرآيت|سبيكة نذرآيت|سبيكة نذرايت|سبائك نذرايت|سبيكه نذرايت", "Netherite Ingot");
         res = res.replaceAll("(?i)شريحة ألماس|ألماس|دايموند|الماس", "Diamond");
         res = res.replaceAll("(?i)حجر أحمر|ريدستون|الريدستون|حجر احمر", "Redstone");
