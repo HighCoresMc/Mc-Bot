@@ -164,8 +164,8 @@ public class AIAssistantService {
                     "SERVER CONTEXT:\n" +
                     "- Active Plugins: " + cachedPluginsContext + "\n" +
                     "- Custom Plugin Configs/Rules:\n"
-                    + (customConfigsContext.length() > 8000
-                            ? customConfigsContext.substring(0, 8000) + "\n...[truncated]"
+                    + (customConfigsContext.length() > 2000
+                            ? customConfigsContext.substring(0, 2000) + "\n...[truncated]"
                             : customConfigsContext)
                     + "\n\n" +
                     "GAMEPLAY RULES TO EXPLAIN TO PLAYERS:\n" +
