@@ -338,7 +338,7 @@ public class AIAssistantListener extends ListenerAdapter {
             boolean hasQuestionMark = clean.contains("؟") || clean.contains("?");
             boolean hasQuestionWord = false;
             String[] questionKeywords = {
-                "كيف", "شلون", "وش", "ايش", "ماذا", "هل", "ابي", "ابغى", "وين", "من", "كم", "كيفية", "طريقة", "طريقه", "كيفيه", "craft", "how", "where", "what", "who", "why"
+                "كيف", "شلون", "وش", "ايش", "ماذا", "هل", "ابي", "ابغى", "وين", "من", "كم", "كيفية", "طريقة", "طريقه", "كيفيه", "ارتفاع", "الارتفاع", "y", "x", "z", "craft", "how", "where", "what", "who", "why"
             };
             for (String kw : questionKeywords) {
                 if (clean.contains(kw)) {

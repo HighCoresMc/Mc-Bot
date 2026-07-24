@@ -311,8 +311,8 @@ public class AIAssistantService {
             } else {
                 modelChain = new String[] {
                         "llama-3.3-70b-versatile",
-                        "mixtral-8x7b-32768",
-                        "gemma2-9b-it",
+                        "openai/gpt-oss-120b",
+                        "openai/gpt-oss-20b",
                         "llama-3.1-8b-instant"
                 };
             }
@@ -451,7 +451,7 @@ public class AIAssistantService {
 
             String url = "https://api.groq.com/openai/v1/chat/completions";
 
-            String[] semanticModels = { "llama-3.1-8b-instant", "gemma2-9b-it", "mixtral-8x7b-32768" };
+            String[] semanticModels = { "llama-3.1-8b-instant", "openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.3-70b-versatile" };
 
             for (String targetModel : semanticModels) {
                 for (String activeKey : apiKeys) {
