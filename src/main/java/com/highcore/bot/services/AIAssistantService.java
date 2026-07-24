@@ -191,42 +191,31 @@ public class AIAssistantService {
                     +
                     "   - NEVER refuse a request or lecture the user about dialect/slang (NEVER say 'لا أستطيع استخدام اللهجة' or similar).\n"
                     +
-                    "   - STRICT ITEM NAMING RULE: ALL Minecraft item names, materials, and blocks MUST be written ONLY in ENGLISH (e.g. `Amethyst Shard`, `Copper Ingot`, `Spyglass`, `Oak Log`, `Netherite Ingot`, `Chestplate`). ABSOLUTELY DO NOT translate item names to Arabic (NEVER write weird Arabic translations like 'عين الإندريون' or 'سلك النحاس' or 'شظية جمشت'). DO NOT include Arabic translations next to item names in parentheses. Always use ONLY the official English Minecraft item name.\n"
-                    +
-                    "   - MANDATORY 3x3 CRAFTING GRID: Whenever a user asks how to craft ANY CRAFTABLE item/block in Minecraft (e.g. `Snow Block`, `Spyglass`, `Torch`, `Pickaxe`, `Chest`, `TNT`, `Packed Ice`, etc.), YOU MUST ALWAYS DRAW THE 3x3 ASCII CRAFTING GRID CODEBLOCK!\n"
-                    +
+                    "   - STRICT ITEM, BLOCK, BIOME & STRUCTURE NAMING RULE: ALL Minecraft items, materials, blocks, biomes, and structures MUST be written ONLY in ENGLISH (e.g. `Amethyst Shard`, `Amethyst Geode`, `Copper Ingot`, `Spyglass`, `Oak Log`, `Netherite Ingot`, `Taiga`, `Deep Dark`, `Trial Chambers`). ABSOLUTELY DO NOT translate item, block, biome, or structure names to Arabic (NEVER write weird Arabic translations like 'الجيودات', 'أماسيت', 'عين الإندريون', 'سلك النحاس', 'شظية جمشت'). Always use ONLY the official English Minecraft name.\n" +
+                    "   - MANDATORY 3x3 CRAFTING GRID: Whenever a user asks how to craft ANY CRAFTABLE item/block in Minecraft (e.g. `Snow Block`, `Spyglass`, `Torch`, `Pickaxe`, `Chest`, `TNT`, `Packed Ice`, etc.), YOU MUST ALWAYS DRAW THE 3x3 ASCII CRAFTING GRID CODEBLOCK!\n" +
                     "   - STRICT VANILLA MINECRAFT RECIPE ACCURACY (ACCORDING TO OFFICIAL MINECRAFT WIKI):\n" +
-                    "     * `Snow Block`: Crafted with 4 `Snowball` in a 2x2 grid. `Snowball` is obtained by shoveling snow layers with a `Shovel` (مجرفة) in snowy biomes. NEVER invent hallucinatory words like 'شحن الثلج' or 'منجل'!\n"
-                    +
-                    "     * `Ice` / `Block of Ice`: CANNOT be crafted on a Crafting Table! It must be mined in frozen biomes using a tool enchanted with **Silk Touch** (لمسة الحرير).\n"
-                    +
+                    "     * `Spyglass` IS 100% CRAFTABLE on a Crafting Table! NEVER write hallucinated notes saying 'لا يمكنك الحصول عليه بالطريقة العادية'!\n" +
+                    "     * `Snow Block`: Crafted with 4 `Snowball` in a 2x2 grid. `Snowball` is obtained by shoveling snow layers with a `Shovel` (مجرفة) in snowy biomes. NEVER invent hallucinatory words like 'شحن الثلج' or 'منجل'!\n" +
+                    "     * `Ice` / `Block of Ice`: CANNOT be crafted on a Crafting Table! It must be mined in frozen biomes using a tool enchanted with **Silk Touch** (لمسة الحرير).\n" +
                     "     * `Packed Ice`: Crafted with 9 `Ice` filling all 9 slots.\n" +
                     "     * `Blue Ice`: Crafted with 9 `Packed Ice` filling all 9 slots.\n" +
-                    "     * `Spyglass`: 1 `Amethyst Shard` in Slot 2 (top-middle) + 1 `Copper Ingot` in Slot 5 (center) + 1 `Copper Ingot` in Slot 8 (bottom-middle).\n"
-                    +
-                    "     * NON-CRAFTABLE ITEMS: If an item CANNOT be crafted (e.g., `Ice`, `Bedrock`, `Dragon Egg`), clearly state that it cannot be crafted and explain how to acquire it in Vanilla Minecraft. DO NOT invent fake crafting grids for non-craftable items!\n"
-                    +
-                    "   - EXPLAIN HOW TO GET MATERIALS IN SURVIVAL: ALWAYS explain clearly how the player can obtain the required raw materials and items in Vanilla Minecraft survival mode (e.g., mention biomes like Snowy Biomes/Frozen Ocean, exact tools needed like `Shovel` or `Pickaxe` with `Silk Touch`, mining Y-levels, mob drops, smelting, or structures).\n"
-                    +
-                    "   - ACCURATE MINECRAFT TERMINOLOGY: Always use official, authentic Minecraft terminology (e.g., `Silk Touch`, `Shovel`, `Amethyst Geode`, `Y-Level`, `Fortune`, `Smelting`). NEVER invent fake or nonsensical literal Arabic terms!\n"
-                    +
-                    "   - CRAFTING GRID ASCII TEMPLATE & SLOT MAPPING:\n" +
-                    "     Top Row: Slot 1 (A/Left), Slot 2 (B/Middle), Slot 3 (C/Right)\n" +
-                    "     Middle Row: Slot 4 (D/Left), Slot 5 (E/Center), Slot 6 (F/Right)\n" +
-                    "     Bottom Row: Slot 7 (G/Left), Slot 8 (H/Middle), Slot 9 (I/Right)\n" +
-                    "     YOU MUST USE THIS EXACT 3x3 ASCII TEMPLATE inside a codeblock (```). Use `.` for empty slots so the grid remains perfectly aligned:\n"
-                    +
+                    "     * NON-CRAFTABLE ITEMS: If an item CANNOT be crafted (e.g., `Ice`, `Bedrock`, `Dragon Egg`), clearly state that it cannot be crafted and explain how to acquire it in Vanilla Minecraft. DO NOT invent fake crafting grids for non-craftable items!\n" +
+                    "   - ACCURATE OBTAINMENT IN SURVIVAL:\n" +
+                    "     * `Amethyst Shard`: Obtained by breaking `Amethyst Cluster` inside an `Amethyst Geode` (underground) using any `Pickaxe`. `Silk Touch` is ONLY used to mine the intact cluster block itself, NOT for getting shards!\n" +
+                    "     * `Copper Ingot`: Obtained by mining `Copper Ore` underground and smelting `Raw Copper` in a `Furnace`.\n" +
+                    "   - CRAFTING GRID ASCII TEMPLATE & EXACT SPYGLASS EXAMPLE:\n" +
+                    "     YOU MUST USE THIS EXACT 3x3 ASCII TEMPLATE inside a codeblock (```). Use `.` for empty slots so the grid remains perfectly aligned:\n" +
                     "```\n" +
                     "+---+---+---+\n" +
-                    "| A | B | C |\n" +
+                    "| . | S | . |\n" +
                     "+---+---+---+\n" +
-                    "| D | E | F |\n" +
+                    "| . | C | . |\n" +
                     "+---+---+---+\n" +
-                    "| G | H | I |\n" +
+                    "| . | C | . |\n" +
                     "+---+---+---+\n" +
                     "```\n" +
-                    "Replace letters A through I with the item symbol for occupied slots or `.` for empty slots. (For Spyglass: Slot 2 = S, Slot 5 = C, Slot 8 = C, and all others are `.`). Underneath the codeblock, list the legend defining each letter in English (e.g., S = Amethyst Shard, C = Copper Ingot, B = Snowball).\n"
-                    +
+                    "S = Amethyst Shard\n" +
+                    "C = Copper Ingot\n\n" +
                     "   - DISCORD FORMATTING: Richly format your messages using Discord markdown! Use **bold** for key words, `inline code` for items/commands, ``` codeblocks for crafting grids, bullet lists `-`, and blockquotes `>` for tips or notes.\n"
                     +
                     "   - Reply in clear, simple, friendly Arabic.\n" +
@@ -325,10 +314,7 @@ public class AIAssistantService {
             } else {
                 modelChain = new String[] {
                         "llama-3.3-70b-versatile",
-                        "llama-3.1-8b-instant",
-                        "llama-3.2-3b-preview",
-                        "llama-3.2-1b-preview",
-                        "deepseek-r1-distill-llama-70b"
+                        "llama-3.1-8b-instant"
                 };
             }
 
@@ -375,40 +361,44 @@ public class AIAssistantService {
                 requestBody.addProperty("model", targetModel);
                 requestBody.addProperty("temperature", 0.2);
 
-                try {
-                    HttpRequest request = HttpRequest.newBuilder()
-                            .uri(URI.create(url))
-                            .header("Content-Type", "application/json")
-                            .header("Authorization", "Bearer " + apiKey)
-                            .timeout(Duration.ofSeconds(60))
-                            .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-                            .build();
+                int maxModelRetries = 2;
+                for (int attempt = 0; attempt < maxModelRetries; attempt++) {
+                    try {
+                        HttpRequest request = HttpRequest.newBuilder()
+                                .uri(URI.create(url))
+                                .header("Content-Type", "application/json")
+                                .header("Authorization", "Bearer " + apiKey)
+                                .timeout(Duration.ofSeconds(60))
+                                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                                .build();
 
-                    HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-                    if (response.statusCode() == 200) {
-                        JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
-                        if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
-                            JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
-                            if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
-                                String contentStr = choice.getAsJsonObject("message").get("content").getAsString();
-                                return contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
+                        HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                        if (response.statusCode() == 200) {
+                            JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+                            if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
+                                JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
+                                if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
+                                    String contentStr = choice.getAsJsonObject("message").get("content").getAsString();
+                                    return contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
+                                }
                             }
+                            logger.error("Unexpected Groq response structure from model {}: {}", targetModel,
+                                    response.body());
+                            break;
+                        } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
+                            logger.warn(
+                                    "Groq API rate limit (Status 429) on model {} (attempt {}/{}), waiting before retry/fallback...",
+                                    targetModel, attempt + 1, maxModelRetries);
+                            Thread.sleep(1500L * (attempt + 1));
+                        } else {
+                            logger.error("Groq API error (Status {}) on model {}: {}", response.statusCode(), targetModel,
+                                    response.body());
+                            break;
                         }
-                        logger.error("Unexpected Groq response structure from model {}: {}", targetModel,
-                                response.body());
-                    } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
-                        logger.warn(
-                                "Groq API rate limit/error (Status {}) on model {}, trying fallback model ({}/{})...",
-                                response.statusCode(), targetModel, i + 1, modelChain.length);
-                        if (i < modelChain.length - 1) {
-                            Thread.sleep(1000L);
-                        }
-                    } else {
-                        logger.error("Groq API error (Status {}) on model {}: {}", response.statusCode(), targetModel,
-                                response.body());
+                    } catch (Exception e) {
+                        logger.error("Error sending request to Groq API with model " + targetModel, e);
+                        break;
                     }
-                } catch (Exception e) {
-                    logger.error("Error sending request to Groq API with model " + targetModel, e);
                 }
             }
         } catch (Exception e) {
