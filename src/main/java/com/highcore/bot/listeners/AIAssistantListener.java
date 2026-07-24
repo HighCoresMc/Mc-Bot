@@ -79,6 +79,16 @@ public class AIAssistantListener extends ListenerAdapter {
         String content = event.getMessage().getContentRaw();
         List<AIAssistantService.ThreadInfo> threads = getAllThreadsFromDatabase();
 
+        // Local match check first (case-insensitive, normalized Arabic)
+        String localMatchId = findLocalMatch(content, threads);
+        if (localMatchId != null) {
+            if (threadExistsInJDA(event.getGuild(), localMatchId)) {
+                String replyMessage = "هذا السؤال مكرر، يمكنك مراجعة الثريد التالي: <#" + localMatchId + ">";
+                event.getMessage().reply(replyMessage).queue();
+                return;
+            }
+        }
+
         String matchedThreadId = aiService.checkSemanticMatch(content, threads);
 
         if (matchedThreadId != null && !matchedThreadId.equals("NO")) {
@@ -280,5 +290,33 @@ public class AIAssistantListener extends ListenerAdapter {
             return matcher.group(1);
         }
         return null;
+    }
+
+    // FIND LOCAL MATCH
+    private String findLocalMatch(String query, List<AIAssistantService.ThreadInfo> threads) {
+        String normalizedQuery = normalizeArabic(query);
+        for (AIAssistantService.ThreadInfo thread : threads) {
+            String normalizedThreadName = normalizeArabic(thread.name);
+            String normalizedThreadQuestion = normalizeArabic(thread.originalQuestion);
+            if (normalizedQuery.equals(normalizedThreadName) || normalizedQuery.equals(normalizedThreadQuestion)) {
+                return thread.id;
+            }
+            if (normalizedQuery.contains(normalizedThreadName) && normalizedThreadName.length() > 5) {
+                return thread.id;
+            }
+        }
+        return null;
+    }
+
+    // NORMALIZE ARABIC
+    private String normalizeArabic(String text) {
+        if (text == null) return "";
+        return text.toLowerCase()
+            .replaceAll("[أإآ]", "ا")
+            .replaceAll("ة", "ه")
+            .replaceAll("ى", "ي")
+            .replaceAll("[؟\\?\\!\\.\\,\\-\\_]", " ")
+            .replaceAll("\\s+", " ")
+            .trim();
     }
 }

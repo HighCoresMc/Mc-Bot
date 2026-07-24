@@ -378,13 +378,12 @@ public class AIAssistantService {
                 messages.add(turn);
             }
 
-            for (String activeKey : apiKeys) {
-                String cleanKey = activeKey.trim();
-                if (cleanKey.isEmpty())
-                    continue;
+            for (String targetModel : modelChain) {
+                for (String activeKey : apiKeys) {
+                    String cleanKey = activeKey.trim();
+                    if (cleanKey.isEmpty())
+                        continue;
 
-                for (int i = 0; i < modelChain.length; i++) {
-                    String targetModel = modelChain[i];
                     JsonObject requestBody = new JsonObject();
                     requestBody.add("messages", messages);
                     requestBody.addProperty("model", targetModel);
@@ -406,27 +405,25 @@ public class AIAssistantService {
                                 JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
                                 if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
                                     String contentStr = choice.getAsJsonObject("message").get("content").getAsString();
-                                    return contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
+                                    String filtered = contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
+                                    return postProcessResponse(filtered);
                                 }
                             }
                             logger.error("Unexpected Groq response structure from model {}: {}", targetModel,
                                     response.body());
-                            break;
                         } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
                             logger.warn(
                                     "Groq API rate limit (Status 429) on model {} using key ending in ...{}, trying next key/model...",
                                     targetModel,
                                     cleanKey.length() > 6 ? cleanKey.substring(cleanKey.length() - 6) : cleanKey);
-                            Thread.sleep(300L);
+                            Thread.sleep(800L);
                         } else {
                             logger.error("Groq API error (Status {}) on model {}: {}", response.statusCode(),
                                     targetModel,
                                     response.body());
-                            break;
                         }
                     } catch (Exception e) {
                         logger.error("Error sending request to Groq API with model " + targetModel, e);
-                        break;
                     }
                 }
             }
@@ -521,6 +518,58 @@ public class AIAssistantService {
             logger.error("Error in checkSemanticMatch", e);
         }
         return "NO";
+    }
+
+    // POST PROCESS RESPONSE
+    private String postProcessResponse(String response) {
+        if (response == null) return null;
+
+        if (response.contains("+---+---+---+") && !response.contains("```")) {
+            String[] lines = response.split("\n");
+            StringBuilder sb = new StringBuilder();
+            boolean inGrid = false;
+            for (String line : lines) {
+                if (line.contains("+---+---+---+") || line.matches("^\\|.*\\|.*\\|.*\\|$") || line.contains("|.|") || line.contains("| . |")) {
+                    if (!inGrid) {
+                        sb.append("```\n");
+                        inGrid = true;
+                    }
+                    String fixedLine = line;
+                    if (line.contains("|.|") || line.matches("^\\|[^|]+\\|[^|]+\\|[^|]+\\|$")) {
+                        fixedLine = fixGridLineSpacing(line);
+                    }
+                    sb.append(fixedLine).append("\n");
+                } else {
+                    if (inGrid) {
+                        sb.append("```\n");
+                        inGrid = false;
+                    }
+                    sb.append(line).append("\n");
+                }
+            }
+            if (inGrid) {
+                sb.append("```\n");
+            }
+            return sb.toString().trim();
+        }
+        return response;
+    }
+
+    // FIX GRID LINE SPACING
+    private String fixGridLineSpacing(String line) {
+        if (line.startsWith("|") && line.endsWith("|")) {
+            String[] parts = line.substring(1, line.length() - 1).split("\\|", -1);
+            if (parts.length == 3) {
+                StringBuilder sb = new StringBuilder("|");
+                for (String part : parts) {
+                    String clean = part.trim();
+                    if (clean.isEmpty()) clean = ".";
+                    sb.append(" ").append(clean).append(" |");
+                }
+                return sb.toString();
+            }
+        }
+        return line;
     }
 
     // THREAD INFO CLASS
