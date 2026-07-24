@@ -316,8 +316,24 @@ public class AIAssistantService {
                 return "خطأ: مفتاح API غير موجود في إعدادات البوت (GROQ_API_KEY).";
             }
 
-            // Groq Request Body
-            JsonObject requestBody = new JsonObject();
+            boolean hasImages = history.stream().anyMatch(m -> m.imageUrls != null && !m.imageUrls.isEmpty());
+            String[] modelChain;
+            if (hasImages) {
+                modelChain = new String[] {
+                        "meta-llama/llama-4-scout-17b-16e-instruct"
+                };
+            } else {
+                modelChain = new String[] {
+                        "llama-3.3-70b-versatile",
+                        "llama-3.1-8b-instant",
+                        "mixtral-8x7b-32768",
+                        "gemma2-9b-it",
+                        "qwen-2.5-coder-32b"
+                };
+            }
+
+            String url = "https://api.groq.com/openai/v1/chat/completions";
+
             JsonArray messages = new JsonArray();
 
             JsonObject systemMsg = new JsonObject();
@@ -352,48 +368,47 @@ public class AIAssistantService {
                 messages.add(turn);
             }
 
-            boolean hasImages = history.stream().anyMatch(m -> m.imageUrls != null && !m.imageUrls.isEmpty());
-            requestBody.add("messages", messages);
-            requestBody.addProperty("model",
-                    hasImages ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile");
-            requestBody.addProperty("temperature", 0.2);
+            for (int i = 0; i < modelChain.length; i++) {
+                String targetModel = modelChain[i];
+                JsonObject requestBody = new JsonObject();
+                requestBody.add("messages", messages);
+                requestBody.addProperty("model", targetModel);
+                requestBody.addProperty("temperature", 0.2);
 
-            String url = "https://api.groq.com/openai/v1/chat/completions";
+                try {
+                    HttpRequest request = HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .header("Content-Type", "application/json")
+                            .header("Authorization", "Bearer " + apiKey)
+                            .timeout(Duration.ofSeconds(60))
+                            .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                            .build();
 
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .timeout(Duration.ofSeconds(60))
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-                    .build();
-
-            int maxRetries = 3;
-            for (int i = 0; i < maxRetries; i++) {
-                HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-                if (response.statusCode() == 200) {
-                    JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
-                    if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
-                        JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
-                        if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
-                            String contentStr = choice.getAsJsonObject("message").get("content").getAsString();
-                            return contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
+                    HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                    if (response.statusCode() == 200) {
+                        JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+                        if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
+                            JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
+                            if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
+                                String contentStr = choice.getAsJsonObject("message").get("content").getAsString();
+                                return contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
+                            }
                         }
-                    }
-                    logger.error("Unexpected Groq response structure: {}", response.body());
-                    return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
-                } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
-                    logger.warn("Groq API rate limit/error (Status {}), retrying {}/{}...",
-                            response.statusCode(), i + 1, maxRetries);
-                    if (i < maxRetries - 1) {
-                        Thread.sleep(2000L * (i + 1));
+                        logger.error("Unexpected Groq response structure from model {}: {}", targetModel,
+                                response.body());
+                    } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
+                        logger.warn(
+                                "Groq API rate limit/error (Status {}) on model {}, trying fallback model ({}/{})...",
+                                response.statusCode(), targetModel, i + 1, modelChain.length);
+                        if (i < modelChain.length - 1) {
+                            Thread.sleep(1000L);
+                        }
                     } else {
-                        logger.error("Groq API error after retries (Status {}): {}", response.statusCode(),
+                        logger.error("Groq API error (Status {}) on model {}: {}", response.statusCode(), targetModel,
                                 response.body());
                     }
-                } else {
-                    logger.error("Groq API error (Status {}): {}", response.statusCode(), response.body());
-                    break;
+                } catch (Exception e) {
+                    logger.error("Error sending request to Groq API with model " + targetModel, e);
                 }
             }
         } catch (Exception e) {
