@@ -451,7 +451,7 @@ public class AIAssistantService {
 
             String url = "https://api.groq.com/openai/v1/chat/completions";
 
-            String[] semanticModels = { "llama-3.1-8b-instant", "openai/gpt-oss-20b", "openai/gpt-oss-120b", "llama-3.3-70b-versatile" };
+            String[] semanticModels = { "llama-3.3-70b-versatile", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "llama-3.1-8b-instant" };
 
             for (String targetModel : semanticModels) {
                 for (String activeKey : apiKeys) {

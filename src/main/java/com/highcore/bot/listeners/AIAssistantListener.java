@@ -300,17 +300,79 @@ public class AIAssistantListener extends ListenerAdapter {
     // FIND LOCAL MATCH
     private String findLocalMatch(String query, List<AIAssistantService.ThreadInfo> threads) {
         String normalizedQuery = normalizeArabic(query);
+        List<String> queryEngWords = getEnglishWords(normalizedQuery);
+        boolean queryIsCraft = isCraftingQuery(normalizedQuery);
+        boolean queryIsLoc = isLocationQuery(normalizedQuery);
+
         for (AIAssistantService.ThreadInfo thread : threads) {
             String normalizedThreadName = normalizeArabic(thread.name);
             String normalizedThreadQuestion = normalizeArabic(thread.originalQuestion);
+
+            // Exact or substring match
             if (normalizedQuery.equals(normalizedThreadName) || normalizedQuery.equals(normalizedThreadQuestion)) {
                 return thread.id;
             }
             if (normalizedQuery.contains(normalizedThreadName) && normalizedThreadName.length() > 5) {
                 return thread.id;
             }
+
+            // Minecraft Crafting Smart Match
+            if (queryIsCraft && (isCraftingQuery(normalizedThreadName) || isCraftingQuery(normalizedThreadQuestion))) {
+                List<String> threadEngWords = getEnglishWords(normalizedThreadName);
+                threadEngWords.addAll(getEnglishWords(normalizedThreadQuestion));
+                
+                // If they share any English Minecraft item name (like "spyglass")
+                for (String eq : queryEngWords) {
+                    if (threadEngWords.contains(eq)) {
+                        return thread.id; // Match!
+                    }
+                }
+            }
+
+            // Minecraft Finding/Location Smart Match
+            if (queryIsLoc && (isLocationQuery(normalizedThreadName) || isLocationQuery(normalizedThreadQuestion))) {
+                List<String> threadEngWords = getEnglishWords(normalizedThreadName);
+                threadEngWords.addAll(getEnglishWords(normalizedThreadQuestion));
+                
+                for (String eq : queryEngWords) {
+                    if (threadEngWords.contains(eq)) {
+                        return thread.id; // Match!
+                    }
+                }
+            }
         }
         return null;
+    }
+
+    private boolean isCraftingQuery(String text) {
+        String clean = text.toLowerCase();
+        String[] craftKeywords = { "كرفت", "كرافت", "صنع", "صناع", "اصنع", "سوي", "اسوي", "طريقه", "طريقة", "كيفية", "كيفيه", "craft" };
+        for (String kw : craftKeywords) {
+            if (clean.contains(kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isLocationQuery(String text) {
+        String clean = text.toLowerCase();
+        String[] locKeywords = { "وين", "الاقي", "مكان", "اماكن", "رسبون", "توجد", "اجد", "احصل", "spawn", "find", "where", "locate" };
+        for (String kw : locKeywords) {
+            if (clean.contains(kw)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<String> getEnglishWords(String text) {
+        List<String> list = new ArrayList<>();
+        Matcher m = Pattern.compile("[a-zA-Z]{3,}").matcher(text);
+        while (m.find()) {
+            list.add(m.group().toLowerCase());
+        }
+        return list;
     }
 
     // NORMALIZE ARABIC
