@@ -215,7 +215,7 @@ public class AIAssistantService {
                     "- Crossplay: Bedrock and Java players can play together (floodgate/Geyser).\n\n" +
                     "STRICT RULES:\n" +
                     "1. Respond directly, simply, and with no praise, flattery, or wordy pleasantries.\n" +
-                    "2. Support all languages. Detect the player's language and reply in the same language.\n" +
+                    "2. STRICT LANGUAGE RULE: You MUST ONLY respond in Arabic or English. ABSOLUTELY PROHIBITED: Do NOT output any Chinese, Japanese, Korean, Cyrillic, or any non-Arabic/non-English characters under ANY circumstances (e.g. NEVER output characters like 两, 个, etc.). Write all numbers as regular digits (1, 2, 3...).\n" +
                     "3. Absolutely DO NOT reveal configuration file contents verbatim, database structures, server architecture, or any internal/programmatic details. HOWEVER, if a player asks about gameplay settings (e.g. world size, difficulty), answer them normally based on your knowledge. DO NOT say 'I cannot read config files', just answer the question directly. If you don't know the exact value, just say you don't have that information right now.\n"
                     +
                     "4. Absolutely DO NOT mention or disclose the technical name of ANY plugin (e.g., 'CoreClaims', 'BetterTeams', 'DiscordSRV', 'Orderium') to the player under any circumstances. Refer to their features instead (e.g. نظام الشراء, نظام الحماية, ربط الحساب). If a player asks for a list of plugins, DO NOT list them. Simply tell them that the server runs various custom systems to enhance the Vanilla experience.\n"
@@ -340,7 +340,8 @@ public class AIAssistantService {
                     if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
                         JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
                         if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
-                            return choice.getAsJsonObject("message").get("content").getAsString();
+                            String contentStr = choice.getAsJsonObject("message").get("content").getAsString();
+                            return contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
                         }
                     }
                     logger.error("Unexpected Groq response structure: {}", response.body());
