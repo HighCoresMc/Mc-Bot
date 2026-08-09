@@ -1013,10 +1013,10 @@ public class CrateDropCommand extends ListenerAdapter {
             java.awt.Font tempFont;
             try {
                 tempFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT,
-                        CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/PixelAE-Regular.ttf"))
-                        .deriveFont(22f);
+                        CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/PixelAE-Bold.ttf"))
+                        .deriveFont(32f);
             } catch (Exception e) {
-                tempFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 22);
+                tempFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 32);
             }
             final java.awt.Font customFont = tempFont;
 
@@ -1025,37 +1025,51 @@ public class CrateDropCommand extends ListenerAdapter {
             g2d.setColor(java.awt.Color.decode("#989FB9"));
             java.awt.font.FontRenderContext frc = g2d.getFontRenderContext();
 
-            java.util.function.BiConsumer<String, java.awt.Rectangle> drawText = (text, bounds) -> {
+            java.util.function.BiConsumer<String, Integer> drawTextRightAligned = (text, centerY) -> {
                 try {
-                    java.text.AttributedString as = new java.text.AttributedString(text);
+                    com.ibm.icu.text.ArabicShaping shaper = new com.ibm.icu.text.ArabicShaping(
+                            com.ibm.icu.text.ArabicShaping.LETTERS_SHAPE | com.ibm.icu.text.ArabicShaping.LENGTH_GROW_SHRINK);
+                    String shapedText = shaper.shape(text);
+
+                    java.text.AttributedString as = new java.text.AttributedString(shapedText);
                     as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
                     as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION,
                             java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
 
                     java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
-                    java.awt.geom.Rectangle2D textBounds = layout.getBounds();
-
-                    float x = (float) (bounds.x + (bounds.width - textBounds.getWidth()) / 2);
-                    float y = (float) (bounds.y + (bounds.height - textBounds.getHeight()) / 2 + layout.getAscent());
+                    
+                    float rightEdge = 1400; // Alignment point right before the titles
+                    float x = rightEdge - layout.getAdvance();
+                    float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
 
                     layout.draw(g2d, x, y);
                 } catch (Exception e) {
-                    logger.error("Failed to draw text on drop image: " + text, e);
+                    // fallback if ICU4J fails or anything goes wrong
+                    try {
+                        java.text.AttributedString as = new java.text.AttributedString(text);
+                        as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
+                        as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION,
+                                java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
+                        java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
+                        float rightEdge = 1400;
+                        float x = rightEdge - layout.getAdvance();
+                        float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
+                        layout.draw(g2d, x, y);
+                    } catch (Exception ex) {}
                 }
             };
 
-            drawText.accept(prizeText, new java.awt.Rectangle(1447, 676, 205, 45));
-            drawText.accept(getLevelText(level), new java.awt.Rectangle(1451, 464, 203, 41));
-            drawText.accept(statusText, new java.awt.Rectangle(1398, 571, 204, 41));
+            // Prize at Top, Level at Middle, Status at Bottom
+            drawTextRightAligned.accept(prizeText, 484);
+            drawTextRightAligned.accept(getLevelText(level), 591);
+            drawTextRightAligned.accept(statusText, 698);
 
             g2d.dispose();
-
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             javax.imageio.ImageIO.write(img, "png", baos);
             return baos.toByteArray();
         } catch (Exception e) {
-            logger.error("Error generating drop image", e);
-            return null;
+            return new byte[0];
         }
     }
 
