@@ -153,7 +153,13 @@ public class DailyCommand extends ListenerAdapter {
                       "**المكافأة المكتسبة:** " + rewardText + "\n\n" +
                       "استمر في استلام الجوائز يومياً لزيادة قيمة المكافأة!";
                       
-        Container successContainer = EmbedUtil.createProfilePanel("المكافأة اليومية", body, "https://minotar.net/avatar/" + mcName + "/128");
+        Container profilePanel = EmbedUtil.createProfilePanel("المكافأة اليومية", body, "https://minotar.net/avatar/" + mcName + "/128");
+        
+        java.util.List<net.dv8tion.jda.api.components.container.ContainerChildComponent> comps = new java.util.ArrayList<>();
+        comps.add(net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://daily.png")));
+        comps.addAll(profilePanel.getComponents());
+        
+        Container successContainer = Container.of(comps);
 
         ActionLogService.logGame(event.getJDA(), "استلام الجائزة اليومية",
             event.getUser().getId(), event.getUser().getName(),
@@ -164,6 +170,7 @@ public class DailyCommand extends ListenerAdapter {
 
         event.getHook().editOriginalComponents(successContainer)
             .setEmbeds(java.util.Collections.emptyList())
+            .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(new java.io.File("Identity/daily.png")))
             .useComponentsV2(true)
             .queue();
     }

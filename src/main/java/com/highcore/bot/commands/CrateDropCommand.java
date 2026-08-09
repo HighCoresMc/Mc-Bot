@@ -546,12 +546,12 @@ public class CrateDropCommand extends ListenerAdapter {
 
     private void sendControlPanel(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         Container container = buildControlPanelContainer();
-        hook.sendMessageComponents(container).useComponentsV2(true).queue();
+        hook.sendMessageComponents(container).addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(new java.io.File("Identity/Drop.png"))).useComponentsV2(true).queue();
     }
 
     private void sendControlPanelEdit(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         Container container = buildControlPanelContainer();
-        hook.editOriginalComponents(container).useComponentsV2(true).queue();
+        hook.editOriginalComponents(container).setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(new java.io.File("Identity/Drop.png"))).useComponentsV2(true).queue();
     }
 
     private Container buildControlPanelContainer() {
@@ -618,6 +618,7 @@ public class CrateDropCommand extends ListenerAdapter {
                 .build();
 
         return Container.of(
+            net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://Drop.png")),
             TextDisplay.of("## 📦 لوحة تحكم نظام الدروبات العشوائية"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("**حالة التنزيل التلقائي:** `" + statusText + "`\n" +
@@ -897,17 +898,16 @@ public class CrateDropCommand extends ListenerAdapter {
                         int historyId = rs.getInt(1);
                         String levelText = getLevelText(level);
 
+                        byte[] dropImage = generateDropImage(level, "❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)", "بانتظار المتحدي الأول");
+
                         Container claimContainer = Container.of(
+                            net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
                             TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                            Separator.createDivider(Separator.Spacing.SMALL),
-                            TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
-                                           "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                           "> 🟢 **الـحَـالَـة:** `بانتظار المتحدي الأول`"),
                             Separator.createDivider(Separator.Spacing.SMALL),
                             ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                         );
 
-                        channel.sendMessageComponents(claimContainer).useComponentsV2(true).queue(msg -> {
+                        channel.sendMessageComponents(claimContainer).addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(dropImage, "drop_gen.png")).useComponentsV2(true).queue(msg -> {
                             updateHistoryMessage(historyId, msg.getId());
 
                             ActionLogService.logGame(channel.getJDA(), "🎁 Crate Drop Spawned", null, null,
@@ -948,10 +948,67 @@ public class CrateDropCommand extends ListenerAdapter {
     }
 
     private static String getLevelText(String level) {
-        if ("SIMPLE".equalsIgnoreCase(level)) return "🟢 بسيطة (2 خانات - 22 ثانية)";
-        if ("RARE".equalsIgnoreCase(level)) return "🔵 متوسطة (3 خانات - 20 ثانية)";
-        if ("EPIC".equalsIgnoreCase(level)) return "🟣 نادرة (4 خانات - 18 ثانية)";
-        return "🟠 نذر رايت / كريت قوي (5 خانات - 15 ثانية)";
+        if ("SIMPLE".equalsIgnoreCase(level)) return "بسيطة (2 خانات - 22 ثانية)";
+        if ("RARE".equalsIgnoreCase(level)) return "متوسطة (3 خانات - 20 ثانية)";
+        if ("EPIC".equalsIgnoreCase(level)) return "نادرة (4 خانات - 18 ثانية)";
+        return "نذر رايت / كريت قوي (5 خانات - 15 ثانية)";
+    }
+
+    private static byte[] generateDropImage(String level, String prizeText, String statusText) {
+        try {
+            String bgFileName = "مستوى الاول.png";
+            if ("RARE".equalsIgnoreCase(level)) bgFileName = "مستوى الثاني_.png";
+            else if ("EPIC".equalsIgnoreCase(level)) bgFileName = "مستوى الثالث.png";
+            else if ("NETHERITE".equalsIgnoreCase(level)) bgFileName = "مستوى الرايع.png";
+
+            java.io.File bgFile = new java.io.File("Identity/" + bgFileName);
+            if (!bgFile.exists()) bgFile = new java.io.File("Identity/مستوى الاول.png");
+            
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bgFile);
+            java.awt.Graphics2D g2d = img.createGraphics();
+
+            java.awt.Font customFont;
+            try {
+                customFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, new java.io.File("Identity/PixelAE-Regular.ttf")).deriveFont(22f);
+            } catch (Exception e) {
+                customFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 22);
+            }
+
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2d.setColor(java.awt.Color.decode("#989FB9"));
+            java.awt.font.FontRenderContext frc = g2d.getFontRenderContext();
+            
+            java.util.function.BiConsumer<String, java.awt.Rectangle> drawText = (text, bounds) -> {
+                try {
+                    java.text.AttributedString as = new java.text.AttributedString(text);
+                    as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
+                    as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION, java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
+                    
+                    java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
+                    java.awt.geom.Rectangle2D textBounds = layout.getBounds();
+                    
+                    float x = (float) (bounds.x + (bounds.width - textBounds.getWidth()) / 2);
+                    float y = (float) (bounds.y + (bounds.height - textBounds.getHeight()) / 2 + layout.getAscent());
+                    
+                    layout.draw(g2d, x, y);
+                } catch(Exception e) {
+                    logger.error("Failed to draw text on drop image: " + text, e);
+                }
+            };
+
+            drawText.accept(prizeText, new java.awt.Rectangle(1447, 676, 205, 45));
+            drawText.accept(getLevelText(level), new java.awt.Rectangle(1451, 464, 203, 41));
+            drawText.accept(statusText, new java.awt.Rectangle(1398, 571, 204, 41));
+            
+            g2d.dispose();
+
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            javax.imageio.ImageIO.write(img, "png", baos);
+            return baos.toByteArray();
+        } catch (Exception e) {
+            logger.error("Error generating drop image", e);
+            return null;
+        }
     }
 
     private void handleClaimClick(ButtonInteractionEvent event, int historyId) {
@@ -1120,12 +1177,12 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 String levelText = getLevelText(challenge.level);
                 long memEnd = (System.currentTimeMillis() + 5000) / 1000;
+                byte[] memImage = generateDropImage(challenge.level, "❓ مَجْهُولَة", "جارٍ حفظ الرموز...");
                 Container memContainer = Container.of(
+                    net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
                     TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
                     Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                   "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
+                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
                                    "```\n" +
@@ -1138,6 +1195,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(memContainer)
+                        .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(memImage, "drop_gen.png"))
                         .useComponentsV2(true)
                         .build())
                         .queue(null, e -> {});
@@ -1149,12 +1207,12 @@ public class CrateDropCommand extends ListenerAdapter {
                             if (challenge.solved || challenge.failedReason != null || !challenge.isSolving || !userId.equals(challenge.lockedByUserId)) return;
 
                             long solveEnd = (System.currentTimeMillis() + (finalSolveTime * 1000L)) / 1000;
+                            byte[] solveImage = generateDropImage(challenge.level, "❓ مَجْهُولَة", "بانتظار الإجابة...");
                             Container solveContainer = Container.of(
+                                net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
                                 TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
                                 Separator.createDivider(Separator.Spacing.SMALL),
-                                TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">\n\n" +
-                                               "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                               "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`"),
+                                TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">"),
                                 Separator.createDivider(Separator.Spacing.SMALL),
                                 TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
                                                "```\n" +
@@ -1169,6 +1227,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
                             event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                                     .setComponents(solveContainer)
+                                    .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(solveImage, "drop_gen.png"))
                                     .useComponentsV2(true)
                                     .build())
                                     .queue(null, e -> {});
@@ -1415,18 +1474,18 @@ public class CrateDropCommand extends ListenerAdapter {
                     String commandToRun = command.replace("%player%", mcName);
                     RewardService.queueReward(historyId, commandToRun, lockedUserFinal, mcName, prize);
 
-                    String levelText = getLevelText(level);
+                    byte[] successImage = generateDropImage(level, prize, "تم الاختراق بنجاح!");
                     Container successContainer = Container.of(
+                        net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
                         TextDisplay.of("## 🎉 ───────── 🔓 تَمَّ فَتْحُ الصُّنْدُوقِ بِنَجَاح ───────── 🎉"),
                         Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("> 👤 **الـفَائِز:** <@" + lockedUserFinal + ">\n\n" +
-                                       "> 🏆 **الـجَـائِـزَة:** `" + prize + "`\n\n" +
-                                       "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                       "> ⏱️ **الـوَقْـتُ الـمُـسْتَغْرَق:** `" + String.format(Locale.US, "%.1f", elapsed) + "s` ⚡")
+                                       "> ⏱️ **الـوَقْـتُ الـمُـسْتَغْرَق:** `" + String.format(java.util.Locale.US, "%.1f", elapsed) + "s` ⚡")
                     );
 
                     channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                             .setComponents(successContainer)
+                            .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(successImage, "drop_gen.png"))
                             .useComponentsV2(true)
                             .build())
                             .queue(null, e -> {});
@@ -1476,11 +1535,12 @@ public class CrateDropCommand extends ListenerAdapter {
                     bar = "████████████████▒▒▒▒ 95%";
                 }
 
+                byte[] decodingImage = generateDropImage(level, "❓ مَجْهُولَة", "جاري الاختراق...");
                 Container decodingContainer = Container.of(
+                    net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
                     TextDisplay.of("## ⏳ ───────── ⚙️ جَارِي فَكُّ التَّشْفِيرِ وَالْخَرْق ───────── ⏳"),
                     Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + lockedUser + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`"),
+                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + lockedUser + ">"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of(statusLogs),
                     Separator.createDivider(Separator.Spacing.SMALL),
@@ -1489,6 +1549,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(decodingContainer)
+                        .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(decodingImage, "drop_gen.png"))
                         .useComponentsV2(true)
                         .build())
                         .queue(null, e -> {});
@@ -1531,11 +1592,12 @@ public class CrateDropCommand extends ListenerAdapter {
                     "**الكولداون:** 20 ثانية\n" +
                     "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
 
+                byte[] cooldownImage = generateDropImage(challenge.level, "❓ مَجْهُولَة", "فترة التهدئة (Cooldown)");
                 Container cooldownContainer = Container.of(
+                    net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
                     TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
                     Separator.createDivider(Separator.Spacing.SMALL),
                     TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
                                    "> ⚠️ **الـسَّـبَـب:** `فشل في 5 محاولات متتالية`\n\n" +
                                    "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>\n\n" +
                                    "> ⚡ **تحذير:** بعد الكولداون لديك 2 محاولة فقط!"),
@@ -1544,6 +1606,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(cooldownContainer)
+                        .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(cooldownImage, "drop_gen.png"))
                         .useComponentsV2(true)
                         .build())
                         .queue(null, e -> {});
@@ -1564,19 +1627,17 @@ public class CrateDropCommand extends ListenerAdapter {
                             challenge.wrongAnswersCount = 0;
                             challenge.firstAttemptUserId = null;
 
-                            String levelText = getLevelText(challenge.level);
+                            byte[] resetDropImage = generateDropImage(challenge.level, "❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)", "بانتظار المتحدي");
                             Container claimContainer = Container.of(
+                                net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
                                 TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                                Separator.createDivider(Separator.Spacing.SMALL),
-                                TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
-                                               "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                               "> 🟢 **الـحَالَة:** `بانتظار المتحدي`"),
                                 Separator.createDivider(Separator.Spacing.SMALL),
                                 ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
                             );
 
                             channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                                     .setComponents(claimContainer)
+                                    .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(resetDropImage, "drop_gen.png"))
                                     .useComponentsV2(true)
                                     .build())
                                     .queue(null, e -> {});

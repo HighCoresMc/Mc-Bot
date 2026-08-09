@@ -97,6 +97,7 @@ public class EventCommand extends ListenerAdapter {
         }
 
         Container panelContainer = Container.of(
+            MediaGallery.of(MediaGalleryItem.fromUrl("attachment://events.png")),
             TextDisplay.of("## 🛠️ لوحة تحكم الفعاليات"),
             Separator.createDivider(Separator.Spacing.SMALL),
             TextDisplay.of("مرحباً بك في لوحة تحكم إدارة الفعاليات. يرجى اختيار الإجراء المطلوب من الأزرار بالأسفل:"),
@@ -109,7 +110,9 @@ public class EventCommand extends ListenerAdapter {
             )
         );
 
-        event.replyComponents(panelContainer).useComponentsV2(true).queue();
+        event.replyComponents(panelContainer)
+             .addFiles(FileUpload.fromData(new File("Identity/events.png")))
+             .useComponentsV2(true).queue();
     }
 
     @Override
