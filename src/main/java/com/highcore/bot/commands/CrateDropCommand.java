@@ -1052,8 +1052,8 @@ public class CrateDropCommand extends ListenerAdapter {
                     // We must manually subtract the exact visual width to right-align it.
                     g2d.setFont(customFont);
                     int visualWidth = g2d.getFontMetrics().stringWidth(cleanText);
-                    // Added 150 pixels to push it to the right exactly as requested
-                    float x = rightEdge - visualWidth + 150;
+                    // Added 180 pixels to push it to the right exactly as requested
+                    float x = rightEdge - visualWidth + 180;
                     
                     float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
 
