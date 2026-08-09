@@ -1027,35 +1027,21 @@ public class CrateDropCommand extends ListenerAdapter {
 
             java.util.function.BiConsumer<String, Integer> drawTextRightAligned = (text, centerY) -> {
                 try {
-                    com.ibm.icu.text.ArabicShaping shaper = new com.ibm.icu.text.ArabicShaping(
-                            com.ibm.icu.text.ArabicShaping.LETTERS_SHAPE | com.ibm.icu.text.ArabicShaping.LENGTH_GROW_SHRINK);
-                    String shapedText = shaper.shape(text);
-
-                    java.text.AttributedString as = new java.text.AttributedString(shapedText);
+                    java.text.AttributedString as = new java.text.AttributedString(text);
                     as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
                     as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION,
                             java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
 
                     java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
                     
-                    float rightEdge = 1400; // Alignment point right before the titles
+                    // Coordinates fixed: X=1420 is slightly closer to the title to ensure it aligns perfectly
+                    float rightEdge = 1420; 
                     float x = rightEdge - layout.getAdvance();
                     float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
 
                     layout.draw(g2d, x, y);
                 } catch (Exception e) {
-                    // fallback if ICU4J fails or anything goes wrong
-                    try {
-                        java.text.AttributedString as = new java.text.AttributedString(text);
-                        as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
-                        as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION,
-                                java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
-                        java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
-                        float rightEdge = 1400;
-                        float x = rightEdge - layout.getAdvance();
-                        float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
-                        layout.draw(g2d, x, y);
-                    } catch (Exception ex) {}
+                    logger.error("Failed to draw text on drop image: " + text, e);
                 }
             };
 
@@ -1069,6 +1055,7 @@ public class CrateDropCommand extends ListenerAdapter {
             javax.imageio.ImageIO.write(img, "png", baos);
             return baos.toByteArray();
         } catch (Exception e) {
+            logger.error("Error generating drop image", e);
             return new byte[0];
         }
     }
