@@ -1069,10 +1069,10 @@ public class CrateDropCommand extends ListenerAdapter {
                 }
             };
 
-            // Prize, Level, Status (using user's exact X right edges, pushed a bit to the right)
-            drawTextRightAligned.draw(prizeText, 1457, 484);
-            drawTextRightAligned.draw(getLevelText(level), 1402, 588);
-            drawTextRightAligned.draw(statusText, 1467, 695);
+            // Prize, Level, Status (using user's exact X right edges, pushed right by 60px to remove the visual gap)
+            drawTextRightAligned.draw(prizeText, 1517, 484);
+            drawTextRightAligned.draw(getLevelText(level), 1462, 588);
+            drawTextRightAligned.draw(statusText, 1527, 695);
 
             g2d.dispose();
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
