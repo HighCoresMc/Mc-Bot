@@ -1796,7 +1796,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(failureContainer)
-                        .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(new java.io.File("src/main/resources/Identity/Failure_.png"), "Failure_.png"))
+                        .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(CrateDropCommand.class.getResourceAsStream("/Identity/Failure_.png"), "Failure_.png"))
                         .useComponentsV2(true)
                         .build())
                         .queue(null, e -> {
