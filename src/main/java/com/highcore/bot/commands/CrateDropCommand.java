@@ -58,7 +58,7 @@ public class CrateDropCommand extends ListenerAdapter {
 
     private static void initializeDatabase() {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection();
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
 
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS drop_config (" +
                     "id INT PRIMARY KEY, " +
@@ -116,8 +116,10 @@ public class CrateDropCommand extends ListenerAdapter {
                     "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
                     ")");
 
-            stmt.executeUpdate("INSERT IGNORE INTO drop_config (id, enabled, interval_type, frequency, target_channel_id, last_drop_at, next_drop_at, timezone, min_join_days, require_linked_account, max_daily_wins, updated_by) " +
-                    "VALUES (1, TRUE, 'daily', 2, '1487139736748425236', 0, 0, 'UTC', 3, TRUE, 1, 'SYSTEM')");
+            stmt.executeUpdate(
+                    "INSERT IGNORE INTO drop_config (id, enabled, interval_type, frequency, target_channel_id, last_drop_at, next_drop_at, timezone, min_join_days, require_linked_account, max_daily_wins, updated_by) "
+                            +
+                            "VALUES (1, TRUE, 'daily', 2, '1487139736748425236', 0, 0, 'UTC', 3, TRUE, 1, 'SYSTEM')");
 
             stmt.executeUpdate("UPDATE drop_history SET status = 'CANCELLED' WHERE status IN ('SPAWNED', 'LOCKED')");
 
@@ -127,12 +129,14 @@ public class CrateDropCommand extends ListenerAdapter {
     }
 
     // SCHEDULER METHODS
-    private static final java.util.concurrent.atomic.AtomicBoolean dropCheckRunning = new java.util.concurrent.atomic.AtomicBoolean(false);
+    private static final java.util.concurrent.atomic.AtomicBoolean dropCheckRunning = new java.util.concurrent.atomic.AtomicBoolean(
+            false);
 
     public static void startScheduler(net.dv8tion.jda.api.JDA jda) {
         jdaInstance = jda;
         scheduler.scheduleAtFixedRate(() -> {
-            if (!dropCheckRunning.compareAndSet(false, true)) return;
+            if (!dropCheckRunning.compareAndSet(false, true))
+                return;
             try {
                 checkAndTriggerDrop();
             } catch (Exception e) {
@@ -144,8 +148,9 @@ public class CrateDropCommand extends ListenerAdapter {
     }
 
     private static void checkAndTriggerDrop() {
-        if (jdaInstance == null) return;
-        
+        if (jdaInstance == null)
+            return;
+
         boolean enabled = false;
         String intervalType = "daily";
         int frequency = 2;
@@ -155,7 +160,7 @@ public class CrateDropCommand extends ListenerAdapter {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String query = "SELECT enabled, interval_type, frequency, target_channel_id, next_drop_at FROM drop_config WHERE id = 1";
             try (PreparedStatement ps = conn.prepareStatement(query);
-                 ResultSet rs = ps.executeQuery()) {
+                    ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     enabled = rs.getBoolean("enabled");
                     intervalType = rs.getString("interval_type");
@@ -169,21 +174,24 @@ public class CrateDropCommand extends ListenerAdapter {
             return;
         }
 
-        if (!enabled || channelId == null || channelId.isEmpty()) return;
+        if (!enabled || channelId == null || channelId.isEmpty())
+            return;
 
         long now = System.currentTimeMillis();
 
         if (nextDropAt == 0) {
             long newNext = calculateNextDropTime(intervalType, frequency);
             updateNextDropTime(newNext);
-            logger.info("[DropScheduler] No next_drop_at set — scheduled first drop at: {}", new java.util.Date(newNext));
+            logger.info("[DropScheduler] No next_drop_at set — scheduled first drop at: {}",
+                    new java.util.Date(newNext));
             return;
         }
 
         if (now >= nextDropAt) {
             long safetyMargin = 60 * 1000L;
             if ((now - nextDropAt) > safetyMargin * 5) {
-                logger.warn("[DropScheduler] next_drop_at is very old ({}ms ago), skipping to avoid burst", now - nextDropAt);
+                logger.warn("[DropScheduler] next_drop_at is very old ({}ms ago), skipping to avoid burst",
+                        now - nextDropAt);
                 long newNext = calculateNextDropTime(intervalType, frequency);
                 updateNextDropTime(newNext);
                 return;
@@ -228,7 +236,9 @@ public class CrateDropCommand extends ListenerAdapter {
                 nextTime = tomorrowStartMs + (long) (Math.random() * windowSize);
             }
         } else if ("weekly".equalsIgnoreCase(intervalType)) {
-            java.time.ZonedDateTime startOfWeek = now.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).toLocalDate().atStartOfDay(now.getZone());
+            java.time.ZonedDateTime startOfWeek = now
+                    .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)).toLocalDate()
+                    .atStartOfDay(now.getZone());
             long startMs = startOfWeek.toInstant().toEpochMilli();
             long windowSize = (7 * 24 * 60 * 60 * 1000L) / frequency;
             int startWindow = 0;
@@ -250,7 +260,8 @@ public class CrateDropCommand extends ListenerAdapter {
                 nextTime = nextWeekStartMs + (long) (Math.random() * windowSize);
             }
         } else {
-            java.time.ZonedDateTime startOfMonth = now.with(java.time.temporal.TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay(now.getZone());
+            java.time.ZonedDateTime startOfMonth = now.with(java.time.temporal.TemporalAdjusters.firstDayOfMonth())
+                    .toLocalDate().atStartOfDay(now.getZone());
             long startMs = startOfMonth.toInstant().toEpochMilli();
             long windowSize = (30 * 24 * 60 * 60 * 1000L) / frequency;
             int startWindow = 0;
@@ -289,14 +300,19 @@ public class CrateDropCommand extends ListenerAdapter {
 
     private static void triggerAutomaticDrop(String channelId) {
         TextChannel channel = jdaInstance.getTextChannelById(channelId);
-        if (channel == null) return;
+        if (channel == null)
+            return;
 
         double roll = Math.random();
         String level;
-        if (roll < 0.40) level = "SIMPLE";
-        else if (roll < 0.70) level = "RARE";
-        else if (roll < 0.90) level = "EPIC";
-        else level = "NETHERITE";
+        if (roll < 0.40)
+            level = "SIMPLE";
+        else if (roll < 0.70)
+            level = "RARE";
+        else if (roll < 0.90)
+            level = "EPIC";
+        else
+            level = "NETHERITE";
 
         Loot loot = selectRandomLootStatic(level);
         spawnCrateDrop(channel, level, loot);
@@ -305,7 +321,8 @@ public class CrateDropCommand extends ListenerAdapter {
     // SLASH COMMAND EVENT
     @Override
     public void onSlashCommandInteraction(@NotNull SlashCommandInteractionEvent event) {
-        if (!event.getName().equals("drop")) return;
+        if (!event.getName().equals("drop"))
+            return;
 
         Member member = event.getMember();
         if (member == null || (!member.hasPermission(Permission.ADMINISTRATOR) && !hasRole(member, REQUIRED_ROLE_ID))) {
@@ -444,7 +461,8 @@ public class CrateDropCommand extends ListenerAdapter {
         if (id.equals("drop_admin_custom_level")) {
             event.deferEdit().queue();
             String level = event.getValues().get(0);
-            CustomWizardState state = wizardStates.computeIfAbsent(event.getUser().getId(), k -> new CustomWizardState());
+            CustomWizardState state = wizardStates.computeIfAbsent(event.getUser().getId(),
+                    k -> new CustomWizardState());
             state.level = level;
             showCustomWizardStep2(event.getHook());
         }
@@ -471,7 +489,8 @@ public class CrateDropCommand extends ListenerAdapter {
         if (id.equals("drop_admin_custom_channel")) {
             event.deferEdit().queue();
             CustomWizardState state = wizardStates.get(event.getUser().getId());
-            if (state == null) return;
+            if (state == null)
+                return;
             state.channelId = event.getValues().get(0).getId();
             showCustomWizardStep3(event.getHook(), state);
         }
@@ -481,7 +500,8 @@ public class CrateDropCommand extends ListenerAdapter {
     @Override
     public void onModalInteraction(@NotNull ModalInteractionEvent event) {
         String id = event.getModalId();
-        if (!id.startsWith("drop_modal_")) return;
+        if (!id.startsWith("drop_modal_"))
+            return;
 
         int historyId = Integer.parseInt(id.replace("drop_modal_", ""));
         CrateChallenge challenge = activeChallenges.values().stream()
@@ -508,7 +528,9 @@ public class CrateDropCommand extends ListenerAdapter {
 
             boolean allCorrect = true;
             for (int slot : challenge.questionSlots) {
-                String value = event.getValue("slot_" + slot) != null ? event.getValue("slot_" + slot).getAsString().trim() : "";
+                String value = event.getValue("slot_" + slot) != null
+                        ? event.getValue("slot_" + slot).getAsString().trim()
+                        : "";
                 String correct = challenge.correctAnswers != null ? challenge.correctAnswers.get(slot) : "";
                 if (!value.equalsIgnoreCase(correct)) {
                     allCorrect = false;
@@ -527,14 +549,15 @@ public class CrateDropCommand extends ListenerAdapter {
                 challenge.wrongAnswersCount++;
                 int limit = challenge.cooldownsCount == 0 ? 5 : 2;
                 ActionLogService.logGame(event.getJDA(), "❌ Crate Wrong Answer",
-                    event.getUser().getId(), event.getUser().getName(),
-                    "**عدد المحاولات الخاطئة:** `" + challenge.wrongAnswersCount + "/" + limit + "`\n" +
-                    "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
+                        event.getUser().getId(), event.getUser().getName(),
+                        "**عدد المحاولات الخاطئة:** `" + challenge.wrongAnswersCount + "/" + limit + "`\n" +
+                                "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
                 if (challenge.timeoutTask != null) {
                     challenge.timeoutTask.cancel(false);
                     challenge.timeoutTask = null;
                 }
-                resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge, "إدخال رموز خاطئة", "WRONG_ANSWERS");
+                resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge,
+                        "إدخال رموز خاطئة", "WRONG_ANSWERS");
             }
         }
     }
@@ -546,12 +569,16 @@ public class CrateDropCommand extends ListenerAdapter {
 
     private void sendControlPanel(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         Container container = buildControlPanelContainer();
-        hook.sendMessageComponents(container).addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(new java.io.File("Identity/Drop.png"))).useComponentsV2(true).queue();
+        hook.sendMessageComponents(container)
+                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/Drop.png"), "Drop.png"))
+                .useComponentsV2(true).queue();
     }
 
     private void sendControlPanelEdit(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         Container container = buildControlPanelContainer();
-        hook.editOriginalComponents(container).setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(new java.io.File("Identity/Drop.png"))).useComponentsV2(true).queue();
+        hook.editOriginalComponents(container)
+                .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/Drop.png"), "Drop.png"))
+                .useComponentsV2(true).queue();
     }
 
     private Container buildControlPanelContainer() {
@@ -564,7 +591,7 @@ public class CrateDropCommand extends ListenerAdapter {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String q1 = "SELECT enabled, interval_type, frequency, target_channel_id FROM drop_config WHERE id = 1";
             try (PreparedStatement ps = conn.prepareStatement(q1);
-                 ResultSet rs = ps.executeQuery()) {
+                    ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     enabled = rs.getBoolean("enabled");
                     interval = rs.getString("interval_type");
@@ -574,7 +601,7 @@ public class CrateDropCommand extends ListenerAdapter {
             }
             String q2 = "SELECT COUNT(*) FROM drop_history";
             try (PreparedStatement ps = conn.prepareStatement(q2);
-                 ResultSet rs = ps.executeQuery()) {
+                    ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     totalDrops = rs.getInt(1);
                 }
@@ -583,7 +610,8 @@ public class CrateDropCommand extends ListenerAdapter {
             logger.error("Failed to load control panel config", e);
         }
 
-        String intervalAr = interval.equalsIgnoreCase("daily") ? "يومي" : (interval.equalsIgnoreCase("weekly") ? "اسبوعي" : "شهري");
+        String intervalAr = interval.equalsIgnoreCase("daily") ? "يومي"
+                : (interval.equalsIgnoreCase("weekly") ? "اسبوعي" : "شهري");
         String statusText = enabled ? "نشط 🟢" : "متوقف ⏸️";
         String channelMention = channelId.equals("Unknown") ? "غير محدد" : "<#" + channelId + ">";
 
@@ -612,27 +640,28 @@ public class CrateDropCommand extends ListenerAdapter {
                 .setDefaultValues(String.valueOf(frequency))
                 .build();
 
-        EntitySelectMenu channelMenu = EntitySelectMenu.create("drop_admin_set_channel", EntitySelectMenu.SelectTarget.CHANNEL)
+        EntitySelectMenu channelMenu = EntitySelectMenu
+                .create("drop_admin_set_channel", EntitySelectMenu.SelectTarget.CHANNEL)
                 .setPlaceholder("تحديد قناة التنزيل التلقائي")
                 .setChannelTypes(net.dv8tion.jda.api.entities.channel.ChannelType.TEXT)
                 .build();
 
         return Container.of(
-            net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://Drop.png")),
-            TextDisplay.of("## 📦 لوحة تحكم نظام الدروبات العشوائية"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("**حالة التنزيل التلقائي:** `" + statusText + "`\n" +
-                           "**الفترة:** `" + intervalAr + "`\n" +
-                           "**التكرار:** `" + frequency + " مرات في الفترة`\n" +
-                           "**قناة التنزيل التلقائي:** " + channelMention + "\n" +
-                           "**إجمالي الدروبات السابقة:** `" + totalDrops + "`"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(pauseBtn, instantBtn, customBtn, logsBtn),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(intervalMenu),
-            ActionRow.of(freqMenu),
-            ActionRow.of(channelMenu)
-        );
+                net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(
+                        net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://Drop.png")),
+                TextDisplay.of("## 📦 لوحة تحكم نظام الدروبات العشوائية"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("**حالة التنزيل التلقائي:** `" + statusText + "`\n" +
+                        "**الفترة:** `" + intervalAr + "`\n" +
+                        "**التكرار:** `" + frequency + " مرات في الفترة`\n" +
+                        "**قناة التنزيل التلقائي:** " + channelMention + "\n" +
+                        "**إجمالي الدروبات السابقة:** `" + totalDrops + "`"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(pauseBtn, instantBtn, customBtn, logsBtn),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(intervalMenu),
+                ActionRow.of(freqMenu),
+                ActionRow.of(channelMenu));
     }
 
     private void togglePauseConfig() {
@@ -674,7 +703,7 @@ public class CrateDropCommand extends ListenerAdapter {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String q = "SELECT interval_type, frequency FROM drop_config WHERE id = 1";
             try (PreparedStatement ps = conn.prepareStatement(q);
-                 ResultSet rs = ps.executeQuery()) {
+                    ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     String interval = rs.getString("interval_type");
                     int freq = rs.getInt("frequency");
@@ -697,33 +726,32 @@ public class CrateDropCommand extends ListenerAdapter {
                 .build();
 
         Container container = Container.of(
-            TextDisplay.of("## ⚙️ معالج دروب مخصص | خطوة 1 من 3"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("يرجى اختيار مستوى الصعوبة للدروب المطلوب إطلاقه:"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(levelMenu),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(Button.danger("drop_admin_custom_cancel", "❌ إلغاء المعالج"))
-        );
+                TextDisplay.of("## ⚙️ معالج دروب مخصص | خطوة 1 من 3"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("يرجى اختيار مستوى الصعوبة للدروب المطلوب إطلاقه:"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(levelMenu),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(Button.danger("drop_admin_custom_cancel", "❌ إلغاء المعالج")));
 
         hook.editOriginalComponents(container).useComponentsV2(true).queue();
     }
 
     private void showCustomWizardStep2(net.dv8tion.jda.api.interactions.InteractionHook hook) {
-        EntitySelectMenu channelMenu = EntitySelectMenu.create("drop_admin_custom_channel", EntitySelectMenu.SelectTarget.CHANNEL)
+        EntitySelectMenu channelMenu = EntitySelectMenu
+                .create("drop_admin_custom_channel", EntitySelectMenu.SelectTarget.CHANNEL)
                 .setPlaceholder("اختر قناة إرسال الدروب...")
                 .setChannelTypes(net.dv8tion.jda.api.entities.channel.ChannelType.TEXT)
                 .build();
 
         Container container = Container.of(
-            TextDisplay.of("## ⚙️ معالج دروب مخصص | خطوة 2 من 3"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("يرجى اختيار قناة الشات التي سيتم إرسال الصندوق إليها:"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(channelMenu),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(Button.danger("drop_admin_custom_cancel", "❌ إلغاء المعالج"))
-        );
+                TextDisplay.of("## ⚙️ معالج دروب مخصص | خطوة 2 من 3"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("يرجى اختيار قناة الشات التي سيتم إرسال الصندوق إليها:"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(channelMenu),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(Button.danger("drop_admin_custom_cancel", "❌ إلغاء المعالج")));
 
         hook.editOriginalComponents(container).useComponentsV2(true).queue();
     }
@@ -747,7 +775,7 @@ public class CrateDropCommand extends ListenerAdapter {
         hook.editOriginalComponents(container).useComponentsV2(true).queue();
     }
 
-    private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHook hook) {
+private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         StringBuilder sb = new StringBuilder();
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String query = "SELECT level, prize_display, winner_minecraft_name, status, created_at FROM drop_history ORDER BY id DESC LIMIT 5";
@@ -961,15 +989,15 @@ public class CrateDropCommand extends ListenerAdapter {
             else if ("EPIC".equalsIgnoreCase(level)) bgFileName = "مستوى الثالث.png";
             else if ("NETHERITE".equalsIgnoreCase(level)) bgFileName = "مستوى الرايع.png";
 
-            java.io.File bgFile = new java.io.File("Identity/" + bgFileName);
-            if (!bgFile.exists()) bgFile = new java.io.File("Identity/مستوى الاول.png");
+            java.io.InputStream bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/" + bgFileName);
+            if (bgStream == null) bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/مستوى الاول.png");
             
-            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bgFile);
+            java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bgStream);
             java.awt.Graphics2D g2d = img.createGraphics();
 
             java.awt.Font tempFont;
             try {
-                tempFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, new java.io.File("Identity/PixelAE-Regular.ttf")).deriveFont(22f);
+                tempFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/PixelAE-Regular.ttf")).deriveFont(22f);
             } catch (Exception e) {
                 tempFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 22);
             }

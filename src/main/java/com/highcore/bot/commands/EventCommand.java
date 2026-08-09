@@ -111,7 +111,7 @@ public class EventCommand extends ListenerAdapter {
         );
 
         event.replyComponents(panelContainer)
-             .addFiles(FileUpload.fromData(new File("Identity/events.png")))
+             .addFiles(FileUpload.fromData(EventCommand.class.getClassLoader().getResourceAsStream("Identity/events.png"), "events.png"))
              .useComponentsV2(true).queue();
     }
 

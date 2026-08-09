@@ -170,7 +170,7 @@ public class DailyCommand extends ListenerAdapter {
 
         event.getHook().editOriginalComponents(successContainer)
             .setEmbeds(java.util.Collections.emptyList())
-            .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(new java.io.File("Identity/daily.png")))
+            .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(DailyCommand.class.getClassLoader().getResourceAsStream("Identity/daily.png"), "daily.png"))
             .useComponentsV2(true)
             .queue();
     }
