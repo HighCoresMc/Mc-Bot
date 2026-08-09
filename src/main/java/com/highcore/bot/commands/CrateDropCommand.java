@@ -967,12 +967,13 @@ public class CrateDropCommand extends ListenerAdapter {
             java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bgFile);
             java.awt.Graphics2D g2d = img.createGraphics();
 
-            java.awt.Font customFont;
+            java.awt.Font tempFont;
             try {
-                customFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, new java.io.File("Identity/PixelAE-Regular.ttf")).deriveFont(22f);
+                tempFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, new java.io.File("Identity/PixelAE-Regular.ttf")).deriveFont(22f);
             } catch (Exception e) {
-                customFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 22);
+                tempFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 22);
             }
+            final java.awt.Font customFont = tempFont;
 
             g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2d.setColor(java.awt.Color.decode("#989FB9"));
