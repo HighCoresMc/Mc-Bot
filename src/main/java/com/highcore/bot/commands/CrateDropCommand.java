@@ -1057,7 +1057,10 @@ public class CrateDropCommand extends ListenerAdapter {
 
                     java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
                     
-                    float x = rightEdge - layout.getAdvance();
+                    java.awt.geom.Rectangle2D bounds = layout.getBounds();
+                    // Because TextLayout origin for RTL is on the right, bounds.getX() is usually negative.
+                    // This formula mathematically guarantees the rightmost visual pixel is exactly at rightEdge.
+                    float x = (float) (rightEdge - bounds.getX() - bounds.getWidth());
                     float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
 
                     layout.draw(g2d, x, y);
