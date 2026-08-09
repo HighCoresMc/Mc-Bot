@@ -78,11 +78,18 @@ public class ProfileImageGenerator {
                     int targetWidth = targetX2 - targetX1;
                     int targetHeight = targetY2 - targetY1;
                     
-                    double scaleX = (double) targetWidth / avatar.getWidth();
+                    // The frame in the image is slanted (leaning to the right).
+                    // We apply a shear transform to fit the avatar perfectly into this parallelogram.
+                    double shearAmt = 0.18; // approx 10-15 degrees slant
+                    double W = targetWidth - (shearAmt * targetHeight);
+                    
+                    double scaleX = W / avatar.getWidth();
                     double scaleY = (double) targetHeight / avatar.getHeight();
                     
                     AffineTransform at = new AffineTransform();
-                    at.translate(targetX1, targetY1);
+                    // Shift origin so the sheared image starts exactly at targetX1
+                    at.translate(targetX1 + (shearAmt * targetHeight), targetY1);
+                    at.shear(-shearAmt, 0); // Negative shear makes top lean right relative to bottom
                     at.scale(scaleX, scaleY);
                     
                     g2d.drawImage(avatar, at, null);
@@ -96,25 +103,25 @@ public class ProfileImageGenerator {
             FontRenderContext frc = g2d.getFontRenderContext();
 
             // Name is common in all tabs: coords 578,146,814,206
-            drawTextCentered(g2d, mcName, 578, 146, 814, 206, frc);
+            drawTextRightAligned(g2d, mcName, 814, 146, 206, frc);
 
             switch (tab) {
                 case "general":
-                    drawTextCentered(g2d, rank != null ? rank : "بدون رتبة", 901, 334, 1094, 385, frc);
-                    drawTextCentered(g2d, playTime, 900, 426, 1034, 472, frc);
+                    drawTextRightAligned(g2d, rank != null ? rank : "بدون رتبة", 1094, 334, 385, frc);
+                    drawTextRightAligned(g2d, playTime, 1034, 426, 472, frc);
                     break;
                 case "surv":
-                    drawTextCentered(g2d, cmiBalance, 655, 424, 829, 476, frc);
-                    drawTextCentered(g2d, tokens, 845, 338, 1021, 387, frc);
+                    drawTextRightAligned(g2d, cmiBalance, 829, 424, 476, frc);
+                    drawTextRightAligned(g2d, tokens, 1021, 338, 387, frc);
                     break;
                 case "pvp":
-                    drawTextCentered(g2d, kills, 898, 522, 993, 565, frc);
-                    drawTextCentered(g2d, deaths, 891, 341, 984, 383, frc);
-                    drawTextCentered(g2d, kd, 823, 430, 914, 473, frc);
+                    drawTextRightAligned(g2d, kills, 993, 522, 565, frc);
+                    drawTextRightAligned(g2d, deaths, 984, 341, 383, frc);
+                    drawTextRightAligned(g2d, kd, 914, 430, 473, frc);
                     break;
                 case "side":
-                    drawTextCentered(g2d, status, 762, 344, 880, 376, frc);
-                    drawTextCentered(g2d, futureAdd, 869, 433, 992, 468, frc);
+                    drawTextRightAligned(g2d, status, 880, 344, 376, frc);
+                    drawTextRightAligned(g2d, futureAdd, 992, 433, 468, frc);
                     break;
             }
 
@@ -128,7 +135,7 @@ public class ProfileImageGenerator {
         }
     }
 
-    private static void drawTextCentered(Graphics2D g2d, String text, int x1, int y1, int x2, int y2, FontRenderContext frc) {
+    private static void drawTextRightAligned(Graphics2D g2d, String text, int rightX, int y1, int y2, FontRenderContext frc) {
         try {
             if (text == null || text.trim().isEmpty()) return;
             
@@ -141,17 +148,19 @@ public class ProfileImageGenerator {
 
             AttributedString as = new AttributedString(cleanText);
             as.addAttribute(TextAttribute.FONT, customFont);
-            as.addAttribute(TextAttribute.RUN_DIRECTION, TextAttribute.RUN_DIRECTION_RTL);
+            // Use LTR to prevent mixed Arabic/English (like "1 days 15 hours") from scrambling visually
+            as.addAttribute(TextAttribute.RUN_DIRECTION, TextAttribute.RUN_DIRECTION_LTR);
             as.addAttribute(TextAttribute.LIGATURES, TextAttribute.LIGATURES_ON);
 
             TextLayout layout = new TextLayout(as.getIterator(), frc);
             g2d.setFont(customFont);
+            
+            // TextLayout bounds in PixelAE are sometimes weird, stringWidth is more reliable for pixel width
             int visualWidth = g2d.getFontMetrics().stringWidth(cleanText);
 
-            int boxWidth = x2 - x1;
             int boxHeight = y2 - y1;
 
-            float x = x1 + (boxWidth - visualWidth) / 2f;
+            float x = rightX - visualWidth;
             float y = y1 + (boxHeight / 2f) + (layout.getAscent() / 2f) - (layout.getDescent() / 2f);
 
             layout.draw(g2d, x, y);
