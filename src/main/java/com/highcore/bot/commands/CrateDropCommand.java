@@ -984,13 +984,13 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
 
     private static byte[] generateDropImage(String level, String prizeText, String statusText) {
         try {
-            String bgFileName = "مستوى الاول.png";
-            if ("RARE".equalsIgnoreCase(level)) bgFileName = "مستوى الثاني_.png";
-            else if ("EPIC".equalsIgnoreCase(level)) bgFileName = "مستوى الثالث.png";
-            else if ("NETHERITE".equalsIgnoreCase(level)) bgFileName = "مستوى الرايع.png";
+            String bgFileName = "level_1.png";
+            if ("RARE".equalsIgnoreCase(level)) bgFileName = "level_2.png";
+            else if ("EPIC".equalsIgnoreCase(level)) bgFileName = "level_3.png";
+            else if ("NETHERITE".equalsIgnoreCase(level)) bgFileName = "level_4.png";
 
             java.io.InputStream bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/" + bgFileName);
-            if (bgStream == null) bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/مستوى الاول.png");
+            if (bgStream == null) bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/level_1.png");
             
             java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bgStream);
             java.awt.Graphics2D g2d = img.createGraphics();
