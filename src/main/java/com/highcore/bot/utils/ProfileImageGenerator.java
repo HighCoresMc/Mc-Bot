@@ -78,18 +78,17 @@ public class ProfileImageGenerator {
                     int targetWidth = targetX2 - targetX1;
                     int targetHeight = targetY2 - targetY1;
                     
-                    // The frame in the image is slanted (leaning to the right).
-                    // We apply a shear transform to fit the avatar perfectly into this parallelogram.
-                    double shearAmt = 0.18; // approx 10-15 degrees slant
+                    // The frame in the image leans left (top is further left than bottom).
+                    // We apply a positive shear transform to fit the avatar perfectly into this parallelogram.
+                    double shearAmt = 0.18; 
                     double W = targetWidth - (shearAmt * targetHeight);
                     
                     double scaleX = W / avatar.getWidth();
                     double scaleY = (double) targetHeight / avatar.getHeight();
                     
                     AffineTransform at = new AffineTransform();
-                    // Shift origin so the sheared image starts exactly at targetX1
-                    at.translate(targetX1 + (shearAmt * targetHeight), targetY1);
-                    at.shear(-shearAmt, 0); // Negative shear makes top lean right relative to bottom
+                    at.translate(targetX1, targetY1);
+                    at.shear(shearAmt, 0); 
                     at.scale(scaleX, scaleY);
                     
                     g2d.drawImage(avatar, at, null);
@@ -111,8 +110,8 @@ public class ProfileImageGenerator {
                     drawTextRightAligned(g2d, playTime, 1034, 426, 472, frc);
                     break;
                 case "surv":
-                    drawTextRightAligned(g2d, cmiBalance, 829, 424, 476, frc);
-                    drawTextRightAligned(g2d, tokens, 1021, 338, 387, frc);
+                    drawTextRightAligned(g2d, cmiBalance, 1021, 338, 387, frc);
+                    drawTextRightAligned(g2d, tokens, 829, 424, 476, frc);
                     break;
                 case "pvp":
                     drawTextRightAligned(g2d, kills, 993, 522, 565, frc);

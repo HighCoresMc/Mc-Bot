@@ -158,7 +158,7 @@ public class ProfileCommand extends ListenerAdapter {
                                 }
                                 case "surv": {
                                     imageBytes = com.highcore.bot.utils.ProfileImageGenerator.generateProfileImage(
-                                            tab, mcName, null, null, String.format("%,.2f", balance) + "$", 
+                                            tab, mcName, null, null, String.format("%,.2f", balance), 
                                             String.format("%,d", tokens), null, null, null, null, null, avatarUrl);
                                     break;
                                 }
