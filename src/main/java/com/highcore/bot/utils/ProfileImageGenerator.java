@@ -78,20 +78,17 @@ public class ProfileImageGenerator {
                     int targetWidth = targetX2 - targetX1;
                     int targetHeight = targetY2 - targetY1;
                     
-                    // The frame in the image leans left (top is further left than bottom).
-                    // We apply a positive shear transform to fit the avatar perfectly into this parallelogram.
-                    double shearAmt = 0.18; 
-                    double W = targetWidth - (shearAmt * targetHeight);
+                    // The user wants the avatar to fit inside the frame without distorting the "original image".
+                    // The bounding box 106,255 to 481,615 covers the outer golden borders.
+                    // We draw the avatar as a flat, undistorted square, but smaller and centered 
+                    // so it fits perfectly inside the inner dark area without overlapping the golden borders.
+                    int padding = 35; 
+                    int innerX = targetX1 + padding;
+                    int innerY = targetY1 + padding + 5; // shift slightly down
+                    int innerWidth = targetWidth - (padding * 2);
+                    int innerHeight = targetHeight - (padding * 2);
                     
-                    double scaleX = W / avatar.getWidth();
-                    double scaleY = (double) targetHeight / avatar.getHeight();
-                    
-                    AffineTransform at = new AffineTransform();
-                    at.translate(targetX1, targetY1);
-                    at.shear(shearAmt, 0); 
-                    at.scale(scaleX, scaleY);
-                    
-                    g2d.drawImage(avatar, at, null);
+                    g2d.drawImage(avatar, innerX, innerY, innerWidth, innerHeight, null);
                 }
             } catch (Exception e) {
                 logger.error("Failed to load avatar from: " + avatarUrl, e);
