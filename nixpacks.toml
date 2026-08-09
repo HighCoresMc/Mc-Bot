@@ -1,2 +1,2 @@
 [phases.setup]
-aptPkgs = ["...", "fontconfig", "libfreetype6"]
+nixPkgs = ["...", "fontconfig", "freetype"]
