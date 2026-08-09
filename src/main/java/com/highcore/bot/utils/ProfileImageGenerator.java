@@ -41,17 +41,17 @@ public class ProfileImageGenerator {
             String templateName;
             switch (tab) {
                 case "surv":
-                    templateName = "احصائيات سيرفرفايل المعدلة.png";
+                    templateName = "prof_survival.png";
                     break;
                 case "pvp":
-                    templateName = "احصائيات القتال.png";
+                    templateName = "prof_pvp.png";
                     break;
                 case "side":
-                    templateName = "احصائيات اضافية.png";
+                    templateName = "prof_extra.png";
                     break;
                 case "general":
                 default:
-                    templateName = "معلومات عامة.png";
+                    templateName = "prof_general.png";
                     break;
             }
 
