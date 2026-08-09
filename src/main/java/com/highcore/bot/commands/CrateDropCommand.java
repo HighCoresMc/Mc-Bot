@@ -1031,8 +1031,11 @@ public class CrateDropCommand extends ListenerAdapter {
             }
             DrawTextAligned drawTextRightAligned = (text, rightEdge, centerY) -> {
                 try {
-                    // Remove Arabic diacritics (harakat) which might cause missing glyphs
-                    String cleanText = text.replaceAll("[\u064B-\u065F]", "");
+                    // Remove Emojis and Arabic diacritics (harakat) which cause missing glyph boxes
+                    String cleanText = text.replaceAll("[\u064B-\u065F]", "")
+                                           .replaceAll("[\uD83C-\uDBFF\uDC00-\uDFFF]+", "") // Surrogate pairs
+                                           .replaceAll("[\u2700-\u27BF\u2600-\u26FF\u2B50\u2B55\u2753\u274C]", "") // Basic emojis like ❓, ❌, etc
+                                           .trim(); // Trim any leading/trailing spaces left by emoji removal
                     
                     java.text.AttributedString as = new java.text.AttributedString(cleanText);
                     as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
@@ -1064,10 +1067,10 @@ public class CrateDropCommand extends ListenerAdapter {
                 }
             };
 
-            // Prize, Level, Status (using user's exact X right edges)
-            drawTextRightAligned.draw(prizeText, 1445, 484);
-            drawTextRightAligned.draw(getLevelText(level), 1390, 588);
-            drawTextRightAligned.draw(statusText, 1455, 695);
+            // Prize, Level, Status (using user's exact X right edges, pushed a bit to the right)
+            drawTextRightAligned.draw(prizeText, 1457, 484);
+            drawTextRightAligned.draw(getLevelText(level), 1402, 588);
+            drawTextRightAligned.draw(statusText, 1467, 695);
 
             g2d.dispose();
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
