@@ -936,6 +936,7 @@ public class CrateDropCommand extends ListenerAdapter {
                                 net.dv8tion.jda.api.components.mediagallery.MediaGallery
                                         .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
                                                 .fromUrl("attachment://drop_gen.png")),
+                                TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
                                 Separator.createDivider(Separator.Spacing.SMALL),
                                 ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت")));
 
@@ -1012,10 +1013,10 @@ public class CrateDropCommand extends ListenerAdapter {
             java.awt.Font tempFont;
             try {
                 tempFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT,
-                        CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/PixelAE-Bold.ttf"))
-                        .deriveFont(32f);
+                        CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/PixelAE-Regular.ttf"))
+                        .deriveFont(22f);
             } catch (Exception e) {
-                tempFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 32);
+                tempFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 22);
             }
             final java.awt.Font customFont = tempFont;
 
@@ -1024,34 +1025,18 @@ public class CrateDropCommand extends ListenerAdapter {
             g2d.setColor(java.awt.Color.decode("#989FB9"));
             java.awt.font.FontRenderContext frc = g2d.getFontRenderContext();
 
-            @FunctionalInterface
-            interface DrawTextAligned {
-                void draw(String text, float rightEdge, float centerY);
-            }
-            DrawTextAligned drawTextRightAligned = (text, rightEdge, centerY) -> {
+            java.util.function.BiConsumer<String, java.awt.Rectangle> drawText = (text, bounds) -> {
                 try {
-                    // Remove Emojis and Arabic diacritics (harakat) which cause missing glyph boxes
-                    String cleanText = text.replaceAll("[\u064B-\u065F]", "")
-                                           .replaceAll("[\uD83C-\uDBFF\uDC00-\uDFFF]+", "") // Surrogate pairs
-                                           .replaceAll("[\u2700-\u27BF\u2600-\u26FF\u2B50\u2B55\u2753\u274C]", "") // Basic emojis like ❓, ❌, etc
-                                           .trim(); // Trim any leading/trailing spaces left by emoji removal
-                    
-                    java.text.AttributedString as = new java.text.AttributedString(cleanText);
+                    java.text.AttributedString as = new java.text.AttributedString(text);
                     as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
                     as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION,
                             java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
-                    
-                    // Force ligatures to trigger GSUB for PixelAE if it supports it
-                    as.addAttribute(java.awt.font.TextAttribute.LIGATURES, java.awt.font.TextAttribute.LIGATURES_ON);
-                    
-
 
                     java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
-                    
-                    // In Java, TextLayout with RUN_DIRECTION_RTL places its origin at the RIGHT visual edge.
-                    // Therefore, we just set x to the desired right edge directly! No subtraction needed.
-                    float x = rightEdge;
-                    float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
+                    java.awt.geom.Rectangle2D textBounds = layout.getBounds();
+
+                    float x = (float) (bounds.x + (bounds.width - textBounds.getWidth()) / 2);
+                    float y = (float) (bounds.y + (bounds.height - textBounds.getHeight()) / 2 + layout.getAscent());
 
                     layout.draw(g2d, x, y);
                 } catch (Exception e) {
@@ -1059,21 +1044,18 @@ public class CrateDropCommand extends ListenerAdapter {
                 }
             };
 
-            // Right edges are set 15px to the left of the titles
-            // Prize Title is at 1453 -> Right edge = 1438
-            // Level Title is at 1398 -> Right edge = 1383
-            // Status Title is at 1465 -> Right edge = 1450
-            drawTextRightAligned.draw(prizeText, 1438, 484);
-            drawTextRightAligned.draw(getLevelText(level), 1383, 588);
-            drawTextRightAligned.draw(statusText, 1450, 695);
+            drawText.accept(prizeText, new java.awt.Rectangle(1447, 676, 205, 45));
+            drawText.accept(getLevelText(level), new java.awt.Rectangle(1451, 464, 203, 41));
+            drawText.accept(statusText, new java.awt.Rectangle(1398, 571, 204, 41));
 
             g2d.dispose();
+
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
             javax.imageio.ImageIO.write(img, "png", baos);
             return baos.toByteArray();
         } catch (Exception e) {
             logger.error("Error generating drop image", e);
-            return new byte[0];
+            return null;
         }
     }
 
