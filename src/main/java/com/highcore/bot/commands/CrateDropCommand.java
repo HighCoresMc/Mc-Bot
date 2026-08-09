@@ -936,7 +936,6 @@ public class CrateDropCommand extends ListenerAdapter {
                                 net.dv8tion.jda.api.components.mediagallery.MediaGallery
                                         .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
                                                 .fromUrl("attachment://drop_gen.png")),
-                                TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
                                 Separator.createDivider(Separator.Spacing.SMALL),
                                 ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت")));
 
