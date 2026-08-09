@@ -1044,16 +1044,7 @@ public class CrateDropCommand extends ListenerAdapter {
                     // Force ligatures to trigger GSUB for PixelAE if it supports it
                     as.addAttribute(java.awt.font.TextAttribute.LIGATURES, java.awt.font.TextAttribute.LIGATURES_ON);
                     
-                    // Add a fallback font for Arabic if PixelAE fails completely
-                    // We assign SansSerif to Arabic characters, while keeping PixelAE for numbers/punctuation
-                    java.awt.Font fallbackFont = new java.awt.Font("SansSerif", java.awt.Font.BOLD, 32);
-                    for (int i = 0; i < cleanText.length(); i++) {
-                        char c = cleanText.charAt(i);
-                        // If it's an Arabic letter (0600-06FF), we use SansSerif to guarantee it connects!
-                        if (c >= '؀' && c <= 'ۿ') {
-                            as.addAttribute(java.awt.font.TextAttribute.FONT, fallbackFont, i, i + 1);
-                        }
-                    }
+
 
                     java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
                     
