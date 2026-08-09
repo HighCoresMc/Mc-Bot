@@ -1048,9 +1048,12 @@ public class CrateDropCommand extends ListenerAdapter {
 
                     java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
                     
-                    // In Java, TextLayout with RUN_DIRECTION_RTL places its origin at the RIGHT visual edge.
-                    // Therefore, we just set x to the desired right edge directly! No subtraction needed.
-                    float x = rightEdge;
+                    // Because PixelAE has broken bidirectional bounds, TextLayout places the origin on the left.
+                    // We must manually subtract the exact visual width to right-align it.
+                    g2d.setFont(customFont);
+                    int visualWidth = g2d.getFontMetrics().stringWidth(cleanText);
+                    float x = rightEdge - visualWidth;
+                    
                     float y = centerY + layout.getAscent() / 2 - layout.getDescent() / 2;
 
                     layout.draw(g2d, x, y);
