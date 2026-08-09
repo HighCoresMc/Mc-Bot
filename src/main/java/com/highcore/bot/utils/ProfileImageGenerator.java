@@ -116,8 +116,8 @@ public class ProfileImageGenerator {
                     drawTextRightAligned(g2d, kd, 914, 430, 473, frc);
                     break;
                 case "side":
-                    drawTextRightAligned(g2d, status, 880, 344, 376, frc);
-                    drawTextRightAligned(g2d, futureAdd, 992, 433, 468, frc);
+                    drawTextRightAligned(g2d, futureAdd, 880, 344, 376, frc);
+                    drawTextRightAligned(g2d, status, 992, 433, 468, frc);
                     break;
             }
 
