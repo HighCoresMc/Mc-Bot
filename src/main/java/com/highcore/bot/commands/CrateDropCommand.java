@@ -1786,6 +1786,9 @@ public class CrateDropCommand extends ListenerAdapter {
             } else {
                 int limit = challenge.cooldownsCount == 0 ? 5 : 2;
                 Container failureContainer = Container.of(
+                        net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                        .fromUrl("attachment://Failure_.png")),
                         TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
                         Separator.createDivider(Separator.Spacing.SMALL),
                         TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +

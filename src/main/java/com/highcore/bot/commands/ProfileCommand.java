@@ -139,8 +139,7 @@ public class ProfileCommand extends ListenerAdapter {
                                 Button.secondary("prof_side_" + uuid + "_" + discordId + "_" + backupUsername, "إضافي").withDisabled(tab.equals("side"))
                             );
 
-                            Container container = null;
-                            String title = "ملف اللاعب: " + mcName;
+                            byte[] imageBytes = null;
 
                             switch (tab) {
                                 case "general": {
@@ -152,15 +151,15 @@ public class ProfileCommand extends ListenerAdapter {
                                     if (hours > 0) timeStr.append(hours).append(" ساعات ");
                                     timeStr.append(minutes).append(" دقائق");
 
-                                    String body = "**الرتبة:** " + (rank != null && !rank.isEmpty() ? rank : "بدون رتبة") + "\n" +
-                                                  "**وقت اللعب:** " + timeStr.toString();
-                                    container = EmbedUtil.createProfilePanel(title, "المعلومات العامة<divider>" + body, avatarUrl, buttons);
+                                    imageBytes = com.highcore.bot.utils.ProfileImageGenerator.generateProfileImage(
+                                            tab, mcName, rank != null && !rank.isEmpty() ? rank : "بدون رتبة", 
+                                            timeStr.toString(), null, null, null, null, null, null, null, avatarUrl);
                                     break;
                                 }
                                 case "surv": {
-                                    String body = "**رصيد CMI:** " + String.format("%,.2f", balance) + "$\n" +
-                                                  "**عملات (Tokens):** " + String.format("%,d", tokens);
-                                    container = EmbedUtil.createProfilePanel(title, "إحصائيات السيرفايفل<divider>" + body, avatarUrl, buttons);
+                                    imageBytes = com.highcore.bot.utils.ProfileImageGenerator.generateProfileImage(
+                                            tab, mcName, null, null, String.format("%,.2f", balance) + "$", 
+                                            String.format("%,d", tokens), null, null, null, null, null, avatarUrl);
                                     break;
                                 }
                                 case "pvp": {
@@ -170,10 +169,10 @@ public class ProfileCommand extends ListenerAdapter {
                                     } else if (kills > 0) {
                                         kd = kills;
                                     }
-                                    String body = "**القتلات (Kills):** " + kills + "\n" +
-                                                  "**الوفيات (Deaths):** " + deaths + "\n" +
-                                                  "**معدل (K/D):** " + String.format(java.util.Locale.US, "%.2f", kd);
-                                    container = EmbedUtil.createProfilePanel(title, "إحصائيات القتال (PvP)<divider>" + body, avatarUrl, buttons);
+                                    imageBytes = com.highcore.bot.utils.ProfileImageGenerator.generateProfileImage(
+                                            tab, mcName, null, null, null, null, String.valueOf(kills), 
+                                            String.valueOf(deaths), String.format(java.util.Locale.US, "%.2f", kd), 
+                                            null, null, avatarUrl);
                                     break;
                                 }
                                 case "side": {
@@ -183,15 +182,24 @@ public class ProfileCommand extends ListenerAdapter {
                                         isOnline = com.highcore.bot.listeners.MinecraftLogListener.onlinePlayers.stream()
                                             .anyMatch(name -> name.equalsIgnoreCase(searchName));
                                     }
-                                    String body = "**تم إضافته مستقبلاً:** 0\n" +
-                                                  "**حالة الاتصال:** " + (isOnline ? "متصل (Online)" : "غير متصل (Offline)");
-                                    container = EmbedUtil.createProfilePanel(title, "إحصائيات إضافية<divider>" + body, avatarUrl, buttons);
+                                    String statusStr = isOnline ? "متصل (Online)" : "غير متصل (Offline)";
+                                    imageBytes = com.highcore.bot.utils.ProfileImageGenerator.generateProfileImage(
+                                            tab, mcName, null, null, null, null, null, null, null, 
+                                            statusStr, "0", avatarUrl);
                                     break;
                                 }
                             }
 
-                            if (container != null) {
+                            if (imageBytes != null && imageBytes.length > 0) {
+                                // Create Container with the image as MediaGalleryItem, same as drops
+                                Container container = Container.of(
+                                        net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(
+                                                net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://profile.png")
+                                        ),
+                                        buttons
+                                );
                                 hook.editOriginalComponents(container)
+                                    .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(imageBytes, "profile.png"))
                                     .setEmbeds(java.util.Collections.emptyList())
                                     .useComponentsV2(true)
                                     .queue();
