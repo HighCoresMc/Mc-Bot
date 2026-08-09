@@ -570,14 +570,16 @@ public class CrateDropCommand extends ListenerAdapter {
     private void sendControlPanel(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         Container container = buildControlPanelContainer();
         hook.sendMessageComponents(container)
-                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/Drop.png"), "Drop.png"))
+                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(
+                        CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/Drop.png"), "Drop.png"))
                 .useComponentsV2(true).queue();
     }
 
     private void sendControlPanelEdit(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         Container container = buildControlPanelContainer();
         hook.editOriginalComponents(container)
-                .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/Drop.png"), "Drop.png"))
+                .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(
+                        CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/Drop.png"), "Drop.png"))
                 .useComponentsV2(true).queue();
     }
 
@@ -760,37 +762,36 @@ public class CrateDropCommand extends ListenerAdapter {
         String levelAr = getLevelText(state.level);
 
         Container container = Container.of(
-            TextDisplay.of("## ⚙️ معالج دروب مخصص | خطوة 3 من 3"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of("تأكيد تفاصيل الدروب المخصص:\n\n" +
-                           "**مستوى الصعوبة:** `" + levelAr + "`\n" +
-                           "**قناة الإرسال:** <#" + state.channelId + ">"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(
-                Button.success("drop_admin_custom_send", "🚀 إطلاق الدروب"),
-                Button.danger("drop_admin_custom_cancel", "❌ إلغاء")
-            )
-        );
+                TextDisplay.of("## ⚙️ معالج دروب مخصص | خطوة 3 من 3"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of("تأكيد تفاصيل الدروب المخصص:\n\n" +
+                        "**مستوى الصعوبة:** `" + levelAr + "`\n" +
+                        "**قناة الإرسال:** <#" + state.channelId + ">"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(
+                        Button.success("drop_admin_custom_send", "🚀 إطلاق الدروب"),
+                        Button.danger("drop_admin_custom_cancel", "❌ إلغاء")));
 
         hook.editOriginalComponents(container).useComponentsV2(true).queue();
     }
 
-private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHook hook) {
+    private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHook hook) {
         StringBuilder sb = new StringBuilder();
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String query = "SELECT level, prize_display, winner_minecraft_name, status, created_at FROM drop_history ORDER BY id DESC LIMIT 5";
             try (PreparedStatement ps = conn.prepareStatement(query);
-                 ResultSet rs = ps.executeQuery()) {
+                    ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String lvl = rs.getString("level");
                     String prize = rs.getString("prize_display");
                     String name = rs.getString("winner_minecraft_name");
                     String status = rs.getString("status");
                     String date = rs.getString("created_at");
-                    
+
                     String statusEmoji = status.equals("SOLVED") ? "✅" : (status.equals("FAILED") ? "❌" : "⏳");
                     String winner = name != null ? name : "لا يوجد";
-                    sb.append(String.format("%s `%s` | الجائزة: `%s` | الفائز: `%s` | الوقت: `%s`\n", statusEmoji, lvl, prize, winner, date));
+                    sb.append(String.format("%s `%s` | الجائزة: `%s` | الفائز: `%s` | الوقت: `%s`\n", statusEmoji, lvl,
+                            prize, winner, date));
                 }
             }
         } catch (Exception e) {
@@ -802,15 +803,13 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
         }
 
         Container container = Container.of(
-            TextDisplay.of("## 📜 سجل الدروبات الأخيرة"),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            TextDisplay.of(sb.toString()),
-            Separator.createDivider(Separator.Spacing.SMALL),
-            ActionRow.of(
-                Button.primary("drop_admin_refresh_history", "🔄 تحديث"),
-                Button.secondary("drop_admin_back_to_panel", "🔙 العودة للوحة التحكم")
-            )
-        );
+                TextDisplay.of("## 📜 سجل الدروبات الأخيرة"),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                TextDisplay.of(sb.toString()),
+                Separator.createDivider(Separator.Spacing.SMALL),
+                ActionRow.of(
+                        Button.primary("drop_admin_refresh_history", "🔄 تحديث"),
+                        Button.secondary("drop_admin_back_to_panel", "🔙 العودة للوحة التحكم")));
 
         hook.editOriginalComponents(container).useComponentsV2(true).queue();
     }
@@ -878,7 +877,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                 return new Loot(dblocks + "x Diamond Blocks 💎", "cmi give %player% diamond_block " + dblocks);
             } else {
                 int days = 3 + rand.nextInt(8);
-                return new Loot("Temporary Epic Rank " + days + " Days 🏆", "lp user %player% parent addtemp epic " + days + "d");
+                return new Loot("Temporary Epic Rank " + days + " Days 🏆",
+                        "lp user %player% parent addtemp epic " + days + "d");
             }
         } else {
             int pick = rand.nextInt(8);
@@ -900,12 +900,15 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                 int ingots = 1 + rand.nextInt(3);
                 return new Loot(ingots + "x Netherite Ingots 👑", "cmi give %player% netherite_ingot " + ingots);
             } else if (pick == 6) {
-                String[] pieces = {"helmet", "chestplate", "leggings", "boots"};
+                String[] pieces = { "helmet", "chestplate", "leggings", "boots" };
                 String chosenPiece = pieces[rand.nextInt(pieces.length)];
-                return new Loot("Netherite " + chosenPiece.substring(0, 1).toUpperCase() + chosenPiece.substring(1) + " 🪖", "cmi give %player% netherite_" + chosenPiece + " 1");
+                return new Loot(
+                        "Netherite " + chosenPiece.substring(0, 1).toUpperCase() + chosenPiece.substring(1) + " 🪖",
+                        "cmi give %player% netherite_" + chosenPiece + " 1");
             } else {
                 int days = 5 + rand.nextInt(11);
-                return new Loot("Temporary Netherite Rank " + days + " Days 🏆", "lp user %player% parent addtemp netherite " + days + "d");
+                return new Loot("Temporary Netherite Rank " + days + " Days 🏆",
+                        "lp user %player% parent addtemp netherite " + days + "d");
             }
         }
     }
@@ -926,34 +929,38 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                         int historyId = rs.getInt(1);
                         String levelText = getLevelText(level);
 
-                        byte[] dropImage = generateDropImage(level, "❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)", "بانتظار المتحدي الأول");
+                        byte[] dropImage = generateDropImage(level, "❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)",
+                                "بانتظار المتحدي الأول");
 
                         Container claimContainer = Container.of(
-                            net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
-                            TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                            Separator.createDivider(Separator.Spacing.SMALL),
-                            ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
-                        );
+                                net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                        .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                                .fromUrl("attachment://drop_gen.png")),
+                                TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
+                                Separator.createDivider(Separator.Spacing.SMALL),
+                                ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت")));
 
-                        channel.sendMessageComponents(claimContainer).addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(dropImage, "drop_gen.png")).useComponentsV2(true).queue(msg -> {
-                            updateHistoryMessage(historyId, msg.getId());
+                        channel.sendMessageComponents(claimContainer)
+                                .addFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(dropImage, "drop_gen.png"))
+                                .useComponentsV2(true).queue(msg -> {
+                                    updateHistoryMessage(historyId, msg.getId());
 
-                            ActionLogService.logGame(channel.getJDA(), "🎁 Crate Drop Spawned", null, null,
-                                "**المستوى:** `" + getLevelText(level) + "`\n" +
-                                "**القناة:** <#" + channel.getId() + ">\n" +
-                                "**ID:** `" + historyId + "`");
-                            
-                            CrateChallenge challenge = new CrateChallenge();
-                            challenge.messageId = msg.getId();
-                            challenge.channelId = channel.getId();
-                            challenge.level = level;
-                            challenge.prize = loot.prizeDisplay;
-                            challenge.command = loot.command;
-                            challenge.lockedByUserId = null;
-                            challenge.lockedUntil = 0;
-                            
-                            activeChallenges.put(msg.getId(), challenge);
-                        });
+                                    ActionLogService.logGame(channel.getJDA(), "🎁 Crate Drop Spawned", null, null,
+                                            "**المستوى:** `" + getLevelText(level) + "`\n" +
+                                                    "**القناة:** <#" + channel.getId() + ">\n" +
+                                                    "**ID:** `" + historyId + "`");
+
+                                    CrateChallenge challenge = new CrateChallenge();
+                                    challenge.messageId = msg.getId();
+                                    challenge.channelId = channel.getId();
+                                    challenge.level = level;
+                                    challenge.prize = loot.prizeDisplay;
+                                    challenge.command = loot.command;
+                                    challenge.lockedByUserId = null;
+                                    challenge.lockedUntil = 0;
+
+                                    activeChallenges.put(msg.getId(), challenge);
+                                });
                     }
                 }
             }
@@ -976,51 +983,63 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
     }
 
     private static String getLevelText(String level) {
-        if ("SIMPLE".equalsIgnoreCase(level)) return "بسيطة (2 خانات - 22 ثانية)";
-        if ("RARE".equalsIgnoreCase(level)) return "متوسطة (3 خانات - 20 ثانية)";
-        if ("EPIC".equalsIgnoreCase(level)) return "نادرة (4 خانات - 18 ثانية)";
+        if ("SIMPLE".equalsIgnoreCase(level))
+            return "بسيطة (2 خانات - 22 ثانية)";
+        if ("RARE".equalsIgnoreCase(level))
+            return "متوسطة (3 خانات - 20 ثانية)";
+        if ("EPIC".equalsIgnoreCase(level))
+            return "نادرة (4 خانات - 18 ثانية)";
         return "نذر رايت / كريت قوي (5 خانات - 15 ثانية)";
     }
 
     private static byte[] generateDropImage(String level, String prizeText, String statusText) {
         try {
             String bgFileName = "level_1.png";
-            if ("RARE".equalsIgnoreCase(level)) bgFileName = "level_2.png";
-            else if ("EPIC".equalsIgnoreCase(level)) bgFileName = "level_3.png";
-            else if ("NETHERITE".equalsIgnoreCase(level)) bgFileName = "level_4.png";
+            if ("RARE".equalsIgnoreCase(level))
+                bgFileName = "level_2.png";
+            else if ("EPIC".equalsIgnoreCase(level))
+                bgFileName = "level_3.png";
+            else if ("NETHERITE".equalsIgnoreCase(level))
+                bgFileName = "level_4.png";
 
-            java.io.InputStream bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/" + bgFileName);
-            if (bgStream == null) bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/level_1.png");
-            
+            java.io.InputStream bgStream = CrateDropCommand.class.getClassLoader()
+                    .getResourceAsStream("Identity/" + bgFileName);
+            if (bgStream == null)
+                bgStream = CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/level_1.png");
+
             java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(bgStream);
             java.awt.Graphics2D g2d = img.createGraphics();
 
             java.awt.Font tempFont;
             try {
-                tempFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/PixelAE-Regular.ttf")).deriveFont(22f);
+                tempFont = java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT,
+                        CrateDropCommand.class.getClassLoader().getResourceAsStream("Identity/PixelAE-Regular.ttf"))
+                        .deriveFont(22f);
             } catch (Exception e) {
                 tempFont = new java.awt.Font("Arial", java.awt.Font.BOLD, 22);
             }
             final java.awt.Font customFont = tempFont;
 
-            g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING, java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2d.setRenderingHint(java.awt.RenderingHints.KEY_TEXT_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
             g2d.setColor(java.awt.Color.decode("#989FB9"));
             java.awt.font.FontRenderContext frc = g2d.getFontRenderContext();
-            
+
             java.util.function.BiConsumer<String, java.awt.Rectangle> drawText = (text, bounds) -> {
                 try {
                     java.text.AttributedString as = new java.text.AttributedString(text);
                     as.addAttribute(java.awt.font.TextAttribute.FONT, customFont);
-                    as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION, java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
-                    
+                    as.addAttribute(java.awt.font.TextAttribute.RUN_DIRECTION,
+                            java.awt.font.TextAttribute.RUN_DIRECTION_RTL);
+
                     java.awt.font.TextLayout layout = new java.awt.font.TextLayout(as.getIterator(), frc);
                     java.awt.geom.Rectangle2D textBounds = layout.getBounds();
-                    
+
                     float x = (float) (bounds.x + (bounds.width - textBounds.getWidth()) / 2);
                     float y = (float) (bounds.y + (bounds.height - textBounds.getHeight()) / 2 + layout.getAscent());
-                    
+
                     layout.draw(g2d, x, y);
-                } catch(Exception e) {
+                } catch (Exception e) {
                     logger.error("Failed to draw text on drop image: " + text, e);
                 }
             };
@@ -1028,7 +1047,7 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
             drawText.accept(prizeText, new java.awt.Rectangle(1447, 676, 205, 45));
             drawText.accept(getLevelText(level), new java.awt.Rectangle(1451, 464, 203, 41));
             drawText.accept(statusText, new java.awt.Rectangle(1398, 571, 204, 41));
-            
+
             g2d.dispose();
 
             java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
@@ -1052,16 +1071,16 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
         synchronized (challenge) {
             if (System.currentTimeMillis() < challenge.cooldownUntil) {
                 long remaining = (challenge.cooldownUntil - System.currentTimeMillis()) / 1000;
-                event.reply("❌ الصندوق في فترة تهدئة (Cooldown). يرجى الانتظار " + remaining + " ثانية.").setEphemeral(true).queue();
+                event.reply("❌ الصندوق في فترة تهدئة (Cooldown). يرجى الانتظار " + remaining + " ثانية.")
+                        .setEphemeral(true).queue();
                 return;
             }
 
             if (challenge.lockedByUserId != null && challenge.lockedUntil > System.currentTimeMillis()) {
-                event.reply("❌ يوجد لاعب يحاول فك الكريت الآن. انتظر فشل المحاولة أو انتهاء الوقت.").setEphemeral(true).queue();
+                event.reply("❌ يوجد لاعب يحاول فك الكريت الآن. انتظر فشل المحاولة أو انتهاء الوقت.").setEphemeral(true)
+                        .queue();
                 return;
             }
-
-
 
             if (challenge.transitionTask != null) {
                 challenge.transitionTask.cancel(false);
@@ -1097,16 +1116,20 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
 
                 int dailyWinsLimit = 1;
                 try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
-                    try (PreparedStatement ps = conn.prepareStatement("SELECT max_daily_wins FROM drop_config WHERE id = 1")) {
+                    try (PreparedStatement ps = conn
+                            .prepareStatement("SELECT max_daily_wins FROM drop_config WHERE id = 1")) {
                         try (ResultSet rs = ps.executeQuery()) {
-                            if (rs.next()) dailyWinsLimit = rs.getInt("max_daily_wins");
+                            if (rs.next())
+                                dailyWinsLimit = rs.getInt("max_daily_wins");
                         }
                     }
-                } catch (Exception ignored) {}
+                } catch (Exception ignored) {
+                }
 
                 int dailyWins = getDailyWins(userId);
                 if (dailyWins >= dailyWinsLimit) {
-                    hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالدروبات اليوم وهو " + dailyWinsLimit + ".").queue();
+                    hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالدروبات اليوم وهو " + dailyWinsLimit + ".")
+                            .queue();
                     synchronized (challenge) {
                         if (userId.equals(challenge.lockedByUserId)) {
                             challenge.lockedByUserId = null;
@@ -1116,10 +1139,12 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                     return;
                 }
 
-                if ("RARE".equalsIgnoreCase(challenge.level) || "EPIC".equalsIgnoreCase(challenge.level) || "NETHERITE".equalsIgnoreCase(challenge.level)) {
+                if ("RARE".equalsIgnoreCase(challenge.level) || "EPIC".equalsIgnoreCase(challenge.level)
+                        || "NETHERITE".equalsIgnoreCase(challenge.level)) {
                     int weeklyRareWins = getWeeklyRareWins(userId);
                     if (weeklyRareWins >= 2) {
-                        hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالجوائز النادرة هذا الأسبوع (حد الفوز: 2).").queue();
+                        hook.sendMessage("❌ لقد وصلت للحد الأقصى للفوز بالجوائز النادرة هذا الأسبوع (حد الفوز: 2).")
+                                .queue();
                         synchronized (challenge) {
                             if (userId.equals(challenge.lockedByUserId)) {
                                 challenge.lockedByUserId = null;
@@ -1146,7 +1171,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
             String uuid = uuidOpt.get();
             if (!isImmune) {
                 if (!isPlayerActive(uuid)) {
-                    hook.sendMessage("❌ يجب أن تكون قد قمت بتسجيل الدخول إلى خادم ماينكرافت خلال آخر 7 أيام للمشاركة.").queue();
+                    hook.sendMessage("❌ يجب أن تكون قد قمت بتسجيل الدخول إلى خادم ماينكرافت خلال آخر 7 أيام للمشاركة.")
+                            .queue();
                     synchronized (challenge) {
                         if (userId.equals(challenge.lockedByUserId)) {
                             challenge.lockedByUserId = null;
@@ -1183,16 +1209,19 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                 challenge.challengeStartTime = System.currentTimeMillis();
                 challenge.grid = generateRandomGrid(challenge.level);
                 challenge.questionSlots = selectQuestionSlots(challenge.level);
-                
+
                 challenge.correctAnswers = new HashMap<>();
                 for (int slot : challenge.questionSlots) {
                     challenge.correctAnswers.put(slot, challenge.grid[slot - 1]);
                 }
 
                 int solveTime = 15;
-                if ("SIMPLE".equalsIgnoreCase(challenge.level)) solveTime = 22;
-                else if ("RARE".equalsIgnoreCase(challenge.level)) solveTime = 20;
-                else if ("EPIC".equalsIgnoreCase(challenge.level)) solveTime = 18;
+                if ("SIMPLE".equalsIgnoreCase(challenge.level))
+                    solveTime = 22;
+                else if ("RARE".equalsIgnoreCase(challenge.level))
+                    solveTime = 20;
+                else if ("EPIC".equalsIgnoreCase(challenge.level))
+                    solveTime = 18;
 
                 challenge.lockedUntil = System.currentTimeMillis() + 5000 + (solveTime * 1000L) + 2000;
                 challenge.isSolving = true;
@@ -1208,65 +1237,77 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                 long memEnd = (System.currentTimeMillis() + 5000) / 1000;
                 byte[] memImage = generateDropImage(challenge.level, "❓ مَجْهُولَة", "جارٍ حفظ الرموز...");
                 Container memContainer = Container.of(
-                    net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
-                    TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
-                                   "```\n" +
-                                   "  " + challenge.grid[0] + "   " + challenge.grid[1] + "   " + challenge.grid[2] + "\n" +
-                                   "  " + challenge.grid[3] + "   " + challenge.grid[4] + "   " + challenge.grid[5] + "\n" +
-                                   "  " + challenge.grid[6] + "   " + challenge.grid[7] + "   " + challenge.grid[8] + "\n" +
-                                   "```\n" +
-                                   "⏱️ **تختفي الرموز:** <t:" + memEnd + ":R>")
-                );
+                        net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                        .fromUrl("attachment://drop_gen.png")),
+                        TextDisplay.of("## 🔐 ───────── 💾 جَارِي فِكِ التَّشْفِير ───────── 🔐"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("### ⏱️ احفظ الرموز التالية قبل اختفائها:\n" +
+                                "```\n" +
+                                "  " + challenge.grid[0] + "   " + challenge.grid[1] + "   " + challenge.grid[2] + "\n"
+                                +
+                                "  " + challenge.grid[3] + "   " + challenge.grid[4] + "   " + challenge.grid[5] + "\n"
+                                +
+                                "  " + challenge.grid[6] + "   " + challenge.grid[7] + "   " + challenge.grid[8] + "\n"
+                                +
+                                "```\n" +
+                                "⏱️ **تختفي الرموز:** <t:" + memEnd + ":R>"));
 
                 event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(memContainer)
                         .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(memImage, "drop_gen.png"))
                         .useComponentsV2(true)
                         .build())
-                        .queue(null, e -> {});
+                        .queue(null, e -> {
+                        });
 
                 final int finalSolveTime = solveTime;
                 challenge.transitionTask = scheduler.schedule(() -> {
                     try {
                         synchronized (challenge) {
-                            if (challenge.solved || challenge.failedReason != null || !challenge.isSolving || !userId.equals(challenge.lockedByUserId)) return;
+                            if (challenge.solved || challenge.failedReason != null || !challenge.isSolving
+                                    || !userId.equals(challenge.lockedByUserId))
+                                return;
 
                             long solveEnd = (System.currentTimeMillis() + (finalSolveTime * 1000L)) / 1000;
-                            byte[] solveImage = generateDropImage(challenge.level, "❓ مَجْهُولَة", "بانتظار الإجابة...");
+                            byte[] solveImage = generateDropImage(challenge.level, "❓ مَجْهُولَة",
+                                    "بانتظار الإجابة...");
                             Container solveContainer = Container.of(
-                                net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
-                                TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
-                                Separator.createDivider(Separator.Spacing.SMALL),
-                                TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">"),
-                                Separator.createDivider(Separator.Spacing.SMALL),
-                                TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
-                                               "```\n" +
-                                               "  [1]  [2]  [3]\n" +
-                                               "  [4]  [5]  [6]\n" +
-                                               "  [7]  [8]  [9]\n" +
-                                               "```\n" +
-                                               "⏳ **ينتهي الوقت المتاح للحل:** <t:" + solveEnd + ":R>"),
-                                Separator.createDivider(Separator.Spacing.SMALL),
-                                ActionRow.of(Button.success("drop_hack_" + historyId, "💻 بدء التهكير"))
-                            );
+                                    net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                            .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                                    .fromUrl("attachment://drop_gen.png")),
+                                    TextDisplay.of("## 💻 ───────── 🛠️ اخْتِرِ الـرُّمُوزَ الـقَدِيمَة ───────── 💻"),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + userId + ">"),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    TextDisplay.of("### 🔢 حدد مواقع الرموز القديمة بالترتيب:\n" +
+                                            "```\n" +
+                                            "  [1]  [2]  [3]\n" +
+                                            "  [4]  [5]  [6]\n" +
+                                            "  [7]  [8]  [9]\n" +
+                                            "```\n" +
+                                            "⏳ **ينتهي الوقت المتاح للحل:** <t:" + solveEnd + ":R>"),
+                                    Separator.createDivider(Separator.Spacing.SMALL),
+                                    ActionRow.of(Button.success("drop_hack_" + historyId, "💻 بدء التهكير")));
 
                             event.getMessage().editMessage(new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                                     .setComponents(solveContainer)
                                     .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(solveImage, "drop_gen.png"))
                                     .useComponentsV2(true)
                                     .build())
-                                    .queue(null, e -> {});
+                                    .queue(null, e -> {
+                                    });
 
                             challenge.timeoutTask = scheduler.schedule(() -> {
                                 try {
                                     synchronized (challenge) {
-                                        if (!challenge.solved && challenge.isSolving && userId.equals(challenge.lockedByUserId)) {
+                                        if (!challenge.solved && challenge.isSolving
+                                                && userId.equals(challenge.lockedByUserId)) {
                                             challenge.wrongAnswersCount++;
-                                            resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId, challenge, "نفاد الوقت المخصص للحل", "TIMEOUT");
+                                            resetCrate((TextChannel) event.getChannel(), challenge.messageId, historyId,
+                                                    challenge, "نفاد الوقت المخصص للحل", "TIMEOUT");
                                         }
                                     }
                                 } catch (Exception ex) {
@@ -1327,7 +1368,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, discordId);
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) return rs.getInt(1);
+                    if (rs.next())
+                        return rs.getInt(1);
                 }
             }
         } catch (Exception e) {
@@ -1342,7 +1384,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
             try (PreparedStatement ps = conn.prepareStatement(query)) {
                 ps.setString(1, discordId);
                 try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) return rs.getInt(1);
+                    if (rs.next())
+                        return rs.getInt(1);
                 }
             }
         } catch (Exception e) {
@@ -1360,8 +1403,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
 
         try {
             Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady()
-                ? LeonTrotskyBot.getDbManager().getCmiConnection()
-                : LeonTrotskyBot.getDbManager().getConnection();
+                    ? LeonTrotskyBot.getDbManager().getCmiConnection()
+                    : LeonTrotskyBot.getDbManager().getConnection();
             try (conn) {
                 String query = "SELECT LastLoginTime FROM CMI_users WHERE player_uuid = ? OR player_uuid = ?";
                 try (PreparedStatement ps = conn.prepareStatement(query)) {
@@ -1393,12 +1436,16 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
 
     private List<Integer> selectQuestionSlots(String level) {
         List<Integer> all = new ArrayList<>();
-        for (int i = 1; i <= 9; i++) all.add(i);
+        for (int i = 1; i <= 9; i++)
+            all.add(i);
         Collections.shuffle(all);
         int count = 5;
-        if ("SIMPLE".equalsIgnoreCase(level)) count = 2;
-        else if ("RARE".equalsIgnoreCase(level)) count = 3;
-        else if ("EPIC".equalsIgnoreCase(level)) count = 4;
+        if ("SIMPLE".equalsIgnoreCase(level))
+            count = 2;
+        else if ("RARE".equalsIgnoreCase(level))
+            count = 3;
+        else if ("EPIC".equalsIgnoreCase(level))
+            count = 4;
         return new ArrayList<>(all.subList(0, count));
     }
 
@@ -1446,10 +1493,11 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
         }
     }
 
-    private void startDecodingAnimation(TextChannel channel, String messageId, int historyId, CrateChallenge challenge) {
+    private void startDecodingAnimation(TextChannel channel, String messageId, int historyId,
+            CrateChallenge challenge) {
         challenge.isDecoding = true;
         java.util.concurrent.atomic.AtomicInteger progress = new java.util.concurrent.atomic.AtomicInteger(0);
-        
+
         java.util.concurrent.ScheduledFuture<?>[] animTask = new java.util.concurrent.ScheduledFuture<?>[1];
         animTask[0] = scheduler.scheduleAtFixedRate(() -> {
             try {
@@ -1460,7 +1508,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                 int p;
 
                 synchronized (challenge) {
-                    if (challenge.lockedByUserId == null || !challenge.isDecoding || !activeChallenges.containsKey(messageId)) {
+                    if (challenge.lockedByUserId == null || !challenge.isDecoding
+                            || !activeChallenges.containsKey(messageId)) {
                         if (animTask[0] != null) {
                             animTask[0].cancel(false);
                         }
@@ -1494,30 +1543,34 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                     updateHistoryOnSuccess(historyId, lockedUserFinal, uuid, mcName, elapsed);
 
                     ActionLogService.logGame(channel.getJDA(), "🏆 Crate Drop WON", lockedUserFinal, mcName,
-                        "**اللاعب:** `" + mcName + "`\n" +
-                        "**الجائزة:** `" + prize + "`\n" +
-                        "**المستوى:** `" + getLevelText(level) + "`\n" +
-                        "**الوقت المستغرق:** `" + String.format(java.util.Locale.US, "%.1f", elapsed) + "s`\n" +
-                        "**الأمر:** `" + command.replace("%player%", mcName) + "`");
+                            "**اللاعب:** `" + mcName + "`\n" +
+                                    "**الجائزة:** `" + prize + "`\n" +
+                                    "**المستوى:** `" + getLevelText(level) + "`\n" +
+                                    "**الوقت المستغرق:** `" + String.format(java.util.Locale.US, "%.1f", elapsed)
+                                    + "s`\n" +
+                                    "**الأمر:** `" + command.replace("%player%", mcName) + "`");
 
                     String commandToRun = command.replace("%player%", mcName);
                     RewardService.queueReward(historyId, commandToRun, lockedUserFinal, mcName, prize);
 
                     byte[] successImage = generateDropImage(level, prize, "تم الاختراق بنجاح!");
                     Container successContainer = Container.of(
-                        net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
-                        TextDisplay.of("## 🎉 ───────── 🔓 تَمَّ فَتْحُ الصُّنْدُوقِ بِنَجَاح ───────── 🎉"),
-                        Separator.createDivider(Separator.Spacing.SMALL),
-                        TextDisplay.of("> 👤 **الـفَائِز:** <@" + lockedUserFinal + ">\n\n" +
-                                       "> ⏱️ **الـوَقْـتُ الـمُـسْتَغْرَق:** `" + String.format(java.util.Locale.US, "%.1f", elapsed) + "s` ⚡")
-                    );
+                            net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                    .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                            .fromUrl("attachment://drop_gen.png")),
+                            TextDisplay.of("## 🎉 ───────── 🔓 تَمَّ فَتْحُ الصُّنْدُوقِ بِنَجَاح ───────── 🎉"),
+                            Separator.createDivider(Separator.Spacing.SMALL),
+                            TextDisplay.of("> 👤 **الـفَائِز:** <@" + lockedUserFinal + ">\n\n" +
+                                    "> ⏱️ **الـوَقْـتُ الـمُـسْتَغْرَق:** `"
+                                    + String.format(java.util.Locale.US, "%.1f", elapsed) + "s` ⚡"));
 
                     channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                             .setComponents(successContainer)
                             .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(successImage, "drop_gen.png"))
                             .useComponentsV2(true)
                             .build())
-                            .queue(null, e -> {});
+                            .queue(null, e -> {
+                            });
 
                     synchronized (challenge) {
                         activeChallenges.remove(messageId);
@@ -1529,59 +1582,61 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                 String bar = "";
                 if (p == 0) {
                     statusLogs = "```ini\n" +
-                                 "> [SYS_INIT]: Injected buffer overflow at 0x7FFF5BE3\n" +
-                                 "> [NET_BYPASS]: Cracking RSA-2048 signature...\n" +
-                                 "> [STATUS]: Infiltrating security layer 1/5...\n" +
-                                 "```";
+                            "> [SYS_INIT]: Injected buffer overflow at 0x7FFF5BE3\n" +
+                            "> [NET_BYPASS]: Cracking RSA-2048 signature...\n" +
+                            "> [STATUS]: Infiltrating security layer 1/5...\n" +
+                            "```";
                     bar = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 20%";
                 } else if (p == 20) {
                     statusLogs = "```ini\n" +
-                                 "> [DECRYPT_KEY]: Found match hash: 0x8A92F2E4\n" +
-                                 "> [MEM_CORRUPT]: Corrupting database indexes...\n" +
-                                 "> [STATUS]: Infiltrating security layer 2/5...\n" +
-                                 "```";
+                            "> [DECRYPT_KEY]: Found match hash: 0x8A92F2E4\n" +
+                            "> [MEM_CORRUPT]: Corrupting database indexes...\n" +
+                            "> [STATUS]: Infiltrating security layer 2/5...\n" +
+                            "```";
                     bar = "████▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒ 40%";
                 } else if (p == 40) {
                     statusLogs = "```ini\n" +
-                                 "> [BYPASS_ROOT]: Root access granted locally\n" +
-                                 "> [SYS_OVERRIDE]: Writing payload to sector 4\n" +
-                                 "> [STATUS]: Infiltrating security layer 3/5...\n" +
-                                 "```";
+                            "> [BYPASS_ROOT]: Root access granted locally\n" +
+                            "> [SYS_OVERRIDE]: Writing payload to sector 4\n" +
+                            "> [STATUS]: Infiltrating security layer 3/5...\n" +
+                            "```";
                     bar = "████████▒▒▒▒▒▒▒▒▒▒▒▒ 60%";
                 } else if (p == 60) {
                     statusLogs = "```ini\n" +
-                                 "> [FIREWALL]: Disabling active log telemetry\n" +
-                                 "> [EXPLOIT]: Injecting rewards command handler\n" +
-                                 "> [STATUS]: Infiltrating security layer 4/5...\n" +
-                                 "```";
+                            "> [FIREWALL]: Disabling active log telemetry\n" +
+                            "> [EXPLOIT]: Injecting rewards command handler\n" +
+                            "> [STATUS]: Infiltrating security layer 4/5...\n" +
+                            "```";
                     bar = "████████████▒▒▒▒▒▒▒▒ 80%";
                 } else {
                     statusLogs = "```ini\n" +
-                                 "> [FINALIZING]: Cleaning up event logging trace\n" +
-                                 "> [SUCCESS]: Security protocol disabled\n" +
-                                 "> [STATUS]: Infiltrating security layer 5/5...\n" +
-                                 "```";
+                            "> [FINALIZING]: Cleaning up event logging trace\n" +
+                            "> [SUCCESS]: Security protocol disabled\n" +
+                            "> [STATUS]: Infiltrating security layer 5/5...\n" +
+                            "```";
                     bar = "████████████████▒▒▒▒ 95%";
                 }
 
                 byte[] decodingImage = generateDropImage(level, "❓ مَجْهُولَة", "جاري الاختراق...");
                 Container decodingContainer = Container.of(
-                    net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
-                    TextDisplay.of("## ⏳ ───────── ⚙️ جَارِي فَكُّ التَّشْفِيرِ وَالْخَرْق ───────── ⏳"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + lockedUser + ">"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of(statusLogs),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("### " + bar)
-                );
+                        net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                        .fromUrl("attachment://drop_gen.png")),
+                        TextDisplay.of("## ⏳ ───────── ⚙️ جَارِي فَكُّ التَّشْفِيرِ وَالْخَرْق ───────── ⏳"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + lockedUser + ">"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of(statusLogs),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("### " + bar));
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(decodingContainer)
                         .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(decodingImage, "drop_gen.png"))
                         .useComponentsV2(true)
                         .build())
-                        .queue(null, e -> {});
+                        .queue(null, e -> {
+                        });
 
             } catch (Exception e) {
                 logger.error("Error in animation task", e);
@@ -1589,7 +1644,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
         }, 0, 4, TimeUnit.SECONDS);
     }
 
-    private void resetCrate(TextChannel channel, String messageId, int historyId, CrateChallenge challenge, String reason, String details) {
+    private void resetCrate(TextChannel channel, String messageId, int historyId, CrateChallenge challenge,
+            String reason, String details) {
         synchronized (challenge) {
             challenge.isSolving = false;
             challenge.failedReason = reason;
@@ -1604,7 +1660,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
             }
 
             String uuid = getUuid(challenge.lockedByUserId);
-            recordAttempt(historyId, challenge.lockedByUserId, uuid, details, System.currentTimeMillis() - challenge.challengeStartTime);
+            recordAttempt(historyId, challenge.lockedByUserId, uuid, details,
+                    System.currentTimeMillis() - challenge.challengeStartTime);
             updateHistoryStatus(historyId, details, reason);
 
             boolean triggerCooldown = challenge.cooldownsCount == 0 && challenge.wrongAnswersCount >= 5;
@@ -1616,29 +1673,31 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                 long cooldownEndSec = challenge.cooldownUntil / 1000;
 
                 ActionLogService.logGame(channel.getJDA(), "⏳ Crate Cooldown Triggered",
-                    challenge.lockedByUserId, null,
-                    "**السبب:** 5 محاولات خاطئة متتالية\n" +
-                    "**الكولداون:** 20 ثانية\n" +
-                    "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
+                        challenge.lockedByUserId, null,
+                        "**السبب:** 5 محاولات خاطئة متتالية\n" +
+                                "**الكولداون:** 20 ثانية\n" +
+                                "**مستوى الكريت:** `" + getLevelText(challenge.level) + "`");
 
                 byte[] cooldownImage = generateDropImage(challenge.level, "❓ مَجْهُولَة", "فترة التهدئة (Cooldown)");
                 Container cooldownContainer = Container.of(
-                    net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
-                    TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> ⚠️ **الـسَّـبَـب:** `فشل في 5 محاولات متتالية`\n\n" +
-                                   "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>\n\n" +
-                                   "> ⚡ **تحذير:** بعد الكولداون لديك 2 محاولة فقط!"),
-                    Separator.createDivider(Separator.Spacing.SMALL)
-                );
+                        net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                        .fromUrl("attachment://drop_gen.png")),
+                        TextDisplay.of("## ⏳ ───────── 🔒 فَتْرَةُ التَّهْدِئَة (COOLDOWN) ───────── ⏳"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                "> ⚠️ **الـسَّـبَـب:** `فشل في 5 محاولات متتالية`\n\n" +
+                                "⏱️ **يمكن إعادة المحاولة:** <t:" + cooldownEndSec + ":R>\n\n" +
+                                "> ⚡ **تحذير:** بعد الكولداون لديك 2 محاولة فقط!"),
+                        Separator.createDivider(Separator.Spacing.SMALL));
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(cooldownContainer)
                         .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(cooldownImage, "drop_gen.png"))
                         .useComponentsV2(true)
                         .build())
-                        .queue(null, e -> {});
+                        .queue(null, e -> {
+                        });
 
                 scheduler.schedule(() -> {
                     synchronized (challenge) {
@@ -1656,20 +1715,23 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                             challenge.wrongAnswersCount = 0;
                             challenge.firstAttemptUserId = null;
 
-                            byte[] resetDropImage = generateDropImage(challenge.level, "❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)", "بانتظار المتحدي");
+                            byte[] resetDropImage = generateDropImage(challenge.level,
+                                    "❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)", "بانتظار المتحدي");
                             Container claimContainer = Container.of(
-                                net.dv8tion.jda.api.components.mediagallery.MediaGallery.of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem.fromUrl("attachment://drop_gen.png")),
-                                TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                                Separator.createDivider(Separator.Spacing.SMALL),
-                                ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
-                            );
+                                    net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                            .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                                    .fromUrl("attachment://drop_gen.png")),
+                                    ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت")));
 
-                            channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                                    .setComponents(claimContainer)
-                                    .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(resetDropImage, "drop_gen.png"))
-                                    .useComponentsV2(true)
-                                    .build())
-                                    .queue(null, e -> {});
+                            channel.editMessageById(messageId,
+                                    new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                                            .setComponents(claimContainer)
+                                            .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(resetDropImage,
+                                                    "drop_gen.png"))
+                                            .useComponentsV2(true)
+                                            .build())
+                                    .queue(null, e -> {
+                                    });
                         } catch (Exception e) {
                             logger.error("Error resetting crate after cooldown", e);
                         }
@@ -1678,38 +1740,44 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
             } else if (postCooldownExpire) {
                 updateHistoryStatus(historyId, "FAILED", "استنفاد جميع المحاولات الإضافية بعد فترة التهدئة");
 
+                byte[] expiredImage = generateDropImage(challenge.level, "❌ تالف", "تم استنفاد المحاولات");
                 Container expiredContainer = Container.of(
-                    TextDisplay.of("## ❌ ───────── 🔒 تَلَفَ الصُّنْدُوقِ بِالْكَامِل ───────── ❌"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                   "> ⚠️ **الـحَـالَـة:** `تالف بالكامل (Expired)`\n\n" +
-                                   "🚫 تم استنفاد جميع محاولات فك التشفير المتاحة للصندوق. تم إتلاف الصندوق وتصفير الجائزة.")
-                );
+                        net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                        .fromUrl("attachment://drop_gen.png")),
+                        TextDisplay.of("## ❌ ───────── 🔒 تَلَفَ الصُّنْدُوقِ بِالْكَامِل ───────── ❌"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي الأخير:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
+                                "> ⚠️ **الـحَـالَـة:** `تالف بالكامل (Expired)`\n\n" +
+                                "🚫 تم استنفاد جميع محاولات فك التشفير المتاحة للصندوق. تم إتلاف الصندوق وتصفير الجائزة."));
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(expiredContainer)
+                        .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(expiredImage, "drop_gen.png"))
                         .useComponentsV2(true)
                         .build())
-                        .queue(null, e -> {});
+                        .queue(null, e -> {
+                        });
 
                 activeChallenges.remove(messageId);
             } else {
                 int limit = challenge.cooldownsCount == 0 ? 5 : 2;
                 Container failureContainer = Container.of(
-                    TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
-                    Separator.createDivider(Separator.Spacing.SMALL),
-                    TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
-                                   "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
-                                   "> ⚠️ **الـسَّـبَـب:** `" + reason + "`\n\n" +
-                                   "> 🔢 **الـمُـحَـاوَلَاتُ الـفَـاشِـلَة:** `" + challenge.wrongAnswersCount + "/" + limit + "`")
-                );
+                        TextDisplay.of("## ❌ ───────── 🔒 فَشَلَ فَتْحُ الصُّنْدُوق ───────── ❌"),
+                        Separator.createDivider(Separator.Spacing.SMALL),
+                        TextDisplay.of("> 👤 **الـمُـتَـحَدِّي:** <@" + challenge.lockedByUserId + ">\n\n" +
+                                "> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة`\n\n" +
+                                "> ⚠️ **الـسَّـبَـب:** `" + reason + "`\n\n" +
+                                "> 🔢 **الـمُـحَـاوَلَاتُ الـفَـاشِـلَة:** `" + challenge.wrongAnswersCount + "/"
+                                + limit + "`"));
 
                 channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
                         .setComponents(failureContainer)
                         .useComponentsV2(true)
                         .build())
-                        .queue(null, e -> {});
+                        .queue(null, e -> {
+                        });
 
                 scheduler.schedule(() -> {
                     synchronized (challenge) {
@@ -1726,23 +1794,23 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                             challenge.failedReason = null;
                             challenge.firstAttemptUserId = null;
 
-                            String levelText = getLevelText(challenge.level);
+                                                          byte[] resetDropImage = generateDropImage(challenge.level,
+                                      "❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)", "بانتظار المتحدي");
+                              Container claimContainer = Container.of(
+                                      net.dv8tion.jda.api.components.mediagallery.MediaGallery
+                                              .of(net.dv8tion.jda.api.components.mediagallery.MediaGalleryItem
+                                                      .fromUrl("attachment://drop_gen.png")),
+                                      ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت")));
 
-                            Container claimContainer = Container.of(
-                                TextDisplay.of("## 🌟 ───────── 📦 ظُهُور صُنْدُوق مُشَفَّر ───────── 🌟"),
-                                Separator.createDivider(Separator.Spacing.SMALL),
-                                TextDisplay.of("> 🏆 **الـجَـائِـزَة:** `❓ مَجْهُولَة (تُكْشَفُ عِنْدَ الْفَوْز)`\n\n" +
-                                               "> ⚡ **الـمُـسْـتَـوَى:** `" + levelText + "`\n\n" +
-                                               "> 🟢 **الـحَالَة:** `بانتظار المتحدي`"),
-                                Separator.createDivider(Separator.Spacing.SMALL),
-                                ActionRow.of(Button.primary("drop_claim_" + historyId, "🔓 فك الكريت"))
-                            );
-
-                            channel.editMessageById(messageId, new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
-                                    .setComponents(claimContainer)
-                                    .useComponentsV2(true)
-                                    .build())
-                                    .queue(null, e -> {});
+                              channel.editMessageById(messageId,
+                                      new net.dv8tion.jda.api.utils.messages.MessageEditBuilder()
+                                              .setComponents(claimContainer)
+                                              .setFiles(net.dv8tion.jda.api.utils.FileUpload.fromData(resetDropImage,
+                                                      "drop_gen.png"))
+                                              .useComponentsV2(true)
+                                              .build())
+                                      .queue(null, e -> {
+                                      });
                         } catch (Exception e) {
                             logger.error("Error resetting crate", e);
                         }
@@ -1751,6 +1819,7 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
             }
         }
     }
+
     private void recordAttempt(int historyId, String userId, String uuid, String status, long elapsedMs) {
         try (Connection conn = LeonTrotskyBot.getDbManager().getConnection()) {
             String query = "INSERT INTO drop_attempts (drop_id, user_id, minecraft_uuid, status, solve_time_ms) VALUES (?, ?, ?, ?, ?)";
@@ -1773,7 +1842,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
 
     private String getMcName(String discordId, String defaultName) {
         Optional<String> uuidOpt = LeonTrotskyBot.getDiscordSRVManager().getUuidByDiscordId(discordId);
-        if (uuidOpt.isEmpty()) return "Unknown";
+        if (uuidOpt.isEmpty())
+            return "Unknown";
         String uuid = uuidOpt.get();
         String uuidDash = uuid.trim().toLowerCase();
         if (uuidDash.length() == 32 && !uuidDash.contains("-")) {
@@ -1782,7 +1852,9 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
         String uuidNoDash = uuidDash.replace("-", "");
 
         String mcName = null;
-        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady() ? LeonTrotskyBot.getDbManager().getCmiConnection() : LeonTrotskyBot.getDbManager().getConnection()) {
+        try (Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady()
+                ? LeonTrotskyBot.getDbManager().getCmiConnection()
+                : LeonTrotskyBot.getDbManager().getConnection()) {
             String getUsernameQuery = "SELECT username FROM `discordsrv__accounts` WHERE discord = ?";
             try (PreparedStatement psName = conn.prepareStatement(getUsernameQuery)) {
                 psName.setString(1, discordId);
@@ -1792,7 +1864,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         if (mcName != null && !mcName.isEmpty() && !mcName.equalsIgnoreCase("Unknown")) {
             return mcName;
@@ -1800,8 +1873,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
 
         try {
             Connection conn = LeonTrotskyBot.getDbManager().isCmiPoolReady()
-                ? LeonTrotskyBot.getDbManager().getCmiConnection()
-                : LeonTrotskyBot.getDbManager().getConnection();
+                    ? LeonTrotskyBot.getDbManager().getCmiConnection()
+                    : LeonTrotskyBot.getDbManager().getConnection();
             try (conn) {
                 String query = "SELECT username FROM CMI_users WHERE player_uuid = ? OR player_uuid = ? OR username = ? OR username = ?";
                 try (PreparedStatement ps = conn.prepareStatement(query)) {
@@ -1816,7 +1889,8 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
                     }
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
 
         return "Unknown";
     }
@@ -1825,6 +1899,7 @@ private void showDropHistoryView(net.dv8tion.jda.api.interactions.InteractionHoo
     public static class Loot {
         public final String prizeDisplay;
         public final String command;
+
         public Loot(String prizeDisplay, String command) {
             this.prizeDisplay = prizeDisplay;
             this.command = command;
