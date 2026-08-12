@@ -285,7 +285,7 @@ public class ServerStatsService {
 
         Container container = Container.of(
             Section.of(
-                Thumbnail.fromUrl("https://minotar.net/avatar/steve/128"),
+                Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                 TextDisplay.of("### " + statusEmoji + " " + statusDesc)
             ),
             Separator.createDivider(Separator.Spacing.SMALL),

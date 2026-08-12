@@ -199,7 +199,7 @@ public class PanelCommand extends ListenerAdapter {
                             Button initBtn = Button.primary("ec_init", "بدء صيانة");
                             Container container = Container.of(
                                 Section.of(
-                                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                                    Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                                     TextDisplay.of("### 🛠️ بدء صيانة جديدة\n" +
                                                    "انقر على الزر بالأسفل لتفعيل وضع الصيانة:")
                                 ),
@@ -221,7 +221,7 @@ public class PanelCommand extends ListenerAdapter {
                         Button endBtn = Button.danger("ec_end", "إنهاء الصيانة");
                         Container container = Container.of(
                             Section.of(
-                                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                                Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                                 TextDisplay.of("### 🛠️ إدارة الصيانة الحالية\n" +
                                                "الخادم خاضع للصيانة حالياً. حدد الإجراء المطلوب لإدارة الصيانة:")
                             ),
@@ -327,7 +327,7 @@ public class PanelCommand extends ListenerAdapter {
 
             Container container = Container.of(
                 Section.of(
-                    Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                    Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                     TextDisplay.of("### 📅 خيارات تنفيذ الإجراء\n" +
                                    "هل تريد تنفيذ هذا الإجراء فوراً أم جدولته لوقت لاحق؟")
                 ),
@@ -604,7 +604,7 @@ public class PanelCommand extends ListenerAdapter {
 
         Container container = Container.of(
             Section.of(
-                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                 TextDisplay.of("### 🛠️ معالج بدء الصيانة\n" +
                                "يرجى تحديد تفاصيل التوقف والمدة المقدرة بالأسفل لإشعار اللاعبين:")
             ),
@@ -726,7 +726,7 @@ public class PanelCommand extends ListenerAdapter {
 
         return Container.of(
                 Section.of(
-                        Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                        Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                         TextDisplay.of("### " + stateEmoji + " Server Panel Status\n" +
                                        stateEmoji + " **State:** `" + state + "`   •   🖥️ **CPU:** `" + cpu + "`   •   💾 **RAM:** `" + ram + "`\n" +
                                        "💿 **Disk:** `" + disk + "`   •   ⏱️ **Uptime:** `" + uptimeStr + "`")
@@ -1073,7 +1073,7 @@ public class PanelCommand extends ListenerAdapter {
         }
         return Container.of(
             Section.of(
-                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                 TextDisplay.of("### " + title + "\n" + bodyText)
             )
         );
@@ -1094,7 +1094,7 @@ public class PanelCommand extends ListenerAdapter {
                           
         return Container.of(
             Section.of(
-                Thumbnail.fromUrl("https://mc-heads.net/avatar/steve/128"),
+                Thumbnail.fromUrl("file:///media/omars/5BB1-FC91/Mine/Worker/HighCores/HighCore MC/HighCore Mc (MC) BOT (Leon Trotsky)/src/main/resources/Identity/logo png.png"),
                 TextDisplay.of("### 📅 صيانة مجدولة\n" + bodyText)
             )
         );
