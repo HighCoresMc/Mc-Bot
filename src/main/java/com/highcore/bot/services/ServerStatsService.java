@@ -285,7 +285,7 @@ public class ServerStatsService {
 
         Container container = Container.of(
             Section.of(
-                Thumbnail.fromUrl("https://raw.githubusercontent.com/HighCoresMc/Mc-Bot/main/src/main/resources/Identity/logo%20png.png"),
+                Thumbnail.fromUrl("https://raw.githubusercontent.com/HighCoresMc/Mc-Bot/main/src/main/resources/Identity/logo.png"),
                 TextDisplay.of("### " + statusEmoji + " " + statusDesc)
             ),
             Separator.createDivider(Separator.Spacing.SMALL),
