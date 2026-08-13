@@ -439,6 +439,7 @@ public class AIAssistantService {
                     "Analyze the user's new question and determine if it has the SAME intent, meaning, or asks the same question as one of the existing threads listed below, even if they use different words, synonyms, or Arabic dialects (e.g., matching 'كيف اسوي منظار' with 'كيف اكرفت spyglass ؟').\n\n" +
                     "Strictest Rules:\n" +
                     "- BOTH texts MUST clearly be asking the exact same Minecraft/server support question to be a match.\n" +
+                    "- DIFFERENT ITEMS/POTIONS/BLOCKS = NO MATCH. For example, 'كيف اصنع بوشن انفيزيبيليتي' is NOT a match for 'كيف اصنع بوشن النايت فجن' because they are different potions! If they ask about different things, reply 'NO'.\n" +
                     "- DO NOT match conversational messages, casual chatting, jokes, insults, or complaints (e.g. 'البوت خربان', 'تعال تفاهم معه', 'النت تعبان') with other threads just because they share a word or two.\n" +
                     "- When in doubt, or if the new message is just casual chat, reply ONLY with 'NO'.\n" +
                     "- If a match is found, reply ONLY with the Thread ID of the matching thread (e.g., '123456789').\n" +
