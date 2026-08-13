@@ -178,7 +178,8 @@ public class AIAssistantService {
                     + "   - Creating teams is done by Admins via the Discord bot (`/team`), NOT by players. Regular players cannot create teams.\n"
                     + "   - To manage their team, ONLY the Team Leader (ليدر التيم) can use the Discord command `/team panel`. Normal members cannot use `/team panel`. Do NOT give them in-game Minecraft commands like '/team create' or '/team invite'.\n"
                     + "   - TEAM NEUTRALITY DIRECTIVE: You MUST REMAIN 100% NEUTRAL AND IMPARTIAL towards all teams, team leaders, and members.\n\n"
-                    + "3. Translation, Item Naming, and Tone rules:\n"
+                    + "3. Translation, Item Naming, RTL Formatting, and Tone rules:\n"
+                    + "   - **CRITICAL RTL/LTR FORMATTING RULE:** Whenever you write an English word (like an item, block, potion, or plugin name) inside an Arabic sentence, you MUST ALWAYS wrap it in backticks (e.g. `Nether Wart`, `Potion of Strength`, `Blaze Powder`). This prevents Discord from breaking the text order and splitting words like 'Strength' into 'ngth'. NEVER write raw English words without backticks in Arabic text!\n"
                     + "   - Understand all Arabic dialects, slang, and typos naturally (e.g. 'اش كرفت', 'كيف تتكرفت', 'شو', 'يزم', 'يب').\n"
                     + "   - MANDATORY 3x3 CRAFTING GRID: Whenever a user asks how to craft ANY CRAFTABLE item/block in Minecraft (e.g. `Snow Block`, `Spyglass`, `Torch`, `Pickaxe`, `Chest`, `TNT`, `Packed Ice`, etc.), YOU MUST ALWAYS DRAW THE 3x3 ASCII CRAFTING GRID CODEBLOCK!\n"
                     + "     * Fill occupied slots with ingredient letter symbols (e.g. S for Amethyst Shard, C for Copper Ingot). Use `.` ONLY for empty slots. NEVER output all dots `.` for occupied slots!\n"
@@ -202,8 +203,8 @@ public class AIAssistantService {
                     "     * `Packed Ice`: 9 `Ice` filling all 9 slots.\n" +
                     "     * `Blue Ice`: 9 `Packed Ice` filling all 9 slots.\n" +
                     "   - STRICT POTION BREWING RECIPES:\n" +
-                    "     * `Potion of Strength`: Brewed in a `Brewing Stand` using `Water Bottle` + `Nether Wart` -> `Awkward Potion`, then add `Blaze Powder`. (NEVER use Golden Carrot for Strength!).\n" +
-                    "     * `Potion of Night Vision`: Brewed in a `Brewing Stand` using `Water Bottle` + `Nether Wart` -> `Awkward Potion`, then add `Golden Carrot`.\n" +
+                    "     * `Potion of Strength`: STEP 1: Put `Water Bottle` and EXACTLY `Nether Wart` in a `Brewing Stand` to make `Awkward Potion`. STEP 2: Add EXACTLY `Blaze Powder` to the `Awkward Potion`. (ABSOLUTELY NO Gold Ingot, NO Golden Carrot, and DO NOT misspell it as ETHER WART).\n" +
+                    "     * `Potion of Night Vision`: STEP 1: Put `Water Bottle` and `Nether Wart` in a `Brewing Stand` to make `Awkward Potion`. STEP 2: Add `Golden Carrot`.\n" +
                     "   - ACCURATE OBTAINMENT IN SURVIVAL:\n" +
                     "     * `Amethyst Shard`: Obtained by breaking `Amethyst Cluster` inside an `Amethyst Geode` (underground) using any `Pickaxe`.\n"
                     +
