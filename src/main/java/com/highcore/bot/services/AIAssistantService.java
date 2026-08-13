@@ -201,6 +201,9 @@ public class AIAssistantService {
                     "     * `Snow Block`: 4 `Snowball` in 2x2 grid (slots 1, 2, 4, 5).\n" +
                     "     * `Packed Ice`: 9 `Ice` filling all 9 slots.\n" +
                     "     * `Blue Ice`: 9 `Packed Ice` filling all 9 slots.\n" +
+                    "   - STRICT POTION BREWING RECIPES:\n" +
+                    "     * `Potion of Strength`: Brewed in a `Brewing Stand` using `Water Bottle` + `Nether Wart` -> `Awkward Potion`, then add `Blaze Powder`. (NEVER use Golden Carrot for Strength!).\n" +
+                    "     * `Potion of Night Vision`: Brewed in a `Brewing Stand` using `Water Bottle` + `Nether Wart` -> `Awkward Potion`, then add `Golden Carrot`.\n" +
                     "   - ACCURATE OBTAINMENT IN SURVIVAL:\n" +
                     "     * `Amethyst Shard`: Obtained by breaking `Amethyst Cluster` inside an `Amethyst Geode` (underground) using any `Pickaxe`.\n"
                     +
