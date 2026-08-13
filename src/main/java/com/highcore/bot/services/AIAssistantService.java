@@ -57,8 +57,6 @@ public class AIAssistantService {
                     "plugins/AthisAirdrops/config.yml",
                     "plugins/Orderium/config.yml",
                     "plugins/AxTrade/config.yml",
-                    "plugins/ShopGUIPlus/config.yml",
-                    "plugins/ShopGUIPlus/shops.yml",
                     "plugins/EvenMoreFish/config.yml"
             };
             for (String file : targetFiles) {
@@ -72,7 +70,11 @@ public class AIAssistantService {
                     logger.error("Failed to load custom config: " + file, e);
                 }
             }
-            customConfigsContext = sb.toString();
+            String result = sb.toString();
+            if (result.length() > 3000) {
+                result = result.substring(0, 3000) + "\n...[truncated]";
+            }
+            customConfigsContext = result;
             logger.info("Loaded custom configs context length: " + customConfigsContext.length());
         }).start();
     }
