@@ -9,6 +9,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -27,6 +31,10 @@ public class AIAssistantService {
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(30))
             .build();
+    private static final HttpClient WIKI_HTTP_CLIENT = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
+    private static final Map<String, String> wikiCache = new ConcurrentHashMap<>();
     private final PterodactylService pteroService;
     private String cachedPluginsContext = "";
     private String customConfigsContext = "";
@@ -381,33 +389,94 @@ public class AIAssistantService {
                         continue;
 
                     JsonObject requestBody = new JsonObject();
-                    requestBody.add("messages", messages);
                     requestBody.addProperty("model", targetModel);
                     requestBody.addProperty("temperature", 0.2);
 
-                    try {
-                        HttpRequest request = HttpRequest.newBuilder()
-                                .uri(URI.create(url))
-                                .header("Content-Type", "application/json")
-                                .header("Authorization", "Bearer " + cleanKey)
-                                .timeout(Duration.ofSeconds(60))
-                                .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
-                                .build();
+                    if (!targetModel.contains("scout") && !targetModel.contains("vision")) {
+                        JsonArray toolsArray = new JsonArray();
+                        JsonObject toolDef = new JsonObject();
+                        toolDef.addProperty("type", "function");
+                        JsonObject functionDef = new JsonObject();
+                        functionDef.addProperty("name", "search_minecraft_wiki");
+                        functionDef.addProperty("description", "Searches the official English Minecraft Wiki. The query MUST ALWAYS be translated to official English item/block names (e.g., 'Spyglass' instead of 'منظار').");
+                        JsonObject paramsDef = new JsonObject();
+                        paramsDef.addProperty("type", "object");
+                        JsonObject propsDef = new JsonObject();
+                        JsonObject queryDef = new JsonObject();
+                        queryDef.addProperty("type", "string");
+                        queryDef.addProperty("description", "The English search query (e.g. 'Daylight Detector')");
+                        propsDef.add("query", queryDef);
+                        paramsDef.add("properties", propsDef);
+                        JsonArray requiredDef = new JsonArray();
+                        requiredDef.add("query");
+                        paramsDef.add("required", requiredDef);
+                        functionDef.add("parameters", paramsDef);
+                        toolDef.add("function", functionDef);
+                        toolsArray.add(toolDef);
+                        requestBody.add("tools", toolsArray);
+                    }
 
-                        HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
-                        if (response.statusCode() == 200) {
-                            JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
-                            if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
-                                JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
-                                if (choice.has("message") && choice.getAsJsonObject("message").has("content")) {
-                                    String contentStr = choice.getAsJsonObject("message").get("content").getAsString();
-                                    String filtered = contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
-                                    return postProcessResponse(filtered);
+                    int toolCallLimit = 2;
+                    while (toolCallLimit > 0) {
+                        toolCallLimit--;
+                        requestBody.add("messages", messages);
+
+                        try {
+                            HttpRequest request = HttpRequest.newBuilder()
+                                    .uri(URI.create(url))
+                                    .header("Content-Type", "application/json")
+                                    .header("Authorization", "Bearer " + cleanKey)
+                                    .timeout(Duration.ofSeconds(60))
+                                    .POST(HttpRequest.BodyPublishers.ofString(requestBody.toString()))
+                                    .build();
+
+                            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                            if (response.statusCode() == 200) {
+                                JsonObject jsonResponse = JsonParser.parseString(response.body()).getAsJsonObject();
+                                if (jsonResponse.has("choices") && jsonResponse.getAsJsonArray("choices").size() > 0) {
+                                    JsonObject choice = jsonResponse.getAsJsonArray("choices").get(0).getAsJsonObject();
+                                    if (choice.has("message")) {
+                                        JsonObject messageObj = choice.getAsJsonObject("message");
+                                        if (messageObj.has("tool_calls") && !messageObj.get("tool_calls").isJsonNull()) {
+                                            JsonArray toolCalls = messageObj.getAsJsonArray("tool_calls");
+                                            messages.add(messageObj);
+                                            
+                                            for (JsonElement tcElement : toolCalls) {
+                                                JsonObject tc = tcElement.getAsJsonObject();
+                                                String toolId = tc.get("id").getAsString();
+                                                JsonObject function = tc.getAsJsonObject("function");
+                                                String name = function.get("name").getAsString();
+                                                String argsString = function.get("arguments").getAsString();
+                                                
+                                                String result = "Error";
+                                                if ("search_minecraft_wiki".equals(name)) {
+                                                    try {
+                                                        JsonObject args = JsonParser.parseString(argsString).getAsJsonObject();
+                                                        String q = args.get("query").getAsString();
+                                                        result = searchMinecraftWiki(q);
+                                                    } catch (Exception ex) {
+                                                        result = "Failed to parse query.";
+                                                    }
+                                                }
+                                                
+                                                JsonObject toolMsg = new JsonObject();
+                                                toolMsg.addProperty("role", "tool");
+                                                toolMsg.addProperty("tool_call_id", toolId);
+                                                toolMsg.addProperty("name", name);
+                                                toolMsg.addProperty("content", result);
+                                                messages.add(toolMsg);
+                                            }
+                                            continue;
+                                        } else if (messageObj.has("content") && !messageObj.get("content").isJsonNull()) {
+                                            String contentStr = messageObj.get("content").getAsString();
+                                            String filtered = contentStr.replaceAll("[\\u4e00-\\u9fff\\u3400-\\u4dbf]", "").trim();
+                                            return postProcessResponse(filtered);
+                                        }
+                                    }
                                 }
-                            }
-                            logger.error("Unexpected Groq response structure from model {}: {}", targetModel,
-                                    response.body());
-                        } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
+                                logger.error("Unexpected Groq response structure from model {}: {}", targetModel, response.body());
+                                break;
+                            } else if (response.statusCode() == 429 || response.statusCode() >= 500) {
                             logger.warn(
                                     "Groq API rate limit (Status 429) on model {} using key ending in ...{}, trying next key/model...",
                                     targetModel,
@@ -427,6 +496,51 @@ public class AIAssistantService {
             logger.error("Error communicating with Groq API", e);
         }
         return "عذراً، لم أتمكن من معالجة الطلب في الوقت الحالي.";
+    }
+
+    // MINECRAFT WIKI TOOL
+    private String searchMinecraftWiki(String query) {
+        if (query == null || query.trim().isEmpty()) return "No query provided.";
+        String cacheKey = query.trim().toLowerCase();
+        if (wikiCache.containsKey(cacheKey)) {
+            return wikiCache.get(cacheKey);
+        }
+        
+        try {
+            String searchUrl = "https://minecraft.wiki/api.php?action=query&list=search&srsearch=" + 
+                URLEncoder.encode(query, StandardCharsets.UTF_8) + "&format=json";
+            HttpRequest searchReq = HttpRequest.newBuilder().uri(URI.create(searchUrl)).GET().build();
+            HttpResponse<String> searchRes = WIKI_HTTP_CLIENT.send(searchReq, HttpResponse.BodyHandlers.ofString());
+            if (searchRes.statusCode() != 200) return "Wiki search failed.";
+            
+            JsonObject searchJson = JsonParser.parseString(searchRes.body()).getAsJsonObject();
+            JsonArray searchResults = searchJson.getAsJsonObject("query").getAsJsonArray("search");
+            if (searchResults.size() == 0) return "No articles found for query: " + query;
+            
+            String bestTitle = searchResults.get(0).getAsJsonObject().get("title").getAsString();
+            
+            String extractUrl = "https://minecraft.wiki/api.php?action=query&prop=extracts&explaintext=true&exchars=2000&titles=" + 
+                URLEncoder.encode(bestTitle, StandardCharsets.UTF_8) + "&format=json";
+            HttpRequest extractReq = HttpRequest.newBuilder().uri(URI.create(extractUrl)).GET().build();
+            HttpResponse<String> extractRes = WIKI_HTTP_CLIENT.send(extractReq, HttpResponse.BodyHandlers.ofString());
+            
+            JsonObject extractJson = JsonParser.parseString(extractRes.body()).getAsJsonObject();
+            JsonObject pages = extractJson.getAsJsonObject("query").getAsJsonObject("pages");
+            String extractText = "No extract available.";
+            for (String key : pages.keySet()) {
+                JsonObject page = pages.getAsJsonObject(key);
+                if (page.has("extract")) {
+                    extractText = page.get("extract").getAsString();
+                    break;
+                }
+            }
+            
+            wikiCache.put(cacheKey, extractText);
+            return extractText;
+        } catch (Exception e) {
+            logger.error("Error searching Minecraft wiki for query: " + query, e);
+            return "Error occurred while searching the wiki.";
+        }
     }
 
     // CHECK SEMANTIC MATCH
