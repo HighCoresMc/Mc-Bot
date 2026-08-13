@@ -486,9 +486,12 @@ public class AIAssistantService {
                             logger.error("Groq API error (Status {}) on model {}: {}", response.statusCode(),
                                     targetModel,
                                     response.body());
+                            break;
                         }
                     } catch (Exception e) {
                         logger.error("Error sending request to Groq API with model " + targetModel, e);
+                        break;
+                    }
                     }
                 }
             }
