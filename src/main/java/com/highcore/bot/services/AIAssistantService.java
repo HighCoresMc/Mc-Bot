@@ -203,9 +203,24 @@ public class AIAssistantService {
                     "     * `Packed Ice`: 9 `Ice` filling all 9 slots.\n" +
                     "     * `Blue Ice`: 9 `Packed Ice` filling all 9 slots.\n" +
                     "   - STRICT POTION BREWING & RECIPE RULES:\n" +
-                    "     * RULE 1: Potions are NEVER crafted in a `Crafting Table`. DO NOT output a 3x3 grid for ANY potion! Potions are ONLY made in a `Brewing Stand`.\n" +
-                    "     * RULE 2: Most potions start by brewing `Water Bottle` + `Nether Wart` -> `Awkward Potion`.\n" +
-                    "     * RULE 3 (ANTI-HALLUCINATION): DO NOT guess, invent, or mix up recipes! If you are not 100% certain about the EXACT ingredients for a potion or item, DO NOT make them up (e.g., do not hallucinate Sea Lanterns or Music Discs for potions). Rely strictly on your official standard Vanilla Minecraft training data, or simply advise the user to check `https://minecraft.wiki/`.\n" +
+                    "     * RULE 1: Potions are NEVER crafted in a `Crafting Table`. DO NOT output a 3x3 grid for ANY potion! Potions are ONLY brewed in a `Brewing Stand` using ingredients added to a base potion (usually `Awkward Potion`).\n" +
+                    "     * RULE 2: Standard Potion Logic Knowledge Base (ALWAYS USE THESE EXACT INGREDIENTS):\n" +
+                    "       - Strength: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Blaze Powder`.\n" +
+                    "       - Night Vision: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Golden Carrot`.\n" +
+                    "       - Invisibility: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Golden Carrot` (Night Vision) + `Fermented Spider Eye`.\n" +
+                    "       - Speed (Swiftness): `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Sugar`.\n" +
+                    "       - Slowness: `Potion of Swiftness` / `Fire Resistance` + `Fermented Spider Eye`.\n" +
+                    "       - Healing (Instant Health): `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Glistering Melon Slice`.\n" +
+                    "       - Harming (Instant Damage): `Potion of Healing` / `Poison` + `Fermented Spider Eye`.\n" +
+                    "       - Poison: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Spider Eye`.\n" +
+                    "       - Regeneration: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Ghast Tear`.\n" +
+                    "       - Fire Resistance: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Magma Cream`.\n" +
+                    "       - Water Breathing: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Pufferfish`.\n" +
+                    "       - Slow Falling: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Phantom Membrane`.\n" +
+                    "       - Turtle Master: `Water Bottle` + `Nether Wart` -> `Awkward Potion` + `Turtle Shell` (Turtle Helmet).\n" +
+                    "       - Weakness: `Water Bottle` + `Fermented Spider Eye` (No Nether Wart needed!).\n" +
+                    "       - `Redstone Dust` extends potion duration. `Glowstone Dust` increases potion potency (Level II). `Gunpowder` turns it into a Splash Potion. `Dragon's Breath` turns splash into Lingering Potion.\n" +
+                    "     * RULE 3: NEVER invent ingredients like Sea Lanterns, Music Discs, or Gold Ingots for potions. ALWAYS answer the player directly using the exact steps above. NEVER tell the player to go search or check the wiki by themselves; YOUR JOB IS TO GIVE THEM THE COMPLETE ANSWER DIRECTLY.\n" +
                     "   - ACCURATE OBTAINMENT IN SURVIVAL:\n" +
                     "     * `Amethyst Shard`: Obtained by breaking `Amethyst Cluster` inside an `Amethyst Geode` (underground) using any `Pickaxe`.\n"
                     +
