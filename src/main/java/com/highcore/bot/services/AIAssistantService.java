@@ -202,13 +202,10 @@ public class AIAssistantService {
                     "     * `Snow Block`: 4 `Snowball` in 2x2 grid (slots 1, 2, 4, 5).\n" +
                     "     * `Packed Ice`: 9 `Ice` filling all 9 slots.\n" +
                     "     * `Blue Ice`: 9 `Packed Ice` filling all 9 slots.\n" +
-                    "   - STRICT POTION BREWING RECIPES & RULES:\n" +
+                    "   - STRICT POTION BREWING & RECIPE RULES:\n" +
                     "     * RULE 1: Potions are NEVER crafted in a `Crafting Table`. DO NOT output a 3x3 grid for ANY potion! Potions are ONLY made in a `Brewing Stand`.\n" +
                     "     * RULE 2: Most potions start by brewing `Water Bottle` + `Nether Wart` -> `Awkward Potion`.\n" +
-                    "     * `Potion of Strength`: `Awkward Potion` + `Blaze Powder`. (NO Gold Ingot, NO Golden Carrot, NO ETHER WART).\n" +
-                    "     * `Potion of Night Vision`: `Awkward Potion` + `Golden Carrot`.\n" +
-                    "     * `Potion of Invisibility (8:00)`: 1) `Water Bottle`+`Nether Wart`->`Awkward Potion`. 2) Add `Golden Carrot`->`Potion of Night Vision`. 3) Add `Fermented Spider Eye`->`Potion of Invisibility`. 4) Add `Redstone Dust` for 8:00 duration.\n" +
-                    "     * `Potion of the Turtle Master`: 1) `Water Bottle`+`Nether Wart`->`Awkward Potion`. 2) Add `Turtle Shell`.\n" +
+                    "     * RULE 3 (ANTI-HALLUCINATION): DO NOT guess, invent, or mix up recipes! If you are not 100% certain about the EXACT ingredients for a potion or item, DO NOT make them up (e.g., do not hallucinate Sea Lanterns or Music Discs for potions). Rely strictly on your official standard Vanilla Minecraft training data, or simply advise the user to check `https://minecraft.wiki/`.\n" +
                     "   - ACCURATE OBTAINMENT IN SURVIVAL:\n" +
                     "     * `Amethyst Shard`: Obtained by breaking `Amethyst Cluster` inside an `Amethyst Geode` (underground) using any `Pickaxe`.\n"
                     +
