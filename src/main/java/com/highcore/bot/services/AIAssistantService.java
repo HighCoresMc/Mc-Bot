@@ -171,8 +171,8 @@ public class AIAssistantService {
                     + "SERVER CONTEXT:\n"
                     + "- Active Plugins: " + cachedPluginsContext + "\n"
                     + "- Custom Plugin Configs/Rules:\n"
-                    + (customConfigsContext.length() > 2000
-                            ? customConfigsContext.substring(0, 2000) + "\n...[truncated]"
+                    + (customConfigsContext.length() > 800
+                            ? customConfigsContext.substring(0, 800) + "\n...[truncated]"
                             : customConfigsContext)
                     + "\n\n"
                     + "GAMEPLAY RULES TO EXPLAIN TO PLAYERS:\n"
@@ -341,8 +341,7 @@ public class AIAssistantService {
                 modelChain = new String[] {
                         "llama-3.3-70b-versatile",
                         "openai/gpt-oss-120b",
-                        "openai/gpt-oss-20b",
-                        "llama-3.1-8b-instant"
+                        "openai/gpt-oss-20b"
                 };
             }
 
@@ -398,7 +397,7 @@ public class AIAssistantService {
                         toolDef.addProperty("type", "function");
                         JsonObject functionDef = new JsonObject();
                         functionDef.addProperty("name", "search_minecraft_wiki");
-                        functionDef.addProperty("description", "Searches the official English Minecraft Wiki. Use this tool whenever you need to verify or fetch exact crafting recipes or potion brewing steps if you are not 100% certain. Query MUST be in official English (e.g. 'Slow Falling', 'Spyglass').");
+                        functionDef.addProperty("description", "CRITICAL TOOL: YOU MUST CALL THIS TOOL whenever the user asks how to craft, make, obtain, or brew ANY block, item, or potion in Minecraft to verify exact recipes from the wiki. The search query MUST ALWAYS be in official English (e.g., 'Target Block', 'Daylight Detector', 'Conduit').");
                         JsonObject paramsDef = new JsonObject();
                         paramsDef.addProperty("type", "object");
                         JsonObject propsDef = new JsonObject();
