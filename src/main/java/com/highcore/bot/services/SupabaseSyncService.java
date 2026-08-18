@@ -89,59 +89,55 @@ public class SupabaseSyncService {
 
     // Sync
     private static void syncEvents(Guild guild, SupabaseManager supa) {
-        try {
-            HttpClient client = supa.getHttpClient();
-            String url = supa.getSupabaseUrl();
-            String key = supa.getSupabaseKey();
-
+        try (Connection conn = supa.getConnection()) {
             List<Integer> activeSupabaseIds = new ArrayList<>();
-            boolean mcSuccess = false;
-            boolean dcSuccess = false;
 
             // 1. Fetch MC Events
-            HttpRequest mcRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(url + "/rest/v1/mc_events?select=*"))
-                    .timeout(Duration.ofSeconds(10))
-                    .header("apikey", key)
-                    .header("Authorization", "Bearer " + key)
-                    .GET()
-                    .build();
-            HttpResponse<String> mcResponse = client.send(mcRequest, HttpResponse.BodyHandlers.ofString());
-            if (mcResponse.statusCode() >= 200 && mcResponse.statusCode() < 300) {
-                mcSuccess = true;
-                JsonArray mcArray = JsonParser.parseString(mcResponse.body()).getAsJsonArray();
-                for (int i = 0; i < mcArray.size(); i++) {
-                    JsonObject obj = mcArray.get(i).getAsJsonObject();
-                    activeSupabaseIds.add(obj.get("id").getAsInt());
+            try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM mc_events");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    JsonObject obj = new JsonObject();
+                    obj.addProperty("id", rs.getInt("id"));
+                    obj.addProperty("title", rs.getString("title"));
+                    obj.addProperty("type", rs.getString("type"));
+                    obj.addProperty("description", rs.getString("description"));
+                    obj.addProperty("event_date", rs.getString("event_date"));
+                    obj.addProperty("points", rs.getInt("points"));
+                    obj.addProperty("max_supervisors", rs.getInt("max_supervisors"));
+                    obj.addProperty("status", rs.getString("status"));
+                    obj.addProperty("image_url", rs.getString("image_url"));
+                    obj.addProperty("winner", rs.getString("winner"));
+                    
+                    activeSupabaseIds.add(rs.getInt("id"));
                     processEventRow(guild, obj, "MC");
                 }
             }
 
             // 2. Fetch DC Events
-            HttpRequest dcRequest = HttpRequest.newBuilder()
-                    .uri(URI.create(url + "/rest/v1/events?section=eq.dc&select=*"))
-                    .timeout(Duration.ofSeconds(10))
-                    .header("apikey", key)
-                    .header("Authorization", "Bearer " + key)
-                    .GET()
-                    .build();
-            HttpResponse<String> dcResponse = client.send(dcRequest, HttpResponse.BodyHandlers.ofString());
-            if (dcResponse.statusCode() >= 200 && dcResponse.statusCode() < 300) {
-                dcSuccess = true;
-                JsonArray dcArray = JsonParser.parseString(dcResponse.body()).getAsJsonArray();
-                for (int i = 0; i < dcArray.size(); i++) {
-                    JsonObject obj = dcArray.get(i).getAsJsonObject();
-                    activeSupabaseIds.add(obj.get("id").getAsInt());
+            try (PreparedStatement ps = conn.prepareStatement("SELECT * FROM events WHERE section = 'dc'");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    JsonObject obj = new JsonObject();
+                    obj.addProperty("id", rs.getInt("id"));
+                    obj.addProperty("title", rs.getString("title"));
+                    obj.addProperty("event_type", rs.getString("event_type"));
+                    obj.addProperty("description", rs.getString("description"));
+                    obj.addProperty("event_date", rs.getString("event_date"));
+                    obj.addProperty("points", rs.getInt("points"));
+                    obj.addProperty("max_supervisors", rs.getInt("max_supervisors"));
+                    obj.addProperty("status", rs.getString("status"));
+                    obj.addProperty("image_url", rs.getString("image_url"));
+                    obj.addProperty("winner", rs.getString("winner"));
+
+                    activeSupabaseIds.add(rs.getInt("id"));
                     processEventRow(guild, obj, "DC");
                 }
             }
 
-            // 3. Delete removed events (only if both requests succeeded)
-            if (mcSuccess && dcSuccess) {
-                deleteRemovedEvents(guild, activeSupabaseIds);
-            }
+            // 3. Delete removed events
+            deleteRemovedEvents(guild, activeSupabaseIds);
         } catch (Exception e) {
-            logger.error("Error fetching events from Supabase", e);
+            logger.error("Error fetching events from Postgres", e);
         }
     }
 
@@ -329,34 +325,21 @@ public class SupabaseSyncService {
 
     // Sync
     private static void syncTeams(Guild guild, SupabaseManager supa) {
-        try {
-            HttpClient client = supa.getHttpClient();
-            String url = supa.getSupabaseUrl();
-            String key = supa.getSupabaseKey();
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url + "/rest/v1/teams?select=*"))
-                    .timeout(Duration.ofSeconds(10))
-                    .header("apikey", key)
-                    .header("Authorization", "Bearer " + key)
-                    .GET()
-                    .build();
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() < 200 || response.statusCode() >= 300) return;
-
-            JsonArray supaArray = JsonParser.parseString(response.body()).getAsJsonArray();
+        try (Connection connPostgres = supa.getConnection()) {
             List<SupabaseTeam> supaTeams = new ArrayList<>();
-            for (int i = 0; i < supaArray.size(); i++) {
-                JsonObject obj = supaArray.get(i).getAsJsonObject();
-                SupabaseTeam t = new SupabaseTeam();
-                t.name = obj.has("name") && !obj.get("name").isJsonNull() ? obj.get("name").getAsString() : "";
-                t.color = obj.has("color") && !obj.get("color").isJsonNull() ? obj.get("color").getAsString() : "#5865F2";
-                t.leader = obj.has("leader") && !obj.get("leader").isJsonNull() ? obj.get("leader").getAsString() : null;
-                t.member2 = obj.has("member2") && !obj.get("member2").isJsonNull() ? obj.get("member2").getAsString() : null;
-                t.member3 = obj.has("member3") && !obj.get("member3").isJsonNull() ? obj.get("member3").getAsString() : null;
-                t.member4 = obj.has("member4") && !obj.get("member4").isJsonNull() ? obj.get("member4").getAsString() : null;
-                t.tag = obj.has("tag") && !obj.get("tag").isJsonNull() ? obj.get("tag").getAsString() : "New Born";
-                if (!t.name.isEmpty()) supaTeams.add(t);
+            try (PreparedStatement ps = connPostgres.prepareStatement("SELECT * FROM teams");
+                 ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    SupabaseTeam t = new SupabaseTeam();
+                    t.name = rs.getString("name") != null ? rs.getString("name") : "";
+                    t.color = rs.getString("color") != null ? rs.getString("color") : "#5865F2";
+                    t.leader = rs.getString("leader");
+                    t.member2 = rs.getString("member2");
+                    t.member3 = rs.getString("member3");
+                    t.member4 = rs.getString("member4");
+                    t.tag = rs.getString("tag") != null ? rs.getString("tag") : "New Born";
+                    if (!t.name.isEmpty()) supaTeams.add(t);
+                }
             }
 
             List<LocalTeam> localTeams = new ArrayList<>();

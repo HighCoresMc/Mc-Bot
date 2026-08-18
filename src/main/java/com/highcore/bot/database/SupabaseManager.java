@@ -3,268 +3,147 @@ package com.highcore.bot.database;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
-// Supabase
 public class SupabaseManager {
     private static final Logger logger = LoggerFactory.getLogger(SupabaseManager.class);
 
-    private final String supabaseUrl;
-    private final String supabaseKey;
-    private final HttpClient httpClient;
+    private final String dbUrl = "jdbc:postgresql://198.186.130.131:5432/postgres?schema=public";
+    private final String dbUser = "postgres";
+    private final String dbPass = "fIQrOSfvhAB6FLcJycpr50Sqqk1YWySMwTZE1MktPv9oKBAoGSrlSoW82s0QmTvw";
 
     public SupabaseManager(String supabaseUrl, String supabaseKey) {
-        this.supabaseUrl = supabaseUrl.endsWith("/") ? supabaseUrl.substring(0, supabaseUrl.length() - 1) : supabaseUrl;
-        this.supabaseKey = supabaseKey;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(10))
-                .build();
+        // Migrated to direct PostgreSQL JDBC connection
+    }
+
+    public Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(dbUrl, dbUser, dbPass);
+    }
+
+    public void updateEventStatus(int id, String table, String status) {
+        String sql = "UPDATE " + table + " SET status = ? WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, status);
+            ps.setInt(2, id);
+            ps.executeUpdate();
+            logger.info("Updated status for event {} in table {} to {}", id, table, status);
+        } catch (Exception e) {
+            logger.error("Error updating event status", e);
+        }
     }
 
     public void logEvent(int eventId, String title, String type, String description, String eventDate, int points,
             int maxSupervisors) {
-        try {
-            String json = String.format(
-                    "{\"id\":%d,\"title\":%s,\"type\":%s,\"description\":%s,\"event_date\":%s,\"points\":%d,\"max_supervisors\":%d}",
-                    eventId,
-                    jsonStr(title),
-                    jsonStr(type),
-                    jsonStr(description),
-                    jsonStr(eventDate),
-                    points,
-                    maxSupervisors);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(supabaseUrl + "/rest/v1/mc_events"))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", supabaseKey)
-                    .header("Authorization", "Bearer " + supabaseKey)
-                    .header("Prefer", "return=minimal")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                            logger.info("Event logged to Supabase successfully. ID: {}", eventId);
-                        } else {
-                            logger.warn("Supabase returned status {} for event ID {}. Body: {}", response.statusCode(),
-                                    eventId, response.body());
-                        }
-                    })
-                    .exceptionally(e -> {
-                        logger.error("Failed to log event to Supabase", e);
-                        return null;
-                    });
-
+        String sql = "INSERT INTO mc_events (id, title, type, description, event_date, points, max_supervisors) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, eventId);
+            ps.setString(2, title);
+            ps.setString(3, type);
+            ps.setString(4, description);
+            ps.setString(5, eventDate);
+            ps.setInt(6, points);
+            ps.setInt(7, maxSupervisors);
+            ps.executeUpdate();
+            logger.info("Event logged to Postgres successfully. ID: {}", eventId);
         } catch (Exception e) {
-            logger.error("Error sending event to Supabase", e);
+            logger.error("Error sending event to Postgres", e);
         }
     }
 
     public void upsertTeam(String name, String color, String leader, String member2,
             String member3, String member4, String tag) {
-        try {
-            String json = String.format(
-                    "{\"admin\":\"HighCoreMc Bot\",\"name\":%s,\"team_name\":%s,\"color\":%s," +
-                            "\"leader\":%s,\"member2\":%s,\"member3\":%s,\"member4\":%s,\"tag\":%s}",
-                    jsonStr(name), jsonStr(name), jsonStr(color),
-                    jsonStr(leader), jsonStr(member2), jsonStr(member3), jsonStr(member4),
-                    jsonStr(tag));
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(supabaseUrl + "/rest/v1/teams"))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", supabaseKey)
-                    .header("Authorization", "Bearer " + supabaseKey)
-                    .header("Prefer", "return=minimal,resolution=merge-duplicates")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                            logger.info("Team '{}' synced to Supabase successfully.", name);
-                        } else {
-                            logger.warn("Supabase returned {} for team '{}'. Body: {}",
-                                    response.statusCode(), name, response.body());
-                        }
-                    })
-                    .exceptionally(e -> {
-                        logger.error("Failed to sync team to Supabase", e);
-                        return null;
-                    });
+        String sql = "INSERT INTO teams (admin, name, team_name, color, leader, member2, member3, member4, tag) " +
+                     "VALUES ('HighCoreMc Bot', ?, ?, ?, ?, ?, ?, ?, ?) " +
+                     "ON CONFLICT (name) DO UPDATE SET " +
+                     "team_name = EXCLUDED.team_name, color = EXCLUDED.color, leader = EXCLUDED.leader, " +
+                     "member2 = EXCLUDED.member2, member3 = EXCLUDED.member3, member4 = EXCLUDED.member4, " +
+                     "tag = EXCLUDED.tag";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setString(2, name);
+            ps.setString(3, color);
+            ps.setString(4, leader);
+            ps.setString(5, member2);
+            ps.setString(6, member3);
+            ps.setString(7, member4);
+            ps.setString(8, tag);
+            ps.executeUpdate();
+            logger.info("Team '{}' synced to Postgres successfully.", name);
         } catch (Exception e) {
-            logger.error("Error sending team to Supabase", e);
+            logger.error("Error sending team to Postgres", e);
         }
     }
 
     public void updateTeam(String name, String color, String leader, String member2,
             String member3, String member4, String tag) {
-        try {
-            String encodedName = java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8);
-            String json = String.format(
-                    "{\"admin\":\"HighCoreMc Bot\",\"name\":%s,\"team_name\":%s,\"color\":%s," +
-                            "\"leader\":%s,\"member2\":%s,\"member3\":%s,\"member4\":%s,\"tag\":%s}",
-                    jsonStr(name), jsonStr(name), jsonStr(color),
-                    jsonStr(leader), jsonStr(member2), jsonStr(member3), jsonStr(member4),
-                    jsonStr(tag));
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(supabaseUrl + "/rest/v1/teams?name=eq." + encodedName))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", supabaseKey)
-                    .header("Authorization", "Bearer " + supabaseKey)
-                    .header("Prefer", "return=minimal")
-                    .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                            logger.info("Team '{}' updated in Supabase successfully.", name);
-                        } else {
-                            logger.warn("Supabase returned {} when updating team '{}'. Body: {}",
-                                    response.statusCode(), name, response.body());
-                        }
-                    })
-                    .exceptionally(e -> {
-                        logger.error("Failed to update team in Supabase", e);
-                        return null;
-                    });
+        String sql = "UPDATE teams SET team_name = ?, color = ?, leader = ?, member2 = ?, member3 = ?, member4 = ?, tag = ? " +
+                     "WHERE name = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.setString(2, color);
+            ps.setString(3, leader);
+            ps.setString(4, member2);
+            ps.setString(5, member3);
+            ps.setString(6, member4);
+            ps.setString(7, tag);
+            ps.setString(8, name);
+            ps.executeUpdate();
+            logger.info("Team '{}' updated in Postgres successfully.", name);
         } catch (Exception e) {
-            logger.error("Error updating team in Supabase", e);
+            logger.error("Error updating team in Postgres", e);
         }
     }
 
     public void deleteTeam(String name) {
-        try {
-            String encodedName = java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(supabaseUrl + "/rest/v1/teams?name=eq." + encodedName))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("apikey", supabaseKey)
-                    .header("Authorization", "Bearer " + supabaseKey)
-                    .DELETE()
-                    .build();
-
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                            logger.info("Team '{}' deleted from Supabase.", name);
-                        } else {
-                            logger.warn("Supabase returned {} when deleting team '{}'.",
-                                    response.statusCode(), name);
-                        }
-                    })
-                    .exceptionally(e -> {
-                        logger.error("Failed to delete team from Supabase", e);
-                        return null;
-                    });
+        String sql = "DELETE FROM teams WHERE name = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, name);
+            ps.executeUpdate();
+            logger.info("Team '{}' deleted from Postgres.", name);
         } catch (Exception e) {
-            logger.error("Error deleting team from Supabase", e);
+            logger.error("Error deleting team from Postgres", e);
         }
     }
 
     public void updateTeamTag(String name, String tag) {
-        try {
-            String encodedName = java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8);
-            String json = "{\"tag\":" + jsonStr(tag) + "}";
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(supabaseUrl + "/rest/v1/teams?name=eq." + encodedName))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", supabaseKey)
-                    .header("Authorization", "Bearer " + supabaseKey)
-                    .header("Prefer", "return=minimal")
-                    .method("PATCH", HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                            logger.info("Team '{}' tag updated to '{}' in Supabase.", name, tag);
-                        } else {
-                            logger.warn("Supabase returned {} when updating tag for '{}'.",
-                                    response.statusCode(), name);
-                        }
-                    })
-                    .exceptionally(e -> {
-                        logger.error("Failed to update team tag in Supabase", e);
-                        return null;
-                    });
+        String sql = "UPDATE teams SET tag = ? WHERE name = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, tag);
+            ps.setString(2, name);
+            ps.executeUpdate();
+            logger.info("Team '{}' tag updated to '{}' in Postgres.", name, tag);
         } catch (Exception e) {
-            logger.error("Error updating team tag in Supabase", e);
+            logger.error("Error updating team tag in Postgres", e);
         }
-    }
-
-    public String getSupabaseUrl() {
-        return supabaseUrl;
-    }
-
-    public String getSupabaseKey() {
-        return supabaseKey;
-    }
-
-    public HttpClient getHttpClient() {
-        return httpClient;
     }
 
     public void logDcEvent(int eventId, String title, String type, String description, String eventDate, int points,
             int maxSupervisors) {
-        try {
-            String json = String.format(
-                    "{\"id\":%d,\"title\":%s,\"event_type\":%s,\"description\":%s,\"event_date\":%s,\"points\":%d,\"max_supervisors\":%d,\"section\":\"dc\",\"created_by\":\"HighCoreMc Bot\"}",
-                    eventId,
-                    jsonStr(title),
-                    jsonStr(type),
-                    jsonStr(description),
-                    jsonStr(eventDate),
-                    points,
-                    maxSupervisors);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(supabaseUrl + "/rest/v1/events"))
-                    .timeout(Duration.ofSeconds(15))
-                    .header("Content-Type", "application/json")
-                    .header("apikey", supabaseKey)
-                    .header("Authorization", "Bearer " + supabaseKey)
-                    .header("Prefer", "return=minimal")
-                    .POST(HttpRequest.BodyPublishers.ofString(json))
-                    .build();
-
-            httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                    .thenAccept(response -> {
-                        if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                            logger.info("DC Event logged to Supabase successfully. ID: {}", eventId);
-                        } else {
-                            logger.warn("Supabase returned status {} for DC event ID {}. Body: {}",
-                                    response.statusCode(), eventId, response.body());
-                        }
-                    })
-                    .exceptionally(e -> {
-                        logger.error("Failed to log DC event to Supabase", e);
-                        return null;
-                    });
-
+        String sql = "INSERT INTO events (id, title, event_type, description, event_date, points, max_supervisors, section, created_by) " +
+                     "VALUES (?, ?, ?, ?, ?, ?, ?, 'dc', 'HighCoreMc Bot')";
+        try (Connection conn = getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, eventId);
+            ps.setString(2, title);
+            ps.setString(3, type);
+            ps.setString(4, description);
+            ps.setString(5, eventDate);
+            ps.setInt(6, points);
+            ps.setInt(7, maxSupervisors);
+            ps.executeUpdate();
+            logger.info("DC Event logged to Postgres successfully. ID: {}", eventId);
         } catch (Exception e) {
-            logger.error("Error sending DC event to Supabase", e);
+            logger.error("Error sending DC event to Postgres", e);
         }
-    }
-
-    private String jsonStr(String value) {
-        if (value == null)
-            return "null";
-        return "\"" + value.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r")
-                + "\"";
     }
 }

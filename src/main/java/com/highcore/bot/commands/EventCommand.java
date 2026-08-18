@@ -995,16 +995,7 @@ public class EventCommand extends ListenerAdapter {
                 if (supa != null) {
                     try {
                         String table = "DC".equalsIgnoreCase(category) ? "events" : "mc_events";
-                        String jsonPayload = "{\"status\": \"" + newStatus + "\"}";
-                        java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-                            .uri(java.net.URI.create(supa.getSupabaseUrl() + "/rest/v1/" + table + "?id=eq." + supabaseId))
-                            .timeout(java.time.Duration.ofSeconds(10))
-                            .header("apikey", supa.getSupabaseKey())
-                            .header("Authorization", "Bearer " + supa.getSupabaseKey())
-                            .header("Content-Type", "application/json")
-                            .method("PATCH", java.net.http.HttpRequest.BodyPublishers.ofString(jsonPayload))
-                            .build();
-                        supa.getHttpClient().sendAsync(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+                        supa.updateEventStatus(supabaseId, table, newStatus);
                     } catch (Exception e) {
                         logger.error("Error updating supabase status", e);
                     }
@@ -1563,9 +1554,9 @@ public class EventCommand extends ListenerAdapter {
     }
 
     private void giveOpexyPoints(String guildId, String userId, int amount) {
-        String dbUrl = "jdbc:postgresql://shuttle.proxy.rlwy.net:24812/railway";
+        String dbUrl = "jdbc:postgresql://198.186.130.131:5432/postgres?schema=public";
         String user = "postgres";
-        String pass = "XFToIKMrXECxyBkEHChsdDqyqIvQEsMT";
+        String pass = "fIQrOSfvhAB6FLcJycpr50Sqqk1YWySMwTZE1MktPv9oKBAoGSrlSoW82s0QmTvw";
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(dbUrl, user, pass)) {
             String check = "SELECT event_points FROM user_entity WHERE guild_id = ? AND user_id = ?";
             boolean exists = false;
