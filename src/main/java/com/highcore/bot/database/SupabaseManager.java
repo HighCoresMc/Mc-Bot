@@ -11,15 +11,30 @@ import java.sql.SQLException;
 public class SupabaseManager {
     private static final Logger logger = LoggerFactory.getLogger(SupabaseManager.class);
 
-    private final String dbUrl = "jdbc:postgresql://198.186.130.131:5432/postgres?schema=public";
-    private final String dbUser = "postgres";
-    private final String dbPass = "fIQrOSfvhAB6FLcJycpr50Sqqk1YWySMwTZE1MktPv9oKBAoGSrlSoW82s0QmTvw";
+    private String dbUrl = "jdbc:postgresql://198.186.130.131:5432/postgres?schema=public";
+    private String dbUser = "postgres";
+    private String dbPass = "fIQrOSfvhAB6FLcJycpr50Sqqk1YWySMwTZE1MktPv9oKBAoGSrlSoW82s0QmTvw";
 
     public SupabaseManager(String supabaseUrl, String supabaseKey) {
         try {
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
             logger.error("Failed to load PostgreSQL JDBC driver", e);
+        }
+        
+        String envDbUrl = System.getenv("DATABASE_URL");
+        if (envDbUrl != null && envDbUrl.startsWith("postgres://")) {
+            // postgres://user:pass@host:port/dbname
+            try {
+                String cleanUrl = envDbUrl.substring("postgres://".length());
+                String[] parts = cleanUrl.split("@");
+                String[] auth = parts[0].split(":");
+                dbUser = auth[0];
+                dbPass = auth.length > 1 ? auth[1] : "";
+                dbUrl = "jdbc:postgresql://" + parts[1] + (parts[1].contains("?") ? "&" : "?") + "schema=public";
+            } catch (Exception e) {
+                logger.error("Failed to parse DATABASE_URL from env", e);
+            }
         }
     }
 

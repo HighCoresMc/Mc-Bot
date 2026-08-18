@@ -1557,6 +1557,19 @@ public class EventCommand extends ListenerAdapter {
         String dbUrl = "jdbc:postgresql://198.186.130.131:5432/postgres?schema=public";
         String user = "postgres";
         String pass = "fIQrOSfvhAB6FLcJycpr50Sqqk1YWySMwTZE1MktPv9oKBAoGSrlSoW82s0QmTvw";
+        String envDbUrl = System.getenv("DATABASE_URL");
+        if (envDbUrl != null && envDbUrl.startsWith("postgres://")) {
+            try {
+                String cleanUrl = envDbUrl.substring("postgres://".length());
+                String[] parts = cleanUrl.split("@");
+                String[] auth = parts[0].split(":");
+                user = auth[0];
+                pass = auth.length > 1 ? auth[1] : "";
+                dbUrl = "jdbc:postgresql://" + parts[1] + (parts[1].contains("?") ? "&" : "?") + "schema=public";
+            } catch (Exception e) {
+                logger.error("Failed to parse DATABASE_URL from env in EventCommand", e);
+            }
+        }
         try {
             Class.forName("org.postgresql.Driver");
         } catch (ClassNotFoundException e) {
