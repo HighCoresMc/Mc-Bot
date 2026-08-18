@@ -1557,6 +1557,11 @@ public class EventCommand extends ListenerAdapter {
         String dbUrl = "jdbc:postgresql://198.186.130.131:5432/postgres?schema=public";
         String user = "postgres";
         String pass = "fIQrOSfvhAB6FLcJycpr50Sqqk1YWySMwTZE1MktPv9oKBAoGSrlSoW82s0QmTvw";
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            logger.error("Could not load postgresql driver", e);
+        }
         try (java.sql.Connection conn = java.sql.DriverManager.getConnection(dbUrl, user, pass)) {
             String check = "SELECT event_points FROM user_entity WHERE guild_id = ? AND user_id = ?";
             boolean exists = false;

@@ -16,7 +16,11 @@ public class SupabaseManager {
     private final String dbPass = "fIQrOSfvhAB6FLcJycpr50Sqqk1YWySMwTZE1MktPv9oKBAoGSrlSoW82s0QmTvw";
 
     public SupabaseManager(String supabaseUrl, String supabaseKey) {
-        // Migrated to direct PostgreSQL JDBC connection
+        try {
+            Class.forName("org.postgresql.Driver");
+        } catch (ClassNotFoundException e) {
+            logger.error("Failed to load PostgreSQL JDBC driver", e);
+        }
     }
 
     public Connection getConnection() throws SQLException {
