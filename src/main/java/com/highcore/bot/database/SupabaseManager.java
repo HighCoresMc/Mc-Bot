@@ -36,6 +36,15 @@ public class SupabaseManager {
                 logger.error("Failed to parse DATABASE_URL from env", e);
             }
         }
+
+        // Auto-fix table schemas on startup
+        try (Connection conn = getConnection();
+             java.sql.Statement stmt = conn.createStatement()) {
+            stmt.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS created_by VARCHAR(255)");
+            logger.info("Checked and updated 'events' table schema.");
+        } catch (SQLException e) {
+            logger.warn("Could not auto-update 'events' table (might not exist yet): {}", e.getMessage());
+        }
     }
 
     public Connection getConnection() throws SQLException {
