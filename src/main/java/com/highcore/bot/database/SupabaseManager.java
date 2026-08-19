@@ -67,7 +67,7 @@ public class SupabaseManager {
     public void logEvent(int eventId, String title, String type, String description, String eventDate, int points,
             int maxSupervisors) {
         String sql = "INSERT INTO mc_events (id, title, type, description, event_date, points, max_supervisors) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?)";
+                     "VALUES (?, ?, ?, ?, CAST(? AS timestamp), ?, ?)";
         try (Connection conn = getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, eventId);
@@ -158,7 +158,7 @@ public class SupabaseManager {
     public void logDcEvent(int eventId, String title, String type, String description, String eventDate, int points,
             int maxSupervisors) {
         String sql = "INSERT INTO events (id, title, event_type, description, event_date, points, max_supervisors, section, created_by) " +
-                     "VALUES (?, ?, ?, ?, ?, ?, ?, 'dc', 'HighCoreMc Bot')";
+                     "VALUES (?, ?, ?, ?, CAST(? AS timestamp), ?, ?, 'dc', 'HighCoreMc Bot')";
         try (Connection conn = getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, eventId);
